@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kravon Presence</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="loading-screen" class="loading-screen" aria-live="polite">
+    <div class="spinner"></div>
+    <p>Loading...</p>
+  </div>
+
+  <header id="hero"></header>
+  <div id="announcement-bar" class="announcement-bar" hidden></div>
+  <nav id="sticky-nav" class="sticky-nav"></nav>
+  <section id="info-strip" class="info-strip"></section>
+  <main id="menu" class="menu"></main>
+  <footer id="footer" class="footer"></footer>
+
+  <script type="module" src="../shared/theme.js"></script>
+  <script type="module" src="../shared/api.js"></script>
+  <script type="module" src="../shared/utils.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
