@@ -2,7 +2,29 @@ import { apiGet } from '../shared/api.js';
 import { applyTheme } from '../shared/theme.js';
 import { formatPrice, foodTypeDot, getTodayHours } from '../shared/utils.js';
 
-const SLUG = 'spice-of-india';
+// Derive slug from the URL: /presence/spice-of-india or ?slug=spice-of-india
+function getSlugFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('slug')) return params.get('slug');
+  // Path: /presence/<slug>/  or  /presence/<slug>
+  const parts = window.location.pathname.replace(/\/$/, '').split('/');
+  const last = parts[parts.length - 1];
+  // If the last segment looks like a slug (not "index.html"), use it
+  if (last && last !== 'index.html' && /^[a-z0-9-]+$/.test(last)) return last;
+  return null;
+}
+
+const SLUG = getSlugFromUrl();
+
+// Escape user-supplied strings before inserting into innerHTML
+function esc(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 const hero = document.getElementById('hero');
 const announcementBar = document.getElementById('announcement-bar');
 const stickyNav = document.getElementById('sticky-nav');
@@ -120,11 +142,11 @@ function renderHero(data) {
 
   hero.innerHTML = `
     <div class="hero-content">
-      <img class="logo" src="${logoUrl}" alt="${logoAlt}" />
-      <h1 class="restaurant-name">${restaurantName}</h1>
+      <img class="logo" src="${esc(logoUrl)}" alt="${esc(logoAlt)}" />
+      <h1 class="restaurant-name">${esc(restaurantName)}</h1>
       <div class="rating-wrap">
         ${renderStars(avgRating)}
-        <span><strong>${avgRating}</strong> (${totalReviews} reviews)</span>
+        <span><strong>${esc(avgRating)}</strong> (${esc(totalReviews)} reviews)</span>
       </div>
       <div class="open-badge ${open ? 'open' : 'closed'}">${open ? 'Open Now' : 'Closed'}</div>
       <div class="scroll-indicator">↓</div>
@@ -140,11 +162,11 @@ function renderAnnouncementBar(announcements = []) {
   }
 
   const announcement = announcements[0];
-  const cta = announcement.cta_url ? `<a class="cta" href="${announcement.cta_url}" target="_blank" rel="noopener noreferrer">${announcement.cta_label || 'Learn more'}</a>` : '';
+  const cta = announcement.cta_url ? `<a class="cta" href="${esc(announcement.cta_url)}" target="_blank" rel="noopener noreferrer">${esc(announcement.cta_label || 'Learn more')}</a>` : '';
 
   announcementBar.innerHTML = `
     <div>
-      <strong>${announcement.title || ''}</strong> ${announcement.body || ''}
+      <strong>${esc(announcement.title || '')}</strong> ${esc(announcement.body || '')}
     </div>
     ${cta}
   `;
@@ -157,14 +179,14 @@ function renderStickyNav(restaurant, menu, assets) {
   const logoUrl = restaurant?.settings?.logo_url || assets?.logo?.url || '';
   const restaurantName = restaurant?.name || '';
   const categoryButtons = (Array.isArray(menu) ? menu : []).map((section) => {
-    const targetId = `cat-${section.category?.id}`;
-    return `<button class="tab" data-target="${targetId}">${section.category?.name || ''}</button>`;
+    const targetId = `cat-${esc(section.category?.id)}`;
+    return `<button class="tab" data-target="${targetId}">${esc(section.category?.name || '')}</button>`;
   }).join('');
 
   stickyNav.innerHTML = `
     <div class="brand">
-      ${logoUrl ? `<img src="${logoUrl}" alt="${restaurantName}" />` : ''}
-      <span>${restaurantName}</span>
+      ${logoUrl ? `<img src="${esc(logoUrl)}" alt="${esc(restaurantName)}" />` : ''}
+      <span>${esc(restaurantName)}</span>
     </div>
     <div class="category-tabs">${categoryButtons}</div>
   `;
@@ -203,7 +225,7 @@ function renderInfoStrip(operatingHours, reviews, contactLinks) {
   const contacts = (Array.isArray(contactLinks) ? contactLinks : []).map((link) => {
     const iconMap = { instagram: '📸', zomato: '🍽️', google_maps: '📍', whatsapp: '💬' };
     const icon = iconMap[link.platform] || '🔗';
-    return `<a class="contact-link" href="${link.url}" target="_blank" rel="noopener noreferrer">${icon} ${link.display_label || link.platform}</a>`;
+    return `<a class="contact-link" href="${esc(link.url)}" target="_blank" rel="noopener noreferrer">${icon} ${esc(link.display_label || link.platform)}</a>`;
   }).join('');
 
   infoStrip.innerHTML = `
@@ -257,19 +279,19 @@ function renderMenu(menu) {
 
       left.innerHTML = `
         <div class="meta">
-          <span class="food-dot ${foodType}"></span>
-          <span class="name">${item.name || ''}</span>
+          <span class="food-dot ${esc(foodType)}"></span>
+          <span class="name">${esc(item.name || '')}</span>
         </div>
-        <p class="description">${item.description || ''}</p>
-        <div class="tags">${(Array.isArray(item.tags) ? item.tags : []).map((tag) => `<span class="tag">${tag}</span>`).join('')}</div>
-        <div class="price-row">${item.is_available ? priceText : 'Unavailable'}</div>
+        <p class="description">${esc(item.description || '')}</p>
+        <div class="tags">${(Array.isArray(item.tags) ? item.tags : []).map((tag) => `<span class="tag">${esc(tag)}</span>`).join('')}</div>
+        <div class="price-row">${item.is_available ? esc(priceText) : 'Unavailable'}</div>
       `;
 
       card.appendChild(left);
 
       if (item.image_url) {
         const img = document.createElement('img');
-        img.src = item.image_url;
+        img.src = item.image_url;        // set via property, not innerHTML — safe
         img.alt = item.name || 'Menu item';
         card.appendChild(img);
       }
@@ -334,8 +356,13 @@ window.addEventListener('unhandledrejection', (event) => {
 });
 
 async function init() {
+  if (!SLUG) {
+    showError('No restaurant specified. Please open this page with a valid restaurant URL.');
+    return;
+  }
+
   try {
-    const response = await apiGet(`/presence/${SLUG}`);
+    const response = await apiGet(`/presence/${encodeURIComponent(SLUG)}`);
     const restaurant = response.restaurant || {};
     const theme = response.theme || {};
 
@@ -367,11 +394,11 @@ function renderFooter(restaurant, contactLinks) {
   footer.innerHTML = `
     <div class="footer-content">
       <div class="footer-brand">
-        ${logoUrl ? `<img src="${logoUrl}" alt="${restaurant.name || ''}" />` : ''}
-        <span style="font-family: var(--font-heading);">${restaurant.name || ''}</span>
+        ${logoUrl ? `<img src="${esc(logoUrl)}" alt="${esc(restaurant.name || '')}" />` : ''}
+        <span style="font-family: var(--font-heading);">${esc(restaurant.name || '')}</span>
       </div>
       <div class="footer-links">
-        ${(Array.isArray(contactLinks) ? contactLinks : []).map((link) => `<a href="${link.url}" target="_blank" rel="noopener noreferrer">${link.display_label || link.platform}</a>`).join('')}
+        ${(Array.isArray(contactLinks) ? contactLinks : []).map((link) => `<a href="${esc(link.url)}" target="_blank" rel="noopener noreferrer">${esc(link.display_label || link.platform)}</a>`).join('')}
       </div>
     </div>
     <div class="bottom">Powered by Kravon</div>

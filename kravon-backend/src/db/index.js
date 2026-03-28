@@ -31,8 +31,9 @@ pool.on('connect', () => {
 });
 
 pool.on('error', (err) => {
+  // Log but don't exit — idle client errors are usually transient (network blip,
+  // server-side timeout). The pool will create a new client on next request.
   console.error('[DB] Unexpected error on idle client:', err.message);
-  process.exit(1);
 });
 
 /**

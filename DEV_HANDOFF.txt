@@ -1,0 +1,258 @@
+═══════════════════════════════════════════════════════════════════════════════
+  KRAVON RESTAURANT SAAS PLATFORM - DEV HANDOFF NOTES
+  Last Updated: 2026-03-21
+═══════════════════════════════════════════════════════════════════════════════
+
+PROJECT OVERVIEW
+────────────────
+Kravon is a restaurant SaaS platform with:
+  • kravon-backend: Fastify.js API server (Node.js)
+  • kravon-frontend: Vanilla HTML/CSS/JS storefront (zero frameworks, zero build tools)
+  • kravon-db: PostgreSQL schema + migrations
+  • Database: Railway PostgreSQL (turntable.proxy.rlwy.net:17128)
+
+CURRENT STATUS
+──────────────
+✅ Backend: Running, connected to Railway DB, serving mock data
+✅ Frontend: Implemented, schema-driven design (all values from API)
+✅ Database: Connected and accessible
+✅ Git: Initial commit done, ready for push
+
+QUICK START
+───────────
+
+1) BACKEND (Terminal 1)
+   cd kravon-backend
+   npm install
+   npm run dev
+   
+   Expected output:
+     [DB] Connected to PostgreSQL — server time: ...
+     Server listening at http://127.0.0.1:3002
+     Health check → http://localhost:3002/health
+
+2) FRONTEND (Terminal 2)
+   cd kravon-frontend
+   python -m http.server 8000
+   
+   Then open in browser:
+     http://localhost:8000/presence/index.html
+
+3) TEST ENDPOINTS
+   Health:   curl http://localhost:3002/health
+   Presence: curl http://localhost:3002/api/presence/spice-of-india
+
+DIRECTORY STRUCTURE
+───────────────────
+
+kravon-backend/
+  ├── server.js                    (main Fastify app)
+  ├── .env                         (Railway DB credentials - MOVE TO .env.local before pushing)
+  ├── .env.example                 (template for .env)
+  ├── package.json                 (Fastify 5.8.2, @fastify/cors 10, pg 8.12)
+  ├── src/
+  │   ├── db/index.js              (PostgreSQL pool, query helpers, transaction utilities)
+  │   ├── plugins/db.js            (Fastify DB plugin decorator)
+  │   ├── routes/index.js          (route registrar - commented out for now)
+  │   └── middleware/              (error handling, 404 fallback)
+  └── test-db.js                   (standalone DB connection test)
+
+kravon-frontend/
+  ├── presence/                    (restaurant storefront)
+  │   ├── index.html               (clean HTML5 shell)
+  │   ├── style.css                (mobile-first, CSS variables, zero hardcoded colors)
+  │   └── app.js                   (load API, render hero/menu/nav/footer, IntersectionObserver for tabs)
+  ├── shared/                      (shared modules for all views)
+  │   ├── api.js                   (apiGet() base fetch wrapper, API_BASE const)
+  │   ├── theme.js                 (applyTheme() with CSS variable setter)
+  │   ├── utils.js                 (formatPrice, foodTypeDot, getTodayHours)
+  │   └── auth.js                  (placeholder for token handling)
+  ├── orders/, tables/, catering/, insights/  (future modules - "Coming soon" placeholders)
+  └── assets/icons/                (empty folder for SVG icons)
+
+kravon-db/
+  ├── schema/kravon_schema_v12.sql (canonical PostgreSQL schema)
+  ├── migrations/                  (future schema versions)
+  ├── seeds/                       (demo data: customers, menu, orders, tenant)
+  ├── scripts/                     (load_schema.sh, reset_db.sh, seed_db.sh)
+  └── docker/docker-compose.yml    (local PostgreSQL if needed)
+
+ENVIRONMENT & CREDENTIALS
+──────────────────────────
+File: kravon-backend/.env
+
+Contents:
+  DB_HOST=turntable.proxy.rlwy.net
+  DB_PORT=17128
+  DB_USER=postgres
+  DB_PASSWORD=fCxAtglgstOexCzeTXVjWxadgoxVkkSy
+  DB_NAME=railway
+  DB_SSL=true
+  PORT=3002
+
+⚠️  SECURITY: Before pushing to GitHub:
+  1. Copy .env to .env.local (gitignored)
+  2. Remove .env from git: git rm --cached kravon-backend/.env
+  3. Keep .env.example in repo as template
+  4. Use environment variables in production (CI/CD)
+
+API ENDPOINTS (CURRENT)
+───────────────────────
+
+GET /health
+  Returns: { "status": "ok", "timestamp": "..." }
+  Purpose: Server health check
+
+GET /api/presence/:slug
+  Example: /api/presence/spice-of-india
+  Returns: Full JSON response (see SCHEMA below)
+  Purpose: Load restaurant storefront data
+  Current: Mock data (hard-coded in server.js)
+  TODO: Connect to PostgreSQL
+
+SCHEMA: /api/presence/:slug Response
+────────────────────────────────────
+
+{
+  "restaurant": {
+    "id": 1,
+    "slug": "spice-of-india",
+    "name": "Spice of India",
+    "settings": { "currency": "INR", "timezone": "Asia/Kolkata", "loyalty_points_per_rupee": 1 }
+  },
+  "theme": {
+    "primary_color": "#c0392b",
+    "secondary_color": "#f5f0e8",
+    "accent_color": "#e67e22",
+    "font_heading": "Playfair Display",
+    "font_body": "Inter",
+    "button_style": "rounded",   // or "pill", "sharp"
+    "card_style": "elevated"     // or "flat"
+  },
+  "assets": {
+    "logo": { "url": "...", "alt_text": "..." },
+    "banner": { "url": "..." },
+    "og_image": { "url": "..." }
+  },
+  "seo": {
+    "meta_title": "Spice of India - ...",
+    "meta_description": "...",
+    "og_title": "...",
+    "og_description": "..."
+  },
+  "contact_links": [
+    { "platform": "whatsapp", "url": "https://wa.me/...", "display_label": "Order on WhatsApp" }
+  ],
+  "announcements": [
+    { "title": "New Menu!", "body": "...", "cta_label": "View Menu", "cta_url": "#menu", "starts_at": "...", "ends_at": "..." }
+  ],
+  "operating_hours": [
+    { "day_of_week": 0, "opens_at": "11:00", "closes_at": "23:00", "is_closed": false }
+  ],
+  "reviews": {
+    "total_reviews": 1250,
+    "avg_rating": 4.5,
+    "five_star": 850,
+    "four_star": 300,
+    "three_star": 80,
+    "two_star": 15,
+    "one_star": 5
+  },
+  "menu": [
+    {
+      "category": { "id": 1, "name": "Appetizers", "description": "..." },
+      "items": [
+        {
+          "id": 1,
+          "name": "Paneer Tikka",
+          "description": "...",
+          "image_url": "...",
+          "food_type": "veg",         // or "non_veg", "vegan", "egg"
+          "price": 280,
+          "has_variants": false,
+          "is_available": true,
+          "tags": ["spicy", "grilled"],
+          "variants": []              // if has_variants: [{ id, name, price }, ...]
+        }
+      ]
+    }
+  ]
+}
+
+KNOWN ISSUES & NOTES
+────────────────────
+
+1) PORT 3002 "EADDRINUSE" on restart:
+   Root cause: Old Node process still bound to port
+   Fix (cmd.exe):
+     netstat -ano | findstr :3002          (find PID)
+     taskkill /PID <pid> /F                (kill process)
+   Fix (PowerShell):
+     Stop-Process -Id (Get-NetTCPConnection -LocalPort 3002).OwningProcess -Force
+   Then: npm run dev
+
+2) Frontend spinner stuck:
+   Root cause: Backend not running or API request timed out
+   Fix:
+     - Check backend is running: curl http://localhost:3002/health
+     - Open browser DevTools → Console and Network tabs for errors
+     - Verify .env has correct DB credentials
+
+3) Database connection timeout:
+   Root cause: Railway proxy connection or network firewall
+   Fix:
+     - Test standalone: node kravon-backend/test-db.js
+     - Check Railway dashboard for DB status
+     - Verify IP whitelist on Railway if applicable
+
+NEXT STEPS (TODO)
+─────────────────
+
+Backend:
+  □ Create /api/restaurants/:slug route (fetch from DB)
+  □ Create /api/menus/:slug route
+  □ Create /api/orders POST route
+  □ Add authentication/authorization middleware
+  □ Set up error handling middleware
+  □ Create services layer (business logic)
+  □ Implement rate limiting, logging
+
+Frontend:
+  □ Implement orders/ module (order placement form)
+  □ Implement tables/ module (table reservation)
+  □ Implement catering/ module (bulk ordering)
+  □ Implement insights/ module (admin dashboard)
+  □ Add image optimization (lazy loading, responsive sizes)
+  □ Add accessibility features (ARIA labels, focus management)
+  □ Set up CI/CD for static frontend deploy
+
+Database:
+  □ Migrate mock data to real schema
+  □ Create indexes for performance
+  □ Set up backup strategy
+  □ Create analytics queries
+  □ Document data model
+
+DevOps:
+  □ Set up GitHub Actions for CI/CD
+  □ Configure production environment variables
+  □ Deploy frontend to CDN (Vercel, Netlify)
+  □ Deploy backend to Railway/Heroku
+  □ Set up monitoring & error tracking (Sentry)
+  □ Set up logging aggregation
+
+TEAM NOTES
+──────────
+✓ Zero framework vanilla frontend — easy to extend, no build step
+✓ All design values come from API — true white-label ready
+✓ Premium storefront design with mobile-first CSS
+✓ Database already connected — ready for schema integration
+✓ Mock endpoint works — backend architecture solid
+
+CONTACT & LINKS
+───────────────
+Railway Dashboard: https://railway.app/
+GitHub: (waiting to be pushed)
+API Documentation: (TODO)
+
+═══════════════════════════════════════════════════════════════════════════════
