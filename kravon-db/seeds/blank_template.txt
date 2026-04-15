@@ -1,0 +1,19 @@
+– blank_template.txt – Scaffold template for Kravon seed generation
+
+– TENANT INSERT INTO tenant.restaurants (…);
+
+– LOCATION INSERT INTO tenant.locations (…);
+
+– BRAND INSERT INTO brand.themes (…); INSERT INTO brand.assets (…);
+
+– MENU INSERT INTO menu.menus (…); INSERT INTO menu.categories (…);
+INSERT INTO menu.menu_items (…);
+
+– CUSTOMER INSERT INTO customer.customers (…);
+
+– ORDER INSERT INTO orders.orders (…); INSERT INTO orders.order_items
+(…);
+
+– PAYMENT INSERT INTO payments.payments (…);
+
+– INSIGHTS INSERT INTO insights.daily_metrics (…);

@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Restaurant Insights Dashboard — Business analytics and performance metrics.">
+  <title id="pageTitle">Business Insights</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+
+  <style>
+/* ═══════════════════════════════════════════════════════════
+   BASE.CSS — Design tokens, reset, typography
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  /* Backgrounds */
+  --bg-0:   #070706;
+  --bg-1:   #0c0b09;
+  --bg-2:   #111009;
+  --bg-3:   #161512;
+  --bg-4:   #1b1a16;
+
+  /* Lines */
+  --line:   rgba(255,255,255,0.065);
+  --line2:  rgba(255,255,255,0.11);
+
+  /* Text */
+  --ink:    #f0ede6;
+  --ink-60: rgba(240,237,230,0.6);
+  --ink-35: rgba(240,237,230,0.35);
+  --ink-18: rgba(240,237,230,0.18);
+
+  /* Accent */
+  --gold:        #c98d26;
+  --gold-hi:     #dba040;
+  --gold-lo:     #a87020;
+  --gold-tint:   rgba(201,141,38,0.07);
+  --gold-border: rgba(201,141,38,0.18);
+  --gold-glow:   0 0 32px rgba(201,141,38,0.12);
+
+  /* Status colors */
+  --up: #4cd97a;
+  --down: #d74040;
+  --neutral: rgba(201,141,38,0.6);
+
+  /* Fonts */
+  --serif: 'Instrument Serif', Georgia, serif;
+  --mono:  'DM Mono', 'Courier New', monospace;
+  --sans:  'DM Sans', sans-serif;
+
+  /* Spacing */
+  --s2: 2px;  --s4: 4px;  --s6: 6px;  --s8: 8px;
+  --s12: 12px; --s16: 16px; --s20: 20px; --s24: 24px;
+  --s28: 28px; --s32: 32px; --s40: 40px; --s48: 48px;
+  --s56: 56px; --s64: 64px; --s80: 80px;
+
+  /* Easing */
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { font-size: 16px; scroll-behavior: smooth; }
+body {
+  background: var(--bg-0);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; appearance: none; }
+img, svg { display: block; }
+::selection { background: var(--gold-tint); color: var(--ink); }
+
+.wrap {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+.label {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 400;
+  letter-spacing: 2.8px;
+  text-transform: uppercase;
+  color: var(--ink-35);
+  display: block;
+}
+
+.label-gold { color: var(--gold); opacity: 0.85; }
+
+/* ═══════════════════════════════════════════════════════════
+   LAYOUT & COMPONENTS
+   ═══════════════════════════════════════════════════════════ */
+
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 500;
+  height: 56px;
+  background: rgba(7,7,6,0.94);
+  backdrop-filter: blur(32px);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  gap: var(--s16);
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--s16);
+  flex-shrink: 0;
+}
+
+.nav-name {
+  font-family: var(--serif);
+  font-size: 16px;
+  color: var(--ink);
+  letter-spacing: -0.2px;
+}
+
+.nav-rule { width: 1px; height: 16px; background: var(--line2); }
+
+.nav-category {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  opacity: 0.7;
+}
+
+.header {
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line);
+  padding: var(--s56) 32px;
+}
+
+.header-top {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--s32);
+}
+
+.header-title {
+  font-family: var(--serif);
+  font-size: 40px;
+  font-weight: 400;
+  letter-spacing: -1px;
+  color: var(--ink);
+}
+
+.header-period {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ink-35);
+}
+
+.header-controls {
+  display: flex;
+  gap: var(--s16);
+  align-items: center;
+}
+
+.period-btn {
+  padding: 8px 16px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  background: transparent;
+  color: var(--ink-60);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.period-btn:hover {
+  color: var(--ink);
+  border-color: var(--gold-border);
+}
+
+.period-btn.active {
+  background: var(--gold);
+  color: var(--bg-0);
+  border-color: var(--gold);
+}
+
+/* ─── KPI CARDS ─── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--line);
+  margin-bottom: var(--s48);
+}
+
+.kpi-card {
+  background: var(--bg-3);
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s12);
+  transition: background 0.2s;
+}
+
+.kpi-card:hover { background: var(--bg-4); }
+
+.kpi-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ink-35);
+}
+
+.kpi-value {
+  font-family: var(--serif);
+  font-size: 40px;
+  font-weight: 400;
+  letter-spacing: -1px;
+  color: var(--ink);
+  line-height: 1;
+}
+
+.kpi-change {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kpi-change.up { color: var(--up); }
+.kpi-change.down { color: var(--down); }
+.kpi-change.neutral { color: var(--neutral); }
+
+/* ─── CHART CARD ─── */
+.chart-card {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 32px;
+  margin-bottom: var(--s48);
+}
+
+.chart-header {
+  margin-bottom: var(--s32);
+}
+
+.chart-title {
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--ink);
+  margin-bottom: var(--s8);
+  letter-spacing: -0.5px;
+}
+
+.chart-subtitle {
+  font-size: 12px;
+  color: var(--ink-35);
+}
+
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  gap: var(--s16);
+  height: 240px;
+  padding: var(--s20) 0;
+}
+
+.bar-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  gap: var(--s8);
+}
+
+.bar {
+  width: 100%;
+  background: linear-gradient(180deg, var(--gold), var(--gold-lo));
+  border-radius: 2px 2px 0 0;
+  min-height: 4px;
+  transition: all 0.3s;
+}
+
+.bar:hover { opacity: 0.8; transform: scaleY(1.05); }
+
+.bar-label {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--ink-35);
+  text-align: center;
+}
+
+.bar-value {
+  font-family: var(--serif);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--ink-60);
+}
+
+/* ─── TABLE ─── */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: var(--s48);
+}
+
+.data-table thead {
+  background: var(--bg-3);
+  border-bottom: 2px solid var(--line);
+}
+
+.data-table th {
+  padding: 16px 12px;
+  text-align: left;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ink-35);
+  font-weight: 500;
+}
+
+.data-table td {
+  padding: 16px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--ink-60);
+}
+
+.data-table tr:hover {
+  background: var(--bg-3);
+}
+
+.data-table .rank {
+  font-family: var(--serif);
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.data-table .change {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--mono);
+  font-size: 9px;
+}
+
+.data-table .change.up { color: var(--up); }
+.data-table .change.down { color: var(--down); }
+
+/* ─── TWO-COL SECTION ─── */
+.section-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s48);
+  margin-bottom: var(--s48);
+}
+
+.section-card {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 32px;
+}
+
+.section-title {
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--ink);
+  margin-bottom: var(--s24);
+  letter-spacing: -0.3px;
+}
+
+.stat-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s20);
+}
+
+.stat-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--s16);
+  padding-bottom: var(--s16);
+  border-bottom: 1px solid var(--line);
+  align-items: center;
+}
+
+.stat-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.stat-label {
+  font-size: 13.5px;
+  color: var(--ink-60);
+}
+
+.stat-value {
+  font-family: var(--serif);
+  font-size: 24px;
+  color: var(--ink);
+  text-align: right;
+  line-height: 1;
+}
+
+/* ─── FOOTER ─── */
+footer {
+  background: var(--bg-3);
+  border-top: 1px solid var(--line);
+  padding: var(--s56) 32px;
+  font-size: 11.5px;
+  line-height: 1.8;
+  color: var(--ink-35);
+  text-align: center;
+}
+
+footer a {
+  color: var(--gold);
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+footer a:hover { opacity: 1; }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 1024px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .section-2col { grid-template-columns: 1fr; }
+  .bar-chart { height: 200px; }
+}
+
+@media (max-width: 640px) {
+  .wrap { padding: 0 16px; }
+  .nav { padding: 0 16px; }
+  .header { padding: var(--s32) 16px; }
+  .kpi-grid { grid-template-columns: 1fr; }
+  .kpi-value { font-size: 28px; }
+  .chart-card { padding: 20px 16px; }
+  .section-card { padding: 20px 16px; }
+  .header-top { flex-direction: column; gap: var(--s16); }
+  .header-controls { flex-direction: column; width: 100%; }
+  .period-btn { width: 100%; }
+}
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+// ═══════════════════════════════════════════════════════════
+// INSIGHTS CONFIG
+// ═══════════════════════════════════════════════════════════
+
+window.CONFIG = {
+  brand: {
+    name: "Dead Flat Co.",
+  },
+};
+
+// Sample data
+const INSIGHTS_DATA = {
+  period: 'this-month',
+  generatedAt: new Date().toLocaleDateString('en-IN'),
+  
+  kpis: [
+    { label: 'Revenue', value: '₹2,34,560', change: '+12.5%', status: 'up', prev: '₹2,08,450' },
+    { label: 'Orders', value: '487', change: '+8.2%', status: 'up', prev: '450' },
+    { label: 'Avg Order Value', value: '₹481', change: '-2.1%', status: 'down', prev: '₹491' },
+    { label: 'Customer Rating', value: '4.7/5', change: '+0.2', status: 'up', prev: '4.5/5' }
+  ],
+
+  ordersTrend: [
+    { day: 'Mon', orders: 65, revenue: 31200 },
+    { day: 'Tue', orders: 72, revenue: 34560 },
+    { day: 'Wed', orders: 58, revenue: 27900 },
+    { day: 'Thu', orders: 81, revenue: 38880 },
+    { day: 'Fri', orders: 95, revenue: 45600 },
+    { day: 'Sat', orders: 102, revenue: 48960 },
+    { day: 'Sun', orders: 88, revenue: 42240 }
+  ],
+
+  topItems: [
+    { rank: 1, name: 'Butter Chicken Biryani', orders: 145, revenue: '₹43,500', change: '+18.2%' },
+    { rank: 2, name: 'Paneer Tikka', orders: 128, revenue: '₹38,400', change: '+5.6%' },
+    { rank: 3, name: 'Tandoori Chicken', orders: 112, revenue: '₹33,600', change: '-2.1%' },
+    { rank: 4, name: 'Dal Makhani', orders: 98, revenue: '₹29,400', change: '+12.3%' },
+    { rank: 5, name: 'Chettinad Fish Curry', orders: 87, revenue: '₹26,100', change: '+8.7%' }
+  ],
+
+  paymentMethods: [
+    { method: 'UPI/Digital', orders: 245, percentage: 50.3 },
+    { method: 'Card', orders: 142, percentage: 29.2 },
+    { method: 'Cash', orders: 100, percentage: 20.5 }
+  ],
+
+  deliveryMetrics: [
+    { metric: 'Avg Delivery Time', value: '28 mins', change: '-2 mins' },
+    { metric: 'On-Time %', value: '94.2%', change: '+3.1%' },
+    { metric: 'Successful Orders', value: '481/487', change: '98.8%' },
+    { metric: 'Cancellation Rate', value: '1.2%', change: '-0.3%' }
+  ],
+
+  peakHours: [
+    { hour: '12–1 PM', orders: 45 },
+    { hour: '1–2 PM', orders: 38 },
+    { hour: '7–8 PM', orders: 72 },
+    { hour: '8–9 PM', orders: 65 }
+  ]
+};
+
+// ═══════════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════════
+
+function h(tag, className, content, attrs) {
+  const el = document.createElement(tag);
+  if (className) el.className = className;
+  if (content) el.innerHTML = content;
+  if (attrs) {
+    for (const [k, v] of Object.entries(attrs)) {
+      el.setAttribute(k, v);
+    }
+  }
+  return el;
+}
+
+function renderNav() {
+  const nav = h('nav', 'nav');
+  const brand = h('div', 'nav-brand');
+  brand.appendChild(h('div', 'nav-name', CONFIG.brand.name));
+  brand.appendChild(h('div', 'nav-rule'));
+  brand.appendChild(h('div', 'nav-category', 'Insights'));
+  nav.appendChild(brand);
+  return nav;
+}
+
+function renderHeader() {
+  const header = h('div', 'header');
+  const top = h('div', 'header-top');
+
+  const left = h('div');
+  left.appendChild(h('h1', 'header-title', 'Performance Insights'));
+  left.appendChild(h('p', 'header-period', INSIGHTS_DATA.generatedAt));
+  
+  const controls = h('div', 'header-controls');
+  ['this-week', 'this-month', 'this-quarter'].forEach(period => {
+    const btn = h('button', 'period-btn' + (period === 'this-month' ? ' active' : ''), 
+      period.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+    btn.dataset.period = period;
+    btn.addEventListener('click', () => switchPeriod(period, btn));
+    controls.appendChild(btn);
+  });
+
+  top.appendChild(left);
+  top.appendChild(controls);
+  header.appendChild(top);
+
+  // KPI Grid
+  const kpiGrid = h('div', 'kpi-grid wrap');
+  INSIGHTS_DATA.kpis.forEach(kpi => {
+    const card = h('div', 'kpi-card');
+    card.appendChild(h('span', 'kpi-label', kpi.label));
+    card.appendChild(h('div', 'kpi-value', kpi.value));
+    const change = h('div', 'kpi-change ' + kpi.status);
+    change.innerHTML = (kpi.status === 'up' ? '↑' : '↓') + ' ' + kpi.change + ' vs last period';
+    card.appendChild(change);
+    kpiGrid.appendChild(card);
+  });
+  header.appendChild(kpiGrid);
+
+  return header;
+}
+
+function renderOrdersTrend() {
+  const card = h('div', 'chart-card wrap');
+  const header = h('div', 'chart-header');
+  header.appendChild(h('h2', 'chart-title', 'Orders & Revenue Trend'));
+  header.appendChild(h('p', 'chart-subtitle', 'Last 7 days'));
+  card.appendChild(header);
+
+  const chart = h('div', 'bar-chart');
+  const maxOrders = Math.max(...INSIGHTS_DATA.ordersTrend.map(d => d.orders));
+  
+  INSIGHTS_DATA.ordersTrend.forEach(data => {
+    const group = h('div', 'bar-group');
+    const bar = h('div', 'bar');
+    bar.style.height = (data.orders / maxOrders * 200) + 'px';
+    const label = h('div', 'bar-label', data.day);
+    const value = h('div', 'bar-value', data.orders);
+    group.appendChild(bar);
+    group.appendChild(value);
+    group.appendChild(label);
+    chart.appendChild(group);
+  });
+
+  card.appendChild(chart);
+  return card;
+}
+
+function renderTopItems() {
+  const card = h('div', 'section-card wrap');
+  card.appendChild(h('h3', 'section-title', 'Top Items'));
+
+  const table = h('table', 'data-table');
+  const thead = h('thead');
+  const headerRow = h('tr');
+  ['Rank', 'Item', 'Orders', 'Revenue', 'Change'].forEach(th => {
+    headerRow.appendChild(h('th', '', th));
+  });
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+  const tbody = h('tbody');
+  INSIGHTS_DATA.topItems.forEach(item => {
+    const row = h('tr');
+    row.appendChild(h('td', '', '<span class="rank">#' + item.rank + '</span>'));
+    row.appendChild(h('td', '', item.name));
+    row.appendChild(h('td', '', item.orders.toString()));
+    row.appendChild(h('td', '', item.revenue));
+    const change = h('td', '');
+    change.innerHTML = '<span class="change up">↑ ' + item.change + '</span>';
+    row.appendChild(change);
+    tbody.appendChild(row);
+  });
+  table.appendChild(tbody);
+  card.appendChild(table);
+
+  return card;
+}
+
+function renderPaymentMethods() {
+  const card = h('div', 'section-card');
+  card.appendChild(h('h3', 'section-title', 'Payment Methods'));
+
+  const list = h('div', 'stat-list');
+  INSIGHTS_DATA.paymentMethods.forEach(pm => {
+    const item = h('div', 'stat-item');
+    item.appendChild(h('div', 'stat-label', pm.method + ' (' + pm.percentage.toFixed(1) + '%)'));
+    item.appendChild(h('div', 'stat-value', pm.orders.toString()));
+    list.appendChild(item);
+  });
+  card.appendChild(list);
+
+  return card;
+}
+
+function renderDeliveryMetrics() {
+  const card = h('div', 'section-card');
+  card.appendChild(h('h3', 'section-title', 'Delivery Performance'));
+
+  const list = h('div', 'stat-list');
+  INSIGHTS_DATA.deliveryMetrics.forEach(dm => {
+    const item = h('div', 'stat-item');
+    item.appendChild(h('div', 'stat-label', dm.metric));
+    const val = h('div', 'stat-value', dm.value);
+    const sub = h('div', '', '<span style="font-size: 11px; color: var(--ink-35);">' + dm.change + '</span>');
+    val.appendChild(sub);
+    item.appendChild(val);
+    list.appendChild(item);
+  });
+  card.appendChild(list);
+
+  return card;
+}
+
+function renderPeakHours() {
+  const card = h('div', 'chart-card wrap');
+  const header = h('div', 'chart-header');
+  header.appendChild(h('h2', 'chart-title', 'Peak Hours'));
+  header.appendChild(h('p', 'chart-subtitle', 'Average orders per time slot'));
+  card.appendChild(header);
+
+  const chart = h('div', 'bar-chart');
+  const maxOrders = Math.max(...INSIGHTS_DATA.peakHours.map(d => d.orders));
+  
+  INSIGHTS_DATA.peakHours.forEach(data => {
+    const group = h('div', 'bar-group');
+    const bar = h('div', 'bar');
+    bar.style.height = (data.orders / maxOrders * 200) + 'px';
+    const label = h('div', 'bar-label', data.hour);
+    const value = h('div', 'bar-value', data.orders);
+    group.appendChild(bar);
+    group.appendChild(value);
+    group.appendChild(label);
+    chart.appendChild(group);
+  });
+
+  card.appendChild(chart);
+  return card;
+}
+
+function renderFooter() {
+  const ft = h('footer');
+  ft.innerHTML = '<p>&copy; 2025 ' + CONFIG.brand.name + ' Insights. Last updated: ' + new Date().toLocaleTimeString('en-IN') + '</p>';
+  return ft;
+}
+
+function switchPeriod(period, btn) {
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  INSIGHTS_DATA.period = period;
+  // In a real app, this would fetch new data
+  console.log('Period changed to:', period);
+}
+
+function mount() {
+  const app = document.getElementById('app');
+  app.appendChild(renderNav());
+  app.appendChild(renderHeader());
+  app.appendChild(renderOrdersTrend());
+  
+  const twoCol = h('div', 'section-2col wrap');
+  twoCol.appendChild(renderPaymentMethods());
+  twoCol.appendChild(renderDeliveryMetrics());
+  app.appendChild(twoCol);
+
+  app.appendChild(renderTopItems());
+  app.appendChild(renderPeakHours());
+  app.appendChild(renderFooter());
+}
+
+// Boot
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => { setTimeout(mount, 0); });
+} else {
+  setTimeout(mount, 0);
+}
+  </script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#5A3012"/>
+      <stop offset="100%" stop-color="#160B04"/>
+    </linearGradient>
+    <radialGradient id="shine" cx="35%" cy="30%" r="55%">
+      <stop offset="0%"   stop-color="#FFFFFF" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="plateSh" cx="40%" cy="35%" r="50%">
+      <stop offset="0%"   stop-color="#FFFFFF" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="s"><feGaussianBlur stdDeviation="6"/></filter>
+  </defs>
+  <rect width="600" height="600" fill="url(#bg)"/>
+  <rect width="600" height="600" fill="url(#shine)"/>
+  <!-- Plate shadow -->
+  <ellipse cx="300" cy="338" rx="172" ry="28" fill="#000" opacity="0.35" filter="url(#s)"/>
+  <!-- Plate -->
+  <circle cx="300" cy="295" r="168" fill="#F5EFDF"/>
+  <circle cx="300" cy="295" r="168" fill="url(#plateSh)"/>
+  <circle cx="300" cy="295" r="148" fill="#FBF7EE"/>
+  <circle cx="300" cy="295" r="145" fill="none" stroke="#E8D8B8" stroke-width="1.5"/>
+  <!-- Bread/roti stack -->
+  <!-- Bottom roti -->
+  <ellipse cx="300" cy="318" rx="88" ry="24" fill="#C4883A" opacity="0.9"/>
+  <ellipse cx="300" cy="312" rx="88" ry="24" fill="#D49848"/>
+  <!-- Char spots -->
+  <ellipse cx="270" cy="310" rx="12" ry="8"  fill="#8A5020" opacity="0.5" transform="rotate(-10 270 310)"/>
+  <ellipse cx="328" cy="308" rx="10" ry="7"  fill="#8A5020" opacity="0.45" transform="rotate(15 328 308)"/>
+  <!-- Middle roti -->
+  <ellipse cx="296" cy="295" rx="84" ry="22" fill="#CA9040"/>
+  <ellipse cx="296" cy="289" rx="84" ry="22" fill="#DDA050"/>
+  <ellipse cx="275" cy="287" rx="11" ry="7"  fill="#8A5020" opacity="0.45" transform="rotate(-8 275 287)"/>
+  <ellipse cx="320" cy="285" rx="9"  ry="6"  fill="#8A5020" opacity="0.4"  transform="rotate(12 320 285)"/>
+  <!-- Top roti -->
+  <ellipse cx="302" cy="273" rx="82" ry="22" fill="#D09848"/>
+  <ellipse cx="302" cy="267" rx="82" ry="22" fill="#E8B060"/>
+  <ellipse cx="280" cy="265" rx="10" ry="7"  fill="#9A5818" opacity="0.4"  transform="rotate(-12 280 265)"/>
+  <ellipse cx="322" cy="263" rx="8"  ry="5"  fill="#9A5818" opacity="0.35" transform="rotate(18 322 263)"/>
+  <!-- Butter pat -->
+  <ellipse cx="300" cy="262" rx="20" ry="8"  fill="#F8E060" opacity="0.75"/>
+  <ellipse cx="300" cy="260" rx="16" ry="6"  fill="#FFF090" opacity="0.55"/>
+  <!-- Ghee gloss -->
+  <ellipse cx="285" cy="267" rx="14" ry="5"  fill="#FFF0A0" opacity="0.4" transform="rotate(-20 285 267)"/>
+  <!-- Fork -->
+  <rect x="192" y="228" width="4" height="88" rx="2" fill="#B0A898"/>
+  <rect x="188" y="228" width="2" height="33" rx="1" fill="#B0A898"/>
+  <rect x="192" y="228" width="2" height="33" rx="1" fill="#B0A898"/>
+  <rect x="196" y="228" width="2" height="33" rx="1" fill="#B0A898"/>
+  <!-- Knife -->
+  <rect x="408" y="228" width="4" height="88" rx="2" fill="#B0A898"/>
+  <path d="M412 228 Q424 250 412 265" fill="#C8C0B0" opacity="0.7"/>
+  <!-- Label -->
+  <rect x="0" y="528" width="600" height="72" fill="rgba(0,0,0,0.58)"/>
+  <text x="300" y="562" text-anchor="middle" font-family="Georgia, serif" font-size="19" fill="rgba(255,255,255,0.88)" letter-spacing="4" font-style="italic">Tandoori Bread</text>
+  <text x="300" y="584" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="rgba(255,255,255,0.38)" letter-spacing="5">PLACEHOLDER IMAGE</text>
+</svg>

@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#103820"/>
+      <stop offset="100%" stop-color="#050D08"/>
+    </linearGradient>
+    <radialGradient id="shine" cx="35%" cy="30%" r="55%">
+      <stop offset="0%"   stop-color="#FFFFFF" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="plateSh" cx="40%" cy="35%" r="50%">
+      <stop offset="0%"   stop-color="#FFFFFF" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="s"><feGaussianBlur stdDeviation="6"/></filter>
+  </defs>
+  <rect width="600" height="600" fill="url(#bg)"/>
+  <rect width="600" height="600" fill="url(#shine)"/>
+  <!-- Plate shadow -->
+  <ellipse cx="300" cy="338" rx="172" ry="28" fill="#000" opacity="0.35" filter="url(#s)"/>
+  <!-- Plate -->
+  <circle cx="300" cy="295" r="168" fill="#F2F5EE"/>
+  <circle cx="300" cy="295" r="168" fill="url(#plateSh)"/>
+  <circle cx="300" cy="295" r="148" fill="#F8FAF4"/>
+  <circle cx="300" cy="295" r="145" fill="none" stroke="#D8E5D0" stroke-width="1.5"/>
+  <!-- Salad base — lettuce -->
+  <ellipse cx="295" cy="305" rx="95"  ry="62"  fill="#2A8040"/>
+  <ellipse cx="308" cy="298" rx="78"  ry="52"  fill="#38A050"/>
+  <!-- Leaves -->
+  <ellipse cx="270" cy="292" rx="35" ry="22" fill="#44B855" transform="rotate(-15 270 292)"/>
+  <ellipse cx="330" cy="290" rx="30" ry="20" fill="#3AAE48" transform="rotate(20 330 290)"/>
+  <ellipse cx="300" cy="278" rx="28" ry="18" fill="#50C860" transform="rotate(-5 300 278)"/>
+  <ellipse cx="280" cy="308" rx="25" ry="16" fill="#2E9840" transform="rotate(-25 280 308)"/>
+  <ellipse cx="320" cy="306" rx="22" ry="14" fill="#40A850" transform="rotate(18 320 306)"/>
+  <!-- Cherry tomatoes -->
+  <circle cx="285" cy="275" r="10" fill="#E83828"/>
+  <circle cx="282" cy="272" r="3"  fill="#FF6050" opacity="0.6"/>
+  <circle cx="315" cy="278" r="9"  fill="#D82818"/>
+  <circle cx="312" cy="275" r="2.5" fill="#FF5040" opacity="0.6"/>
+  <circle cx="300" cy="268" r="8"  fill="#F03020"/>
+  <circle cx="297" cy="265" r="2"  fill="#FF5840" opacity="0.6"/>
+  <!-- Dressing drizzle -->
+  <path d="M265 295 Q290 285 310 300 Q330 310 345 298" stroke="#F8D020" stroke-width="3" fill="none" opacity="0.6" stroke-linecap="round"/>
+  <!-- Croutons -->
+  <rect x="272" y="308" width="14" height="10" rx="2" fill="#D4A030" opacity="0.8" transform="rotate(-10 272 308)"/>
+  <rect x="312" y="304" width="12" height="9"  rx="2" fill="#C89828" opacity="0.8" transform="rotate(8 312 304)"/>
+  <!-- Fork -->
+  <rect x="192" y="228" width="4" height="88" rx="2" fill="#B0A898"/>
+  <rect x="188" y="228" width="2" height="33" rx="1" fill="#B0A898"/>
+  <rect x="192" y="228" width="2" height="33" rx="1" fill="#B0A898"/>
+  <rect x="196" y="228" width="2" height="33" rx="1" fill="#B0A898"/>
+  <!-- Knife -->
+  <rect x="408" y="228" width="4" height="88" rx="2" fill="#B0A898"/>
+  <path d="M412 228 Q424 250 412 265" fill="#C8C0B0" opacity="0.7"/>
+  <!-- Label -->
+  <rect x="0" y="528" width="600" height="72" fill="rgba(0,0,0,0.58)"/>
+  <text x="300" y="562" text-anchor="middle" font-family="Georgia, serif" font-size="19" fill="rgba(255,255,255,0.88)" letter-spacing="4" font-style="italic">Garden Fresh Salad</text>
+  <text x="300" y="584" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="rgba(255,255,255,0.38)" letter-spacing="5">PLACEHOLDER IMAGE</text>
+</svg>

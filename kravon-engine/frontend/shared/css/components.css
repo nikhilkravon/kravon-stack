@@ -1,0 +1,224 @@
+/* ═══════════════════════════════════════════════════════════
+   KRAVON SHARED — COMPONENTS.CSS
+   Reusable UI components shared across all products.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ─── STAT CARDS ─── */
+.stat-card {
+  padding: var(--sp-5) var(--sp-6);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  position: relative;
+}
+
+.stat-card-num {
+  font-family: var(--font-head);
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--lime);
+  letter-spacing: -1.5px;
+  line-height: 1;
+  display: block;
+  margin-bottom: var(--sp-2);
+}
+
+.stat-card-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.25);
+  line-height: 1.6;
+}
+
+.stat-card-body {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.35);
+  line-height: 1.65;
+  margin-top: var(--sp-2);
+}
+
+/* ─── REVIEW CARDS ─── */
+.rcard {
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: var(--sp-6);
+}
+
+.rcard-stars {
+  color: var(--amber);
+  font-size: 14px;
+  letter-spacing: 2px;
+  display: block;
+  margin-bottom: var(--sp-4);
+}
+
+.rcard-text {
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.7;
+  font-style: normal;
+  margin-bottom: var(--sp-5);
+}
+
+.rcard-author {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.rcard-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--ink);
+  border: 1px solid rgba(194, 214, 42, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--lime);
+  flex-shrink: 0;
+}
+
+.rcard-name {
+  font-family: var(--font-head);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--white);
+  letter-spacing: -0.3px;
+}
+
+.rcard-source {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.2);
+  margin-top: 2px;
+}
+
+/* ─── FEATURE / PILLAR CARDS ─── */
+.pillar-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  padding: var(--sp-6);
+  transition: background var(--t-fast);
+}
+.pillar-card:hover { background: rgba(255, 255, 255, 0.055); }
+
+.pillar-icon {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  color: var(--lime);
+  margin-bottom: var(--sp-4);
+  display: block;
+}
+
+.pillar-title {
+  font-family: var(--font-head);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--white);
+  letter-spacing: -0.3px;
+  margin-bottom: var(--sp-2);
+}
+
+.pillar-body {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.35);
+  line-height: 1.65;
+}
+
+/* ─── TOAST ─── */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--white);
+  color: var(--dark);
+  padding: 12px 24px;
+  border-radius: var(--r-md);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  z-index: var(--z-toast);
+  opacity: 0;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.toast.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+/* ─── FORM ELEMENTS ─── */
+.form-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.35);
+  display: block;
+  margin-bottom: var(--sp-2);
+}
+
+.form-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-sm);
+  padding: 11px 14px;
+  color: var(--white);
+  font-family: var(--font-body);
+  font-size: 14px;
+  transition: border-color var(--t-fast);
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: var(--lime);
+}
+
+.form-input::placeholder {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.form-row {
+  margin-bottom: var(--sp-4);
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-4);
+}
+
+@media (max-width: 640px) {
+  .form-grid-2 { grid-template-columns: 1fr; }
+}
+
+/* ─── BADGE ─── */
+.badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: var(--r-sm);
+}
+
+.badge-top   { background: rgba(232, 160, 32, 0.15); color: var(--amber); }
+.badge-hot   { background: rgba(217, 58, 43, 0.15);  color: var(--red);   }
+.badge-veg   { background: rgba(76, 175, 80, 0.15);  color: var(--green); }
+.badge-save  { background: rgba(194, 214, 42, 0.15); color: var(--lime);  }
+
+/* ─── SVG ICON SPRITE ─── */
+/* WhatsApp icon path — referenced via <use href="#icon-wa"> */
+/* Defined once in index.html <svg style="display:none"> */

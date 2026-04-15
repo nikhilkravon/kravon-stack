@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Loading…</title>
+  <meta name="description" id="pageDescription" content="">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=Space+Mono:ital@0;1&display=swap" rel="stylesheet">
+
+  <!-- Presence base overrides -->
+  <style>
+    body { background: #080808; color: #F0EAE0; }
+    footer { background: #080808; border-top: 1px solid rgba(255,255,255,0.07); }
+    * { box-sizing: border-box; }
+  </style>
+
+  <!-- Shared styles -->
+  <link rel="stylesheet" href="../shared/base.css">
+  <link rel="stylesheet" href="../shared/layout.css">
+  <link rel="stylesheet" href="../shared/components.css">
+
+  <!-- Presence-specific styles -->
+  <link rel="stylesheet" href="assets/css/presence.css">
+  <link rel="stylesheet" href="assets/css/cart.css">
+
+  <!-- SVG sprite -->
+  <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="icon-wa" viewBox="0 0 24 24">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+    </symbol>
+  </svg>
+</head>
+<body>
+  <!--
+    All content is rendered by assets/js/renderer.js
+    reading from config/config.js.
+    To customise: edit config/config.js only.
+  -->
+  <div id="demoBanner" class="demo-banner" aria-label="Demo notice"></div>
+  <div id="app"></div>
+  <div id="upgradeSection" class="upgrade"></div>
+  <footer>
+    <div class="footer-left" id="footerLeft"></div>
+    <div class="footer-right">
+      <span class="footer-note" id="footerNote"></span>
+      <span class="footer-kravon" id="footerKravon"></span>
+    </div>
+  </footer>
+
+  <!-- Cart UI (presence has WhatsApp cart, not Razorpay) -->
+  <div class="cart-bar" id="cartBar" role="region" aria-label="Cart summary" aria-live="polite">
+    <div class="cart-bar-left">
+      <div class="cart-count" id="cartCount" aria-label="Items in cart">0</div>
+      <div class="cart-summary">
+        <strong id="cartBarTotal">₹0</strong>
+        <span id="cartBarItems">0 items</span>
+      </div>
+    </div>
+    <div class="cart-bar-right">
+      <button class="cart-view-btn" data-action="open-cart" aria-label="View cart">View Cart</button>
+      <button class="cart-wa-btn" data-action="checkout" aria-label="Checkout via WhatsApp">
+        <svg aria-hidden="true" focusable="false"><use href="#icon-wa"/></svg>
+        Checkout on WhatsApp
+      </button>
+    </div>
+  </div>
+
+  <div class="cart-overlay" id="cartOverlay" aria-hidden="true"></div>
+
+  <div class="cart-drawer" id="cartDrawer"
+       role="dialog" aria-modal="true" aria-label="Your Order" aria-hidden="true">
+    <div class="cart-drawer-head">
+      <div class="cart-drawer-title">Your Order</div>
+      <button class="cart-close" data-action="close-cart" aria-label="Close cart">✕</button>
+    </div>
+    <div class="cart-items" id="cartItemsList" aria-live="polite"></div>
+    <div class="cart-footer" id="cartFooter" style="display:none">
+      <div class="cart-total-row">
+        <span class="cart-total-label">Order Total</span>
+        <span class="cart-total-val" id="cartTotalVal">₹0</span>
+      </div>
+      <p class="cart-min-note" id="cartMinNote"></p>
+      <button class="cart-checkout-btn" data-action="checkout" aria-label="Send order on WhatsApp">
+        <svg aria-hidden="true" focusable="false"><use href="#icon-wa"/></svg>
+        Send Order on WhatsApp
+      </button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="alert" aria-live="assertive" aria-atomic="true"></div>
+
+  <!-- Load order: shared → config → modules → renderer → behaviour -->
+  <script src="../shared/kravon.js"></script>
+  <script>
+    // Inject env vars from Vercel build
+    const KRAVON_API_URL    = "__KRAVON_API_URL__";
+    const RESTAURANT_SLUG_ENV = "__RESTAURANT_SLUG__";
+  </script>
+  <script src="../api-client/kravon-api.js"></script>
+  <script src="assets/js/cart.js"></script>
+  <script src="assets/js/renderer.js"></script>
+  <script src="assets/js/behaviour.js"></script>
+  <script src="assets/js/boot.js"></script>
+</body>
+</html>

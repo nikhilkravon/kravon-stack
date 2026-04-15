@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Page title set by renderer.js from CONFIG.brand -->
+  <title id="pageTitle">Loading…</title>
+  <meta name="description" id="pageDescription" content="">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap"
+        rel="stylesheet">
+
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/layout.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+</head>
+<body>
+  <!--
+    This file is intentionally empty of content.
+    All sections are built and mounted by assets/js/renderer.js
+    reading from config/config.js.
+
+    To customise the site, edit config/config.js only.
+  -->
+  <script src="assets/js/boot.js"></script>
+</body>
+
+<!-- Load order: config → renderer → behaviour → main -->
+<script>
+    // Inject env vars from Vercel build
+    const KRAVON_API_URL    = "__KRAVON_API_URL__";
+    const RESTAURANT_SLUG_ENV = "__RESTAURANT_SLUG__";
+  </script>
+  <script src="../api-client/kravon-api.js"></script>
+<script src="assets/js/renderer.js"></script>
+<script src="assets/js/behaviour.js"></script>
+<script src="assets/js/main.js"></script>
+<script src="assets/js/tests.js"></script>
+</html>

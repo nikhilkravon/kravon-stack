@@ -1,0 +1,34 @@
+{
+  "_comment": "Copy this file to configs/{slug}.json when onboarding a new restaurant. Fill in all fields. Run: node backend/scripts/validate-config.js --slug {slug} to validate.",
+
+  "brand": {
+    "name":    "Restaurant Name",
+    "tagline": "Short tagline.",
+    "year":    "2025"
+  },
+
+  "features": {
+    "presence": true,
+    "tables":   false,
+    "orders":   false,
+    "catering": false,
+    "insights": false
+  },
+
+  "location": {
+    "address":       "Full address",
+    "city":          "City, Area",
+    "phone":         "+91XXXXXXXXXX",
+    "delivery_zone": "Areas you deliver to"
+  },
+
+  "hours": {
+    "display":    "Mon – Sun: 12:00 PM – 11:00 PM",
+    "open_until": "11:00 PM"
+  },
+
+  "contact": {
+    "email":     "hello@restaurant.in",
+    "wa_number": "91XXXXXXXXXX"
+  }
+}

@@ -1,0 +1,2217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Kravon Catering — Premium corporate catering services with proposal engine.">
+  <title id="pageTitle">Catering Services</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+
+  <style>
+/* ═══════════════════════════════════════════════════════════
+   BASE.CSS — Design tokens, reset, typography, scroll reveal
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  /* Backgrounds */
+  --bg-0:   #070706;
+  --bg-1:   #0c0b09;
+  --bg-2:   #111009;
+  --bg-3:   #161512;
+  --bg-4:   #1b1a16;
+
+  /* Lines */
+  --line:   rgba(255,255,255,0.065);
+  --line2:  rgba(255,255,255,0.11);
+
+  /* Text */
+  --ink:    #f0ede6;
+  --ink-60: rgba(240,237,230,0.6);
+  --ink-35: rgba(240,237,230,0.35);
+  --ink-18: rgba(240,237,230,0.18);
+
+  /* Accent */
+  --gold:        #c98d26;
+  --gold-hi:     #dba040;
+  --gold-lo:     #a87020;
+  --gold-tint:   rgba(201,141,38,0.07);
+  --gold-border: rgba(201,141,38,0.18);
+  --gold-glow:   0 0 32px rgba(201,141,38,0.12);
+
+  /* Lead tier colours */
+  --tier-hot-border: rgba(220,80,50,0.3);
+  --tier-hot-bg:     rgba(220,80,50,0.06);
+  --tier-hot-color:  #e06040;
+
+  /* WhatsApp */
+  --wa-bg:     rgba(37,211,102,0.08);
+  --wa-border: rgba(37,211,102,0.2);
+  --wa-color:  #4cd97a;
+  --wa-hover-bg:     rgba(37,211,102,0.14);
+  --wa-hover-border: rgba(37,211,102,0.35);
+
+  /* Error */
+  --error-border: rgba(220,60,50,0.4);
+
+  /* Fonts */
+  --serif: 'Instrument Serif', Georgia, serif;
+  --mono:  'DM Mono', 'Courier New', monospace;
+  --sans:  'DM Sans', sans-serif;
+
+  /* Spacing — 8-pt base */
+  --s2: 2px;  --s4: 4px;  --s6: 6px;  --s8: 8px;
+  --s12: 12px; --s16: 16px; --s20: 20px; --s24: 24px;
+  --s28: 28px; --s32: 32px; --s40: 40px; --s48: 48px;
+  --s56: 56px; --s64: 64px; --s80: 80px; --s96: 96px;
+  --s112: 112px;
+
+  /* Easing */
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ─── RESET ─── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { font-size: 16px; scroll-behavior: smooth; scroll-padding-top: 100px; }
+body {
+  background: var(--bg-0);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; appearance: none; }
+img, svg { display: block; }
+::selection { background: var(--gold-tint); color: var(--ink); }
+
+/* ─── LAYOUT ─── */
+.wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+/* ─── TYPOGRAPHY ─── */
+.label {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 400;
+  letter-spacing: 2.8px;
+  text-transform: uppercase;
+  color: var(--ink-35);
+  display: block;
+}
+.label-gold { color: var(--gold); opacity: 0.85; }
+
+h1, h2, h3, h4, h5, h6 { font-weight: 400; }
+
+/* ─── SKELETON ─── */
+body[data-loading="true"] { opacity: 0.5; pointer-events: none; }
+body[data-error="true"] #app::after {
+  content: 'Failed to load. Please refresh.';
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bg-2);
+  padding: 30px;
+  border: 1px solid var(--error-border);
+  color: var(--ink-35);
+  font-family: var(--mono);
+  z-index: 9999;
+}
+
+/* ─── SCROLL REVEAL ─── */
+.r { opacity: 0; transform: translateY(20px); }
+.r.vis { animation: revealment 0.6s var(--ease-out) forwards; }
+@keyframes revealment {
+  to { opacity: 1; transform: translateY(0); }
+}
+.r.d1 { animation-delay: 0.05s; }
+.r.d2 { animation-delay: 0.1s; }
+.r.d3 { animation-delay: 0.15s; }
+.r.d4 { animation-delay: 0.2s; }
+.r.d5 { animation-delay: 0.25s; }
+.r.d6 { animation-delay: 0.3s; }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 768px) {
+  .wrap { padding: 0 20px; }
+  html { font-size: 14px; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   COMPONENTS.CSS — Buttons, cards, forms
+   ═══════════════════════════════════════════════════════════ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s8);
+  padding: 12px 24px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 2.2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: none;
+  white-space: nowrap;
+  transition:
+    background  0.2s var(--ease-in-out),
+    color       0.2s var(--ease-in-out),
+    transform   0.15s var(--ease-out),
+    box-shadow  0.2s var(--ease-in-out);
+}
+.btn svg { width: 11px; height: 11px; fill: currentColor; flex-shrink: 0; }
+
+.btn-gold { background: var(--gold); color: var(--bg-0); }
+.btn-gold:hover {
+  background: var(--gold-hi);
+  transform: translateY(-1px);
+  box-shadow: var(--gold-glow);
+}
+.btn-gold:active { transform: translateY(0); box-shadow: none; }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--ink-35);
+  padding-left: 0;
+  padding-right: 0;
+}
+.btn-ghost:hover { color: var(--ink); }
+
+/* ─── PACKAGE CARDS ─── */
+.pkg {
+  background: var(--bg-3);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: background 0.22s var(--ease-in-out);
+}
+.pkg:hover { background: var(--bg-4); }
+
+.pkg.pkg-featured { background: rgba(201,141,38,0.035); }
+.pkg.pkg-featured:hover { background: rgba(201,141,38,0.06); }
+
+.pkg-stamp {
+  position: absolute;
+  top: 0; right: 0;
+  background: var(--gold);
+  color: var(--bg-0);
+  font-family: var(--mono);
+  font-size: 7.5px;
+  letter-spacing: 2.2px;
+  text-transform: uppercase;
+  padding: 4px 10px;
+}
+.pkg-head {
+  padding: 28px 24px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.pkg-tier {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--gold);
+  opacity: 0.75;
+  display: block;
+  margin-bottom: var(--s8);
+}
+.pkg-name {
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 400;
+  letter-spacing: -0.5px;
+  color: var(--ink);
+  line-height: 1;
+  margin-bottom: var(--s6);
+}
+.pkg-scope {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.5px;
+  color: var(--ink-35);
+  line-height: 1.5;
+}
+.pkg-price-block {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--line);
+}
+.pkg-price-lbl {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: var(--ink-18);
+  display: block;
+  margin-bottom: var(--s4);
+}
+.pkg-price {
+  font-family: var(--serif);
+  font-size: 32px;
+  font-weight: 400;
+  letter-spacing: -0.8px;
+  color: var(--ink);
+  line-height: 1.1;
+}
+.pkg-price-unit {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--ink-35);
+  margin-left: var(--s4);
+}
+.pkg-body { padding: 20px 24px; flex: 1; }
+.pkg-incl-lbl {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: var(--ink-18);
+  display: block;
+  margin-bottom: 14px;
+}
+.pkg-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.pkg-list li {
+  font-size: 12.5px;
+  color: var(--ink-35);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  line-height: 1.5;
+}
+.pkg-list li::before {
+  content: '—';
+  font-family: var(--mono);
+  font-size: 8.5px;
+  color: rgba(201,141,38,0.4);
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.pkg-foot { padding: 16px 24px; border-top: 1px solid var(--line); }
+.pkg-btn {
+  width: 100%;
+  padding: 10px 12px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  border: 1px solid var(--line2);
+  color: var(--ink-35);
+  background: transparent;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    color 0.2s,
+    background 0.2s,
+    box-shadow 0.2s;
+}
+.pkg-btn:hover {
+  border-color: var(--gold-border);
+  color: var(--gold);
+  background: var(--gold-tint);
+}
+.pkg-featured .pkg-btn {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--bg-0);
+  font-weight: 500;
+}
+.pkg-featured .pkg-btn:hover {
+  background: var(--gold-hi);
+  border-color: var(--gold-hi);
+  box-shadow: var(--gold-glow);
+}
+
+/* ─── TESTIMONIALS ─── */
+.testi-card {
+  background: var(--bg-3);
+  padding: 36px 28px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.testi-mark {
+  position: absolute;
+  top: 12px; left: 20px;
+  font-family: var(--serif);
+  font-size: 60px;
+  line-height: 0.7;
+  color: rgba(201,141,38,0.12);
+  pointer-events: none;
+}
+.testi-quote {
+  font-size: 15px;
+  line-height: 1.85;
+  color: var(--ink-60);
+  margin-bottom: 28px;
+  flex: 1;
+}
+.testi-byline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.testi-name {
+  font-family: var(--serif);
+  font-size: 13.5px;
+  color: var(--ink);
+}
+.testi-role {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ink-35);
+}
+.testi-deal {
+  font-size: 11px;
+  color: var(--gold);
+  opacity: 0.8;
+}
+
+/* ─── FORM PILLS ─── */
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s12);
+}
+.pill {
+  display: flex;
+  align-items: center;
+}
+.pill input[type="radio"],
+.pill input[type="checkbox"] {
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--gold-border);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-right: 8px;
+}
+.pill input[type="radio"]:checked,
+.pill input[type="checkbox"]:checked {
+  background: var(--gold);
+  border-color: var(--gold);
+}
+.pill label {
+  cursor: pointer;
+  font-size: 13.5px;
+  color: var(--ink-60);
+  user-select: none;
+}
+.pill input:checked + label {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* ─── DATE FIELDS ─── */
+.date-pair {
+  display: flex;
+  gap: var(--s20);
+  margin-bottom: var(--s12);
+}
+.date-field {
+  flex: 1;
+}
+.date-field-lbl {
+  display: block;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: var(--ink-18);
+  margin-bottom: var(--s8);
+}
+.date-field input[type="date"] {
+  width: 100%;
+  padding: 9px 12px;
+  font-family: var(--sans);
+  font-size: 13.5px;
+  background: var(--bg-2);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  transition: border-color 0.2s;
+}
+.date-field input[type="date"]:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+.date-field input[type="date"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.date-duration {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--gold);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.date-duration.visible {
+  opacity: 1;
+}
+
+/* ─── FORM ENGINE ─── */
+.f-block {
+  margin-bottom: var(--s28);
+}
+.f-lbl {
+  display: block;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: var(--ink-35);
+  margin-bottom: var(--s12);
+}
+.f-lbl-note {
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s20);
+}
+.field-row.single {
+  grid-template-columns: 1fr;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+}
+.field label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ink-35);
+  margin-bottom: var(--s8);
+}
+.field input,
+.field textarea {
+  padding: 10px 12px;
+  font-family: var(--sans);
+  font-size: 13.5px;
+  background: var(--bg-2);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  transition: border-color 0.2s;
+}
+.field input:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+.field textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+.field.has-error input,
+.field.has-error textarea {
+  border-color: var(--error-border);
+  animation: shake 0.3s;
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+.req-star {
+  color: var(--gold);
+}
+
+.f-submit {
+  display: flex;
+  align-items: center;
+  gap: var(--s24);
+  justify-content: space-between;
+}
+.f-submit-note {
+  font-size: 11px;
+  color: var(--ink-35);
+  line-height: 1.6;
+}
+
+/* ─── CONFIRM STATE ─── */
+.f-confirm {
+  padding: 40px 32px;
+  background: rgba(201,141,38,0.04);
+  border: 1px solid var(--gold-border);
+  border-radius: 2px;
+}
+.confirm-ref {
+  display: block;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 2.2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: var(--s16);
+}
+.confirm-tier-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s20);
+  margin-bottom: var(--s24);
+}
+.confirm-tier {
+  font-family: var(--serif);
+  font-size: 20px;
+  color: var(--ink);
+}
+.confirm-tier[data-tier="hot"] {
+  color: var(--tier-hot-color);
+}
+.confirm-sla {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--ink-35);
+}
+.confirm-h {
+  font-family: var(--serif);
+  font-size: 32px;
+  font-weight: 400;
+  color: var(--ink);
+  line-height: 1.2;
+  margin-bottom: var(--s20);
+}
+.confirm-body {
+  font-size: 14px;
+  color: var(--ink-60);
+  line-height: 1.7;
+  margin-bottom: var(--s28);
+}
+.confirm-steps {
+  margin-bottom: var(--s24);
+}
+.confirm-steps-lbl {
+  display: block;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 2.2px;
+  text-transform: uppercase;
+  color: var(--ink-35);
+  margin-bottom: var(--s12);
+}
+.confirm-step-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s12);
+}
+.confirm-step {
+  font-size: 13.5px;
+  color: var(--ink-60);
+  padding-left: 20px;
+  position: relative;
+}
+.confirm-step::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 6px;
+  width: 6px; height: 6px;
+  background: var(--gold);
+  border-radius: 50%;
+}
+.confirm-wa {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--wa-bg);
+  border: 1px solid var(--wa-border);
+  border-radius: 2px;
+  color: var(--wa-color);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
+}
+.confirm-wa:hover {
+  background: var(--wa-hover-bg);
+  border-color: var(--wa-hover-border);
+}
+
+/* ─── FAQ ACCORDION ─── */
+.faq-item {
+  border-bottom: 1px solid var(--line);
+}
+.faq-q {
+  width: 100%;
+  padding: 24px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.faq-q:hover { color: var(--gold); }
+.faq-q-txt {
+  flex: 1;
+  text-align: left;
+  font-family: var(--serif);
+  font-size: 15.5px;
+  color: var(--ink-60);
+}
+.faq-icon {
+  flex-shrink: 0;
+  font-size: 24px;
+  transition: transform 0.3s var(--ease-out);
+}
+.faq-item.open .faq-icon {
+  transform: rotate(45deg);
+}
+.faq-a {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s var(--ease-out);
+}
+.faq-item.open .faq-a {
+  max-height: 500px;
+}
+.faq-a-inner {
+  padding-bottom: 24px;
+  font-size: 13.5px;
+  color: var(--ink-35);
+  line-height: 1.8;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LAYOUT.CSS — Sections
+   ═══════════════════════════════════════════════════════════ */
+
+/* ─── NAV ─── */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 500;
+  height: 56px;
+  background: rgba(7,7,6,0.94);
+  backdrop-filter: blur(32px);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  gap: var(--s16);
+}
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--s16);
+  flex-shrink: 1;
+  min-width: 0;
+}
+.nav-name {
+  font-family: var(--serif);
+  font-size: 16px;
+  color: var(--ink);
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nav-rule { width: 1px; height: 16px; background: var(--line2); flex-shrink: 0; }
+.nav-category {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
+/* ─── HERO ─── */
+.hero {
+  background: var(--bg-1);
+  padding: 80px 0 0;
+  position: relative;
+  overflow: hidden;
+}
+.hero-glow {
+  position: absolute;
+  top: -120px; right: -60px;
+  width: 600px; height: 600px;
+  background: radial-gradient(ellipse at center, rgba(201,141,38,0.055) 0%, transparent 68%);
+  pointer-events: none;
+}
+.hero-copy { padding-bottom: 64px; }
+.hero-eyebrow {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 2.8px;
+  text-transform: uppercase;
+  color: var(--gold);
+  opacity: 0.75;
+  display: block;
+  margin-bottom: var(--s20);
+}
+.hero-h1 {
+  font-family: var(--serif);
+  font-size: clamp(48px, 6vw, 80px);
+  font-weight: 400;
+  line-height: 0.98;
+  letter-spacing: -2px;
+  color: var(--ink);
+  margin-bottom: var(--s24);
+}
+.hero-h1 em { font-style: italic; color: var(--gold); }
+.hero-sub {
+  font-size: 14.5px;
+  line-height: 1.82;
+  color: var(--ink-35);
+  margin-bottom: var(--s40);
+}
+.hero-actions { display: flex; align-items: center; gap: var(--s20); flex-wrap: wrap; }
+.hero-panel {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr) 2fr;
+  gap: 1px;
+  background: var(--line);
+  border-top: 1px solid var(--line);
+}
+.h-stat {
+  background: var(--bg-3);
+  padding: 20px 18px;
+  transition: background 0.2s;
+}
+.h-stat:hover { background: var(--bg-4); }
+.h-stat-n {
+  font-family: var(--serif);
+  font-size: 32px;
+  font-weight: 400;
+  color: var(--ink);
+  letter-spacing: -0.8px;
+  line-height: 1;
+  display: block;
+  margin-bottom: var(--s6);
+}
+.h-stat-n.gold { color: var(--gold); }
+.h-stat-lbl {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ink-35);
+  line-height: 1.65;
+}
+.h-panel-note {
+  background: var(--bg-4);
+  padding: 20px 24px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ink-18);
+  display: flex;
+  align-items: center;
+  gap: var(--s8);
+}
+.h-panel-note::before {
+  content: '';
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--gold);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+/* ─── PACKAGES ─── */
+.packages {
+  background: var(--bg-1);
+  padding: var(--s112) 0;
+}
+.pkg-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--line);
+}
+
+/* ─── PROCESS ─── */
+.process {
+  background: var(--bg-2);
+  padding: var(--s112) 0;
+  position: relative;
+}
+.process::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--line2) 15%, var(--line2) 85%, transparent);
+}
+.process-lede {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 80px;
+  margin-bottom: var(--s80);
+}
+.process-lede-title {
+  font-family: var(--serif);
+  font-size: clamp(24px, 3.5vw, 40px);
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--ink);
+  letter-spacing: -0.5px;
+}
+.process-lede-body {
+  font-size: 14px;
+  color: var(--ink-35);
+  line-height: 1.8;
+}
+.process-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--line);
+}
+.process-row {
+  background: var(--bg-3);
+  padding: 36px 32px;
+  display: grid;
+  grid-template-columns: 80px 1fr 160px;
+  gap: 48px;
+  align-items: start;
+  transition: background 0.2s;
+}
+.process-row:hover { background: var(--bg-4); }
+.process-n {
+  font-family: var(--serif);
+  font-size: 40px;
+  font-weight: 400;
+  color: var(--gold);
+  line-height: 1;
+}
+.process-title {
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--ink);
+  margin-bottom: var(--s12);
+}
+.process-body {
+  font-size: 13.5px;
+  color: var(--ink-35);
+  line-height: 1.8;
+}
+.process-timing {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--ink-18);
+  text-align: right;
+}
+
+/* ─── TESTIMONIALS ─── */
+.testi {
+  background: var(--bg-1);
+  padding: var(--s112) 0;
+}
+.testi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--line);
+}
+
+/* ─── FORM SECTION ─── */
+.form-sec {
+  background: var(--bg-2);
+  padding: var(--s112) 0;
+  position: relative;
+}
+.form-sec::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--line2) 15%, var(--line2) 85%, transparent);
+}
+.form-layout {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 80px;
+}
+.form-intro-lbl { display: block; margin-bottom: var(--s20); }
+.form-intro-title {
+  font-family: var(--serif);
+  font-size: clamp(28px, 3vw, 40px);
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--ink);
+  letter-spacing: -0.5px;
+  margin-bottom: var(--s24);
+}
+.form-intro-body {
+  font-size: 14px;
+  color: var(--ink-35);
+  line-height: 1.8;
+  margin-bottom: var(--s40);
+}
+.form-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s16);
+}
+.form-step {
+  display: flex;
+  align-items: center;
+  gap: var(--s12);
+  font-size: 13.5px;
+  color: var(--ink-60);
+}
+.form-step-n {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 400;
+  color: var(--gold);
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.form-engine[data-state="main"] .f-main { display: block; }
+.form-engine[data-state="main"] .f-confirm { display: none; }
+.form-engine[data-state="main"] .f-redirect { display: none; }
+
+.form-engine[data-state="confirm"] .f-main { display: none; }
+.form-engine[data-state="confirm"] .f-confirm { display: block; }
+.form-engine[data-state="confirm"] .f-redirect { display: none; }
+
+.form-engine[data-state="redirect"] .f-main { display: none; }
+.form-engine[data-state="redirect"] .f-confirm { display: none; }
+.form-engine[data-state="redirect"] .f-redirect { display: block; }
+
+.f-redirect {
+  padding: 40px 32px;
+  background: rgba(201,141,38,0.04);
+  border: 1px solid var(--gold-border);
+  border-radius: 2px;
+  text-align: center;
+}
+.redirect-h {
+  font-family: var(--serif);
+  font-size: 28px;
+  font-weight: 400;
+  color: var(--ink);
+  line-height: 1.3;
+  margin-bottom: var(--s16);
+}
+.redirect-body {
+  font-size: 14px;
+  color: var(--ink-35);
+  line-height: 1.8;
+  margin-bottom: var(--s24);
+}
+.redirect-lnk {
+  display: inline-block;
+  padding: 12px 24px;
+  background: var(--gold);
+  color: var(--bg-0);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 2.2px;
+  text-transform: uppercase;
+  border-radius: 2px;
+  transition: background 0.2s;
+}
+.redirect-lnk:hover {
+  background: var(--gold-hi);
+}
+
+/* ─── FAQ SECTION ─── */
+.faq {
+  background: var(--bg-1);
+  padding: var(--s112) 0;
+}
+.faq-inner {
+  max-width: 800px;
+  margin: 0 auto;
+}
+.faq-lede-title {
+  font-family: var(--serif);
+  font-size: clamp(28px, 3vw, 40px);
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--ink);
+  letter-spacing: -0.5px;
+  margin: var(--s16) 0 var(--s24);
+}
+.faq-lede-body {
+  font-size: 14px;
+  color: var(--ink-35);
+  line-height: 1.8;
+  margin-bottom: var(--s56);
+}
+.faq-list {
+  border-top: 1px solid var(--line);
+}
+
+/* ─── FOOTER ─── */
+footer {
+  background: var(--bg-3);
+  border-top: 1px solid var(--line);
+  padding: var(--s56) 32px;
+  font-size: 11.5px;
+  line-height: 1.8;
+  color: var(--ink-35);
+}
+footer > div {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--s32) 0;
+  border-bottom: 1px solid var(--line);
+}
+footer > div:last-child {
+  border-bottom: none;
+}
+footer a {
+  color: var(--gold);
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+footer a:hover { opacity: 1; }
+.footer-brand {
+  font-family: var(--serif);
+  font-size: 14px;
+  color: var(--ink);
+  margin-bottom: var(--s12);
+}
+.footer-reg {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  color: var(--ink-18);
+}
+.footer-contact {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.5px;
+}
+
+/* ─── MOBILE CTA ─── */
+.mob-cta {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 400;
+  background: var(--bg-1);
+  border-top: 1px solid var(--line);
+  padding: 12px 20px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--s16);
+  align-items: center;
+}
+.mob-cta-info {
+  font-size: 12px;
+  color: var(--ink-35);
+  line-height: 1.6;
+}
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 1024px) {
+  .form-layout { grid-template-columns: 1fr; gap: 40px; }
+  .process-lede { grid-template-columns: 1fr; gap: 40px; }
+  .position-inner { grid-template-columns: 1fr; gap: 40px; }
+  .hero-panel { grid-template-columns: repeat(2, 1fr); }
+  .pkg-grid { grid-template-columns: 1fr; }
+  .testi-grid { grid-template-columns: repeat(2, 1fr); }
+  .process-row { grid-template-columns: 1fr; gap: 20px; }
+}
+
+@media (max-width: 640px) {
+  .wrap { padding: 0 16px; }
+  .field-row { grid-template-columns: 1fr; gap: 12px; }
+  .date-pair { flex-direction: column; gap: 12px; }
+  .hero-actions { flex-direction: column; align-items: flex-start; }
+  .testi-grid { grid-template-columns: 1fr; }
+  .hero-panel { grid-template-columns: repeat(2, 1fr); }
+  .process-row { padding: 24px 20px; grid-template-columns: 1fr; }
+  .process-n { font-size: 28px; }
+  .f-submit { flex-direction: column; align-items: flex-start; }
+  .mob-cta { padding: 16px 12px; }
+}
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+// ═══════════════════════════════════════════════════════════
+// MOCK CONFIG — Replace with actual API response
+// ═══════════════════════════════════════════════════════════
+
+window.CONFIG = {
+  brand: {
+    name: "Kravon Catering",
+    year: 2025,
+    phone: "+91 98765 43210",
+    phoneOps: "+91 98765 43211",
+    email: "proposals@kravon.in",
+    emailOps: "ops@kravon.in",
+    cin: "U55Q46DL2021PTC376556",
+    gst: "18AAHCK1234H2Z5",
+    fssai: "FL-2021-00123456",
+    address: "Mumbai, India",
+    redirectUrl: "https://example.com"
+  },
+
+  meta: {
+    title: "Kravon Catering — Premium Corporate Catering",
+    description: "Premium corporate catering for conferences, product launches, corporate offsites, and special events."
+  },
+
+  hero: {
+    eyebrow: "Premium Corporate Catering",
+    headline: ["Impeccable Culinary", "Experiences for", "Your Events"],
+    sub: "Trusted by leading corporates for conferences, product launches, offsites, and celebrations. From intimate gatherings to large-scale events, we bring sophistication and excellence to every table.",
+    ctaPrimary: "Request Proposal",
+    ctaSecondary: "View Pricing",
+    stats: [
+      { value: "500+", label: "Events Catered", gold: true },
+      { value: "50,000+", label: "Guests Served" },
+      { value: "12 Yrs", label: "Industry Experience" },
+      { value: "100%", label: "Satisfaction Rate" },
+      { value: "Expert team with curated menus, on-time delivery, and flawless execution." }
+    ],
+    panelNote: "Always on-time. Always impeccable."
+  },
+
+  trustedBy: ["Acme Corp", "TechStart Inc", "Global Solutions", "Innovation Labs", "Enterprise Co"],
+
+  position: {
+    label: "Our Position",
+    body: "We don't just cater events — we <strong>elevate them</strong>. With meticulous attention to detail, world-class culinary talent, and a commitment to flawless execution, we transform corporate gatherings into memorable experiences that reflect your brand's values and ambition."
+  },
+
+  packages: {
+    label: "Pricing",
+    title: ["Transparent Pricing", "for Every Scale"],
+    annotation: "All packages include service, setup, and cleanup. Customisation available for specific requirements.",
+    tiers: [
+      {
+        num: "Tier 1",
+        name: "Express",
+        scope: "Up to 150 guests",
+        price: "₹6,000",
+        typical: "₹8,500 — ₹11,000",
+        featured: false,
+        stamp: null,
+        includes: [
+          "Cocktail menu (unlimited variety)",
+          "Professional service team",
+          "Full setup and cleanup",
+          "Basic decor coordination"
+        ]
+      },
+      {
+        num: "Tier 2",
+        name: "Premium",
+        scope: "150–500 guests",
+        price: "₹12,000",
+        typical: "₹18,000 — ₹25,000",
+        featured: true,
+        stamp: "Most Popular",
+        includes: [
+          "Multi-course plated service",
+          "Custom menu design",
+          "Dedicated event manager",
+          "Premium bar service",
+          "Specialized dietary accommodations",
+          "Advanced decor coordination"
+        ]
+      },
+      {
+        num: "Tier 3",
+        name: "Enterprise",
+        scope: "500+ guests",
+        price: "₹25,000",
+        typical: "₹40,000 — ₹75,000+",
+        featured: false,
+        stamp: null,
+        includes: [
+          "Fully bespoke menu",
+          "Multiple culinary stations",
+          "White-glove service",
+          "Premium beverage program",
+          "Live cooking stations",
+          "Production-grade setup & coordination"
+        ]
+      }
+    ]
+  },
+
+  process: {
+    label: "How It Works",
+    title: ["Our Simple", "Proposal Process"],
+    lede: "From your first inquiry to flawless execution, every interaction is thoughtfully coordinated.",
+    steps: [
+      {
+        n: "1",
+        title: "Proposal Request",
+        body: "You share your event details—date, headcount, cuisine preference, budget.",
+        timing: "Immediate"
+      },
+      {
+        n: "2",
+        title: "Expert Review",
+        body: "Our team analysesyour requirements and assigns a dedicated manager.",
+        timing: "Same day"
+      },
+      {
+        n: "3",
+        title: "Customized Proposal",
+        body: "You receive a detailed proposal with menu, pricing, and service plan.",
+        timing: "24–48 hours"
+      },
+      {
+        n: "4",
+        title: "Refinement & Confirmation",
+        body: "We iterate on details, finalize menus, and confirm logistics.",
+        timing: "7–14 days"
+      },
+      {
+        n: "5",
+        title: "Flawless Execution",
+        body: "Our team arrives early, executes perfectly, and ensures guest delight.",
+        timing: "Event day"
+      }
+    ]
+  },
+
+  capacity: {
+    label: "Scale & Specifications",
+    title: ["Equipped for", "Any Event Size"],
+    annotation: "We scale our infrastructure and team based on your event's unique demands.",
+    cells: [
+      { value: 50, target: 50, unit: "Min. Headcount", label: "Intimate Gatherings", sub: "Private dinners, small team events" },
+      { value: 2500, target: 2500, unit: "Max. Headcount", label: "Large Conferences", sub: "Multi-day corporate events" },
+      { value: 12, target: 12, unit: "Service Stations", label: "Live Serving Capacity", sub: "Simultaneous food & beverage service" },
+      { value: 6, target: 6, unit: "Hours", label: "Event Duration", sub: "Standard event window" }
+    ],
+    compliance: [
+      { label: "FSSAI Certified", value: "FL-2021-00123456" },
+      { label: "Food Safety Protocol", value: "ISO 22000 Compliant" },
+      { label: "Hygiene Standard", value: "5-Star Rating" }
+    ]
+  },
+
+  menu: {
+    label: "Menu Showcase",
+    title: ["Diverse Culinary", "Traditions"],
+    annotation: "All menus are customizable. We craft bespoke offerings for corporate events.",
+    tabs: [
+      {
+        id: "north-indian",
+        label: "North Indian",
+        cols: [
+          {
+            heading: "Tandoori Selections",
+            items: [
+              { dish: "Tandoori Chicken", note: "Yogurt-marinated, clay-roasted" },
+              { dish: "Paneer Tikka", note: "Cottage cheese, charred to perfection" },
+              { dish: "Seekh Kebab", note: "Minced meat, aromatic spices" }
+            ]
+          },
+          {
+            heading: "Curries",
+            items: [
+              { dish: "Butter Chicken", note: "Creamy tomato-based signature" },
+              { dish: "Dal Makhani", note: "Slow-cooked black lentils" },
+              { dish: "Paneer Makhani", note: "Cottage cheese in silky gravy" }
+            ]
+          }
+        ]
+      },
+      {
+        id: "south-indian",
+        label: "South Indian",
+        cols: [
+          {
+            heading: "Vegetarian",
+            items: [
+              { dish: "Masala Dosa", note: "Crispy crepe with spiced potato" },
+              { dish: "Mixed Vegetable Sambar", note: "Spiced lentil vegetable stew" }
+            ]
+          },
+          {
+            heading: "Non-Vegetarian",
+            items: [
+              { dish: "Chettinad Chicken", note: "Aromatic South Indian classic" },
+              { dish: "Ghee Roast Prawns", note: "Ghee-roasted with curry leaves" }
+            ]
+          }
+        ]
+      },
+      {
+        id: "international",
+        label: "International",
+        cols: [
+          {
+            heading: "Continental",
+            items: [
+              { dish: "Grilled Salmon", note: "Pan-seared with lemon beurre blanc" },
+              { dish: "Filet Mignon", note: "Prime beef, perfectly aged" }
+            ]
+          },
+          {
+            heading: "Fusion",
+            items: [
+              { dish: "Asian Tacos", note: "East-meets-West innovation" },
+              { dish: "Miso Glazed Tofu", note: "Plant-based elegance" }
+            ]
+          }
+        ]
+      }
+    ],
+    footNotes: [
+      "All ingredients sourced from premium vendors",
+      "Customizable for dietary restrictions",
+      "Live cooking stations available"
+    ]
+  },
+
+  testimonials: {
+    label: "Client Testimonials",
+    title: ["What Our Clients", "Say About Us"],
+    items: [
+      {
+        quote: "Kravon's catering transformed our annual gala from good to unforgettable. The attention to detail in both food and service was exceptional.",
+        name: "Priya Sharma",
+        role: "Event Manager, Acme Corp",
+        deal: "500-guest corporate gala"
+      },
+      {
+        quote: "For our product launch, we needed perfection. Kravon delivered exactly that — impeccable timing, beautiful presentation, and truly delicious food.",
+        name: "Rohan Desai",
+        role: "Marketing Head, TechStart Inc",
+        deal: "250-guest product launch"
+      },
+      {
+        quote: "The ease of working with their team made planning stress-free. From proposal to execution, everything was seamless and professional.",
+        name: "Neha Patel",
+        role: "HR Director, Global Solutions",
+        deal: "Annual team offsite"
+      }
+    ]
+  },
+
+  form: {
+    label: "Request Your Proposal",
+    title: ["Let's Plan Your", "Perfect Event"],
+    intro: "Tell us about your event, and we'll craft a customized proposal within 24–48 hours.",
+    steps: [
+      { n: "1", txt: "Share your event details" },
+      { n: "2", txt: "Our team will review and contact you" },
+      { n: "3", txt: "Receive your tailored proposal" }
+    ],
+    engagementTypes: [
+      { id: "et1", value: "daily-office", label: "Daily Office" },
+      { id: "et2", value: "conference", label: "Conference" },
+      { id: "et3", value: "corporate-offsite", label: "Offsite" },
+      { id: "et4", value: "product-launch", label: "Product Launch" },
+      { id: "et5", value: "other", label: "Other" }
+    ],
+    paxOptions: [
+      { id: "p1", value: "50-150", label: "50–150 guests" },
+      { id: "p2", value: "150-300", label: "150–300 guests" },
+      { id: "p3", value: "300-500", label: "300–500 guests" },
+      { id: "p4", value: "500+", label: "500+ guests" }
+    ],
+    budgetOptions: [
+      { id: "b1", value: "below-1L", label: "Below ₹1L" },
+      { id: "b2", value: "1-2.5L", label: "₹1L–₹2.5L" },
+      { id: "b3", value: "2.5-5L", label: "₹2.5L–₹5L" },
+      { id: "b4", value: "5L+", label: "₹5L+", redirect: true }
+    ],
+    submitNote: "By submitting, you agree to be contacted via email or phone.\nWe respect your privacy.",
+    submitLabel: "Request Proposal",
+    confirmTitle: ["Your Proposal", "is Being Prepared"],
+    confirmBody: "Thank you! Our team has received your request and will reach out within the specified timeframe with a customized proposal tailored to your event's unique needs.",
+    confirmSteps: [
+      "Event manager assigned to your proposal",
+      "Detailed menu and service plan prepared",
+      "Transparent pricing and timeline provided",
+      "Direct support from our leadership team"
+    ],
+    redirectTitle: "Premium Enterprise Events",
+    redirectBody: "For budgets exceeding ₹5L, we craft bespoke catering experiences. Please contact our enterprise team directly.",
+    redirectLabel: "Contact Enterprise Team"
+  },
+
+  faq: {
+    label: "Common Questions",
+    title: ["Frequently Asked", "Questions"],
+    ledeBody: "Everything you need to know about our catering services, customisation options, and event coordination.",
+    items: [
+      {
+        q: "What is the minimum headcount?",
+        a: "Our minimum headcount is 50 guests. For smaller events, we recommend connecting with our team to discuss bespoke options."
+      },
+      {
+        q: "Can you accommodate dietary restrictions?",
+        a: "Absolutely. We pride ourselves on handling vegetarian, vegan, gluten-free, and allergy-conscious menus with the same sophistication as our standard offerings. Please mention these during the proposal stage."
+      },
+      {
+        q: "How much advance notice do you need?",
+        a: "We typically recommend 2–4 weeks for standard events. For larger events (500+ guests), 6–8 weeks is ideal. Urgent requests may be accommodated depending on availability."
+      },
+      {
+        q: "Do you handle on-site setup and service?",
+        a: "Yes, we handle all aspects — venue setup, live service, bar management, cleanup, and logistics coordination."
+      },
+      {
+        q: "Can we customize the menu?",
+        a: "Completely. Every menu is customized based on your event's theme, guest preferences, and cuisine preferences. We work closely with you to ensure alignment."
+      },
+      {
+        q: "What's included in your pricing?",
+        a: "All packages include food, service staff, setup, cleanup, basic décor coordination. Premium packages add menu customization, dedicated event managers, and specialized service options."
+      }
+    ]
+  }
+};
+
+// ═══════════════════════════════════════════════════════════
+// RENDERER.JS — DOM generation
+// ═══════════════════════════════════════════════════════════
+
+(function() {
+  'use strict';
+
+  const SVG_ARROW = '<svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M1 6h9M7 2l4 4-4 4" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>';
+  const SVG_WA = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M17.6 6.3c-1.5-1.6-3.6-2.5-5.8-2.5-4.5 0-8.1 3.6-8.1 8.1 0 1.4.4 2.8 1.1 4L3 21l4.3-1.1c1.2.6 2.5 1 3.9 1 4.5 0 8.1-3.6 8.1-8.1 0-2.2-.9-4.3-2.5-5.8m-5.8 12.5c-1.2 0-2.4-.3-3.5-.9l-.3-.1-2.8.7.7-2.6-.2-.3c-.7-1.1-1-2.4-1-3.8 0-3.7 3-6.7 6.7-6.7 1.8 0 3.5.7 4.8 2 1.2 1.3 2 3 2 4.8 0 3.7-3 6.7-6.7 6.7m3.7-5c-.2-.1-1.1-.5-1.3-.6-.2 0-.3-.1-.5.1-.1.2-.5.6-.6.7-.1.2-.3.2-.5.1-.2-.1-1-.4-1.9-1.2-.7-.6-1.2-1.4-1.3-1.6-.1-.2 0-.3.1-.4.1-.1.2-.3.3-.4.1-.1.1-.2.2-.4.1-.2 0-.4-.1-.5-.1-.1-.5-1.1-.6-1.5-.2-.3-.3-.3-.5-.3h-.5c-.2 0-.5.1-.7.3-.2.2-.8.8-.8 2 0 1.2.8 2.3.9 2.5.1.2 1.6 2.5 3.9 3.5 1.5.7 2.1.7 2.8.6.8-.1 2.3-.9 2.6-1.8.3-.9.3-1.6.2-1.8-.1-.2-.3-.3-.5-.4"/></svg>';
+
+  function h(tag, className, content, attrs) {
+    const el = document.createElement(tag);
+    if (className) el.className = className;
+    if (content) el.innerHTML = content;
+    if (attrs) {
+      for (const [k, v] of Object.entries(attrs)) {
+        el.setAttribute(k, v);
+      }
+    }
+    return el;
+  }
+
+  function renderNav() {
+    const nav = h('nav', 'nav');
+    const brand = h('div', 'nav-brand');
+    brand.appendChild(h('div', 'nav-name', CONFIG.brand.name));
+    brand.appendChild(h('div', 'nav-rule'));
+    brand.appendChild(h('div', 'nav-category', 'Catering'));
+    nav.appendChild(brand);
+    return nav;
+  }
+
+  function renderCredBar() {
+    const bar = h('div', 'cred-bar');
+    const left = h('div', 'cred-left');
+    CONFIG.brand.gst && left.appendChild(h('div', 'cred-item', 'GST: ' + CONFIG.brand.gst));
+    CONFIG.brand.fssai && left.appendChild(h('div', 'cred-item', 'FSSAI: ' + CONFIG.brand.fssai));
+    bar.appendChild(left);
+    const right = h('div', 'cred-right');
+    right.innerHTML = 'Registered in India · <a href="mailto:' + CONFIG.brand.email + '">Contact</a>';
+    bar.appendChild(right);
+    return bar;
+  }
+
+  function renderHero() {
+    const sec = h('section', 'hero');
+    sec.appendChild(h('div', 'hero-glow'));
+    const wrap = h('div', 'wrap');
+    const inner = h('div', 'hero-inner');
+    const copy = h('div', 'hero-copy');
+    copy.appendChild(h('span', 'hero-eyebrow', CONFIG.hero.eyebrow));
+    copy.appendChild(h('h1', 'hero-h1',
+      CONFIG.hero.headline.map(l => l + '<br>').join('')));
+    copy.appendChild(h('p', 'hero-sub', CONFIG.hero.sub));
+    const actions = h('div', 'hero-actions');
+    const btnP = h('button', 'btn btn-gold', SVG_ARROW + ' ' + CONFIG.hero.ctaPrimary);
+    btnP.dataset.action = 'scroll-proposal';
+    const btnS = h('button', 'btn btn-ghost', CONFIG.hero.ctaSecondary);
+    btnS.dataset.action = 'scroll-packages';
+    actions.appendChild(btnP);
+    actions.appendChild(btnS);
+    copy.appendChild(actions);
+    inner.appendChild(copy);
+    wrap.appendChild(inner);
+    const panel = h('div', 'hero-panel');
+    CONFIG.hero.stats.forEach((s, i) => {
+      if (typeof s === 'object' && s.value) {
+        const stat = h('div', 'h-stat');
+        stat.appendChild(h('span', 'h-stat-n' + (s.gold ? ' gold' : ''), s.value));
+        stat.appendChild(h('span', 'h-stat-lbl', s.label.replace('\n', '<br>')));
+        panel.appendChild(stat);
+      }
+    });
+    sec.appendChild(wrap);
+    sec.appendChild(panel);
+    return sec;
+  }
+
+  function renderPackages() {
+    const sec = h('section', 'packages');
+    sec.id = 'packages';
+    const wrap = h('div', 'wrap');
+    const head = h('div', 'sec-head r');
+    const left = h('div', '',
+      '<span class="label label-gold">' + CONFIG.packages.label + '</span>' +
+      '<div class="sec-title">' + CONFIG.packages.title.join('<br>') + '</div>');
+    const ann = h('div', 'sec-annotation',
+      CONFIG.packages.annotation);
+    head.appendChild(left);
+    head.appendChild(ann);
+    wrap.appendChild(head);
+    const grid = h('div', 'pkg-grid');
+    CONFIG.packages.tiers.forEach((tier, i) => {
+      const card = h('div', 'pkg' + (tier.featured ? ' pkg-featured' : '') + ' r d' + (i + 1));
+      if (tier.stamp) card.appendChild(h('div', 'pkg-stamp', tier.stamp));
+      card.appendChild(h('div', 'pkg-head',
+        '<span class="pkg-tier">' + tier.num + '</span>' +
+        '<div class="pkg-name">' + tier.name + '</div>' +
+        '<div class="pkg-scope">' + tier.scope + '</div>'));
+      card.appendChild(h('div', 'pkg-price-block',
+        '<span class="pkg-price-lbl">Starting from</span>' +
+        '<div><span class="pkg-price">' + tier.price + '</span><span class="pkg-price-unit"> / engagement</span></div>' +
+        '<div class="pkg-range-note">Typical: ' + tier.typical + '</div>'));
+      card.appendChild(h('div', 'pkg-body',
+        '<span class="pkg-incl-lbl">What\'s included</span>' +
+        '<ul class="pkg-list">' +
+        tier.includes.map(it => '<li>' + it + '</li>').join('') +
+        '</ul>'));
+      const foot = h('div', 'pkg-foot');
+      const btn = h('button', 'pkg-btn', 'Request Proposal →');
+      btn.dataset.action = 'scroll-proposal';
+      foot.appendChild(btn);
+      card.appendChild(foot);
+      grid.appendChild(card);
+    });
+    wrap.appendChild(grid);
+    sec.appendChild(wrap);
+    return sec;
+  }
+
+  function renderProcess() {
+    const sec = h('section', 'process');
+    const wrap = h('div', 'wrap');
+    const inner = h('div', 'process-inner');
+    inner.appendChild(h('div', 'process-lede',
+      '<span class="label label-gold">' + CONFIG.process.label + '</span>' +
+      '<div class="process-lede-title">' + CONFIG.process.title.join('<br>') + '</div>' +
+      '<p class="process-lede-body">' + CONFIG.process.lede + '</p>'));
+    const rows = h('div', 'process-rows');
+    CONFIG.process.steps.forEach((s, i) => {
+      const row = h('div', 'process-row r' + (i > 0 ? ' d' + i : ''));
+      row.appendChild(h('div', 'process-n', s.n));
+      row.appendChild(h('div', '',
+        '<div class="process-title">' + s.title + '</div>' +
+        '<div class="process-body">' + s.body + '</div>'));
+      row.appendChild(h('div', 'process-timing', s.timing));
+      rows.appendChild(row);
+    });
+    inner.appendChild(rows);
+    wrap.appendChild(inner);
+    sec.appendChild(wrap);
+    return sec;
+  }
+
+  function renderMenu() {
+    const sec = h('section', 'menu');
+    const wrap = h('div', 'wrap');
+    const head = h('div', 'sec-head r');
+    const row = h('div', 'sec-head-row');
+    row.appendChild(h('div', '',
+      '<span class="label label-gold">' + CONFIG.menu.label + '</span>' +
+      '<div class="sec-title">' + CONFIG.menu.title.join('<br>') + '</div>'));
+    row.appendChild(h('div', 'sec-annotation',
+      CONFIG.menu.annotation));
+    head.appendChild(row);
+    wrap.appendChild(head);
+    const tabs = h('div', 'menu-tabs', '', { role: 'tablist' });
+    CONFIG.menu.tabs.forEach((tab, i) => {
+      const btn = h('button', 'menu-tab' + (i === 0 ? ' active' : ''), tab.label,
+        { role: 'tab' });
+      btn.dataset.menuId = tab.id;
+      btn.dataset.action = 'switch-menu';
+      tabs.appendChild(btn);
+    });
+    wrap.appendChild(tabs);
+    CONFIG.menu.tabs.forEach((tab, i) => {
+      const panel = h('div', 'menu-panel' + (i === 0 ? ' active' : ''));
+      panel.id = 'menu-' + tab.id;
+      tab.cols.forEach(col => {
+        const mc = h('div', 'menu-col');
+        mc.appendChild(h('span', 'menu-col-lbl', col.heading));
+        const items = h('div', 'menu-items');
+        col.items.forEach(it => {
+          items.appendChild(h('div', 'menu-row',
+            '<span class="menu-pip"></span>' +
+            '<div><span class="menu-dish">' + it.dish + '</span>' +
+            '<span class="menu-note">' + it.note + '</span></div>'));
+        });
+        mc.appendChild(items);
+        panel.appendChild(mc);
+      });
+      wrap.appendChild(panel);
+    });
+    sec.appendChild(wrap);
+    return sec;
+  }
+
+  function renderTestimonials() {
+    const sec = h('section', 'testi');
+    const wrap = h('div', 'wrap');
+    wrap.appendChild(h('div', 'sec-head r',
+      '<span class="label label-gold">' + CONFIG.testimonials.label + '</span>' +
+      '<div class="sec-title">' + CONFIG.testimonials.title.join('<br>') + '</div>'));
+    const grid = h('div', 'testi-grid');
+    CONFIG.testimonials.items.forEach((t, i) => {
+      const card = h('div', 'testi-card r d' + (i + 1));
+      card.appendChild(h('div', 'testi-mark', '"', { 'aria-hidden': 'true' }));
+      card.appendChild(h('p', 'testi-quote', t.quote));
+      card.appendChild(h('div', 'testi-byline',
+        '<span class="testi-name">' + t.name + '</span>' +
+        '<span class="testi-role">' + t.role + '</span>' +
+        '<span class="testi-deal">' + t.deal + '</span>'));
+      grid.appendChild(card);
+    });
+    wrap.appendChild(grid);
+    sec.appendChild(wrap);
+    return sec;
+  }
+
+  function renderForm() {
+    const sec = h('section', 'form-sec');
+    sec.id = 'proposal';
+    const wrap = h('div', 'wrap');
+    const layout = h('div', 'form-layout');
+    const ctx = h('div', '',
+      '<span class="label label-gold form-intro-lbl">' + CONFIG.form.label + '</span>' +
+      '<div class="form-intro-title">' + CONFIG.form.title.join('<br>') + '</div>' +
+      '<p class="form-intro-body">' + CONFIG.form.intro + '</p>');
+    const steps = h('div', 'form-steps');
+    CONFIG.form.steps.forEach(s => {
+      steps.appendChild(h('div', 'form-step',
+        '<span class="form-step-n">' + s.n + '</span>' +
+        '<span class="form-step-txt">' + s.txt + '</span>'));
+    });
+    ctx.appendChild(steps);
+    layout.appendChild(ctx);
+    const engine = h('div', 'form-engine');
+    engine.id = 'formEngine';
+    engine.dataset.state = 'main';
+    const main = h('div', 'f-main');
+    const b1 = h('div', 'f-block');
+    b1.appendChild(h('span', 'f-lbl', 'Type of engagement'));
+    const p1 = h('div', 'pills');
+    CONFIG.form.engagementTypes.forEach(o => {
+      p1.innerHTML += '<div class="pill"><input type="radio" name="type" id="' + o.id + '" value="' + o.value + '"><label for="' + o.id + '">' + o.label + '</label></div>';
+    });
+    b1.appendChild(p1);
+    main.appendChild(b1);
+    const b2 = h('div', 'f-block');
+    b2.appendChild(h('span', 'f-lbl', 'Expected headcount'));
+    const p2 = h('div', 'pills');
+    CONFIG.form.paxOptions.forEach(o => {
+      p2.innerHTML += '<div class="pill"><input type="radio" name="pax" id="' + o.id + '" value="' + o.value + '"><label for="' + o.id + '">' + o.label + '</label></div>';
+    });
+    b2.appendChild(p2);
+    main.appendChild(b2);
+    const b3 = h('div', 'f-block');
+    b3.appendChild(h('span', 'f-lbl', 'Event date range <span class="f-lbl-note">— from / to</span>'));
+    b3.innerHTML += '<div class="date-pair"><div class="date-field"><span class="date-field-lbl">From</span><input type="date" id="feventstart" autocomplete="off"></div><div class="date-field"><span class="date-field-lbl">To</span><input type="date" id="feventend" autocomplete="off" disabled></div></div><div class="date-duration" id="fduration"></div>';
+    main.appendChild(b3);
+    const b4 = h('div', 'f-block');
+    b4.appendChild(h('span', 'f-lbl', 'Approximate budget'));
+    const p4 = h('div', 'pills');
+    CONFIG.form.budgetOptions.forEach(o => {
+      p4.innerHTML += '<div class="pill"><input type="radio" name="budget" id="' + o.id + '" value="' + o.value + '"><label for="' + o.id + '">' + o.label + '</label></div>';
+    });
+    b4.appendChild(p4);
+    main.appendChild(b4);
+    const b5 = h('div', 'f-block');
+    b5.innerHTML = '<div class="field-row"><div class="field" id="ff-name"><label for="fname">Your Name <span class="req-star">*</span></label><input type="text" id="fname" autocomplete="name" placeholder="Ananya Sharma" required></div><div class="field" id="ff-company"><label for="fcompany">Company <span class="req-star">*</span></label><input type="text" id="fcompany" autocomplete="organization" placeholder="Acme Corp" required></div></div><div class="field-row"><div class="field" id="ff-phone"><label for="fphone">Mobile <span class="req-star">*</span></label><input type="tel" id="fphone" autocomplete="tel" placeholder="+91 98765 43210" required></div><div class="field" id="ff-email"><label for="femail">Email <span class="req-star">*</span></label><input type="email" id="femail" autocomplete="email" placeholder="ananya@acme.com" required></div></div><div class="field-row single"><div class="field"><label for="fnotes">Additional notes <span style="opacity:0.3;font-style:italic;">— optional</span></label><textarea id="fnotes" placeholder="Venue, dietary requirements..."></textarea></div></div>';
+    main.appendChild(b5);
+    const b6 = h('div', 'f-block');
+    const row = h('div', 'f-submit');
+    const note = h('span', 'f-submit-note',
+      CONFIG.form.submitNote.replace(/\n/g, '<br>'));
+    const subBtn = h('button', 'btn btn-gold',
+      SVG_ARROW + ' ' + CONFIG.form.submitLabel);
+    subBtn.id = 'form-submit-btn';
+    subBtn.dataset.action = 'submit-form';
+    row.appendChild(note);
+    row.appendChild(subBtn);
+    b6.appendChild(row);
+    main.appendChild(b6);
+    engine.appendChild(main);
+    const conf = h('div', 'f-confirm',
+      '<span class="confirm-ref" id="confirmRef">Ref —</span>' +
+      '<div class="confirm-tier-row"><span class="confirm-tier" id="confirmTier"></span><span class="confirm-sla" id="confirmSla"></span></div>' +
+      '<div class="confirm-h">' + CONFIG.form.confirmTitle.join('<br>') + '</div>' +
+      '<p class="confirm-body">' + CONFIG.form.confirmBody + '</p>' +
+      '<div class="confirm-steps"><span class="confirm-steps-lbl">What happens next</span><div class="confirm-step-list">' +
+      CONFIG.form.confirmSteps.map(s => '<div class="confirm-step">' + s + '</div>').join('') +
+      '</div></div>');
+    engine.appendChild(conf);
+    layout.appendChild(engine);
+    wrap.appendChild(layout);
+    sec.appendChild(wrap);
+    return sec;
+  }
+
+  function renderFaq() {
+    const sec = h('section', 'faq');
+    const wrap = h('div', 'wrap');
+    const inner = h('div', 'faq-inner');
+    inner.appendChild(h('div', '',
+      '<span class="label label-gold">' + CONFIG.faq.label + '</span>' +
+      '<div class="faq-lede-title">' + CONFIG.faq.title.join('<br>') + '</div>' +
+      '<p class="faq-lede-body">' + CONFIG.faq.ledeBody + '</p>'));
+    const list = h('div', 'faq-list');
+    CONFIG.faq.items.forEach(item => {
+      const fi = h('div', 'faq-item');
+      const btn = h('button', 'faq-q',
+        '<span class="faq-q-txt">' + item.q + '</span>' +
+        '<span class="faq-icon">+</span>');
+      btn.dataset.action = 'toggle-faq';
+      const ans = h('div', 'faq-a',
+        '<div class="faq-a-inner">' + item.a + '</div>');
+      fi.appendChild(btn);
+      fi.appendChild(ans);
+      list.appendChild(fi);
+    });
+    inner.appendChild(list);
+    wrap.appendChild(inner);
+    sec.appendChild(wrap);
+    return sec;
+  }
+
+  function renderFooter() {
+    const b = CONFIG.brand;
+    const ft = h('footer');
+    ft.appendChild(h('div', '',
+      '<div class="footer-brand">' + b.name + ' — Catering Division</div>' +
+      '<div class="footer-reg">© 2025 ' + b.name + '. All rights reserved.</div>'));
+    ft.appendChild(h('div', 'footer-contact',
+      'Email: <a href="mailto:' + b.email + '">' + b.email + '</a><br>' +
+      'Phone: ' + b.phone));
+    return ft;
+  }
+
+  function mount() {
+    const app = document.getElementById('app');
+    app.appendChild(renderCredBar());
+    app.appendChild(renderNav());
+    app.appendChild(renderHero());
+    app.appendChild(renderPackages());
+    app.appendChild(renderProcess());
+    app.appendChild(renderMenu());
+    app.appendChild(renderTestimonials());
+    app.appendChild(renderForm());
+    app.appendChild(renderFaq());
+    app.appendChild(renderFooter());
+  }
+
+  window.mount = mount;
+})();
+
+// ═══════════════════════════════════════════════════════════
+// BEHAVIOUR.JS — Interactivity
+// ═══════════════════════════════════════════════════════════
+
+(function() {
+  'use strict';
+
+  function scrollTo(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const offset = 100;
+    const top = el.getBoundingClientRect().top + window.scrollY - offset;
+    window.scrollTo({ top: top, behavior: 'smooth' });
+  }
+
+  document.addEventListener('click', function(e) {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    switch (action) {
+      case 'scroll-proposal':
+        scrollTo('proposal');
+        break;
+      case 'scroll-packages':
+        scrollTo('packages');
+        break;
+      case 'switch-menu':
+        switchMenu(btn.dataset.menuId, btn);
+        break;
+      case 'toggle-faq':
+        toggleFaq(btn);
+        break;
+      case 'submit-form':
+        submitForm();
+        break;
+    }
+  });
+
+  function switchMenu(id, btn) {
+    document.querySelectorAll('.menu-panel').forEach(p => {
+      p.classList.remove('active');
+    });
+    document.querySelectorAll('.menu-tab').forEach(t => {
+      t.classList.remove('active');
+    });
+    const panel = document.getElementById('menu-' + id);
+    if (panel) panel.classList.add('active');
+    if (btn) btn.classList.add('active');
+  }
+
+  function toggleFaq(btn) {
+    const item = btn.closest('.faq-item');
+    const isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item.open').forEach(el => {
+      el.classList.remove('open');
+    });
+    if (!isOpen) item.classList.add('open');
+  }
+
+  function setFormState(state) {
+    const engine = document.getElementById('formEngine');
+    if (!engine) return;
+    engine.dataset.state = state;
+    setTimeout(() => {
+      engine.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 50);
+  }
+
+  function markError(fieldId) {
+    const el = document.getElementById(fieldId);
+    if (!el) return;
+    el.classList.add('has-error');
+    setTimeout(() => { el.classList.remove('has-error'); }, 2500);
+  }
+
+  function submitForm() {
+    const name = (document.getElementById('fname').value || '').trim();
+    const company = (document.getElementById('fcompany').value || '').trim();
+    const email = (document.getElementById('femail').value || '').trim();
+    const phone = (document.getElementById('fphone').value || '').trim();
+    const budget = document.querySelector('input[name="budget"]:checked');
+    const pax = document.querySelector('input[name="pax"]:checked');
+    const type = document.querySelector('input[name="type"]:checked');
+
+    let valid = true;
+    [['ff-name', name], ['ff-company', company], ['ff-email', email], ['ff-phone', phone]]
+      .forEach(f => {
+        if (!f[1]) { valid = false; markError(f[0]); }
+      });
+    if (!valid) return;
+
+    // Budget redirect check
+    if (budget) {
+      const budgetCfg = (CONFIG.form.budgetOptions || []).filter(b => b.value === budget.value)[0];
+      if (budgetCfg && budgetCfg.redirect) {
+        setFormState('redirect');
+        return;
+      }
+    }
+
+    // Show confirmation
+    const ref = 'CAT-' + Date.now().toString().slice(-6);
+    const tierLabels = { hot: '🔥 Hot lead', warm: '◎ Warm lead', cool: '○ Standard' };
+    const tier = 'warm';
+
+    document.getElementById('confirmRef').textContent = 'Ref · ' + ref;
+    document.getElementById('confirmTier').textContent = tierLabels[tier];
+    document.getElementById('confirmTier').dataset.tier = tier;
+    document.getElementById('confirmSla').textContent = 'Proposal within 24–48 business hours';
+
+    setFormState('confirm');
+  }
+
+  function initDatePickers() {
+    const startEl = document.getElementById('feventstart');
+    const endEl = document.getElementById('feventend');
+    const durEl = document.getElementById('fduration');
+    if (!startEl || !endEl) return;
+
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+    startEl.setAttribute('min', todayStr);
+
+    startEl.addEventListener('change', function() {
+      const val = startEl.value;
+      if (!val) {
+        endEl.value = '';
+        endEl.disabled = true;
+        if (durEl) { durEl.textContent = ''; durEl.classList.remove('visible'); }
+        return;
+      }
+      const minEnd = new Date(val);
+      minEnd.setDate(minEnd.getDate() + 1);
+      endEl.setAttribute('min', minEnd.toISOString().slice(0, 10));
+      endEl.disabled = false;
+      if (endEl.value && endEl.value <= val) {
+        endEl.value = '';
+        if (durEl) { durEl.textContent = ''; durEl.classList.remove('visible'); }
+      } else if (endEl.value) {
+        updateDuration();
+      }
+    });
+
+    endEl.addEventListener('change', updateDuration);
+
+    function updateDuration() {
+      if (!startEl.value || !endEl.value || !durEl) return;
+      const ms = new Date(endEl.value) - new Date(startEl.value);
+      const days = Math.round(ms / 86400000);
+      if (days > 0) {
+        durEl.textContent = days === 1 ? '1 day' : days + ' days';
+        durEl.classList.add('visible');
+      }
+    }
+  }
+
+  function initReveal() {
+    const revealEls = Array.from(document.querySelectorAll('.r'));
+    function showEl(el) { el.classList.add('vis'); }
+    function checkViewport() {
+      const vh = window.innerHeight;
+      revealEls.forEach(el => {
+        if (!el.classList.contains('vis')) {
+          const rect = el.getBoundingClientRect();
+          if (rect.top < vh + 80) showEl(el);
+        }
+      });
+    }
+    if ('IntersectionObserver' in window) {
+      const obs = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) { showEl(e.target); obs.unobserve(e.target); }
+        });
+      }, { threshold: 0, rootMargin: '0px 0px -20px 0px' });
+      revealEls.forEach(el => { obs.observe(el); });
+    }
+    window.addEventListener('scroll', checkViewport, { passive: true });
+    [60, 250, 700].forEach(t => { setTimeout(checkViewport, t); });
+  }
+
+  function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+
+  function animateCount(el, target) {
+    let start = null;
+    function frame(ts) {
+      if (!start) start = ts;
+      const progress = Math.min((ts - start) / 1200, 1);
+      el.textContent = Math.round(easeOut(progress) * target);
+      if (progress < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function initCounters() {
+    if (!('IntersectionObserver' in window)) return;
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          const target = parseInt(e.target.getAttribute('data-target'), 10);
+          if (!isNaN(target)) animateCount(e.target, target);
+          obs.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.5 });
+    document.querySelectorAll('[data-target]').forEach(el => { obs.observe(el); });
+  }
+
+  function initBehaviour() {
+    initReveal();
+    initCounters();
+    initDatePickers();
+  }
+
+  window.initBehaviour = initBehaviour;
+})();
+
+// ═══════════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════════
+
+(function() {
+  'use strict';
+  function boot() {
+    if (typeof window.mount === 'function') {
+      window.mount();
+    }
+    if (typeof window.initBehaviour === 'function') {
+      window.initBehaviour();
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => { setTimeout(boot, 0); });
+  } else {
+    setTimeout(boot, 0);
+  }
+})();
+  </script>
+
+  <style>
+    /* Responsive menu tabs */
+    .menu-tabs {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 32px;
+      border-bottom: 1px solid var(--line);
+      flex-wrap: wrap;
+    }
+    
+    .menu-tab {
+      padding: 12px 0;
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--ink-35);
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: -1px;
+    }
+    
+    .menu-tab:hover { color: var(--ink-60); }
+    .menu-tab.active {
+      color: var(--gold);
+      border-bottom-color: var(--gold);
+    }
+    
+    .menu-panel {
+      display: none;
+    }
+    
+    .menu-panel.active {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 40px;
+    }
+    
+    .menu-col-lbl {
+      display: block;
+      font-family: var(--serif);
+      font-size: 16px;
+      color: var(--ink);
+      margin-bottom: 20px;
+    }
+    
+    .menu-items {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    
+    .menu-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    
+    .menu-pip {
+      width: 4px;
+      height: 4px;
+      background: var(--gold);
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 6px;
+    }
+    
+    .menu-dish {
+      display: block;
+      font-family: var(--serif);
+      font-size: 14px;
+      color: var(--ink);
+      margin-bottom: 4px;
+    }
+    
+    .menu-note {
+      display: block;
+      font-size: 12px;
+      color: var(--ink-35);
+      font-style: italic;
+    }
+
+    /* Section heading styles */
+    .sec-head {
+      margin-bottom: 48px;
+    }
+    
+    .sec-head-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 40px;
+      align-items: start;
+    }
+    
+    .sec-title {
+      font-family: var(--serif);
+      font-size: clamp(28px, 3vw, 40px);
+      font-weight: 400;
+      line-height: 1.3;
+      color: var(--ink);
+      letter-spacing: -0.5px;
+      margin-top: 8px;
+    }
+    
+    .sec-annotation {
+      font-size: 13.5px;
+      color: var(--ink-35);
+      line-height: 1.7;
+      text-align: right;
+    }
+
+    @media (max-width: 768px) {
+      .menu-panel.active {
+        grid-template-columns: 1fr;
+      }
+      
+      .sec-head-row {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+      
+      .sec-annotation {
+        text-align: left;
+      }
+    }
+  </style>
+</body>
+</html>

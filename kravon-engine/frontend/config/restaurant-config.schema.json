@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Kravon Restaurant Config",
+  "description": "Shape of the /config API response. Use as reference when seeding a new restaurant.",
+  "type": "object",
+  "required": ["restaurant_id", "slug", "meta", "brand", "contact", "products", "menu"],
+  "properties": {
+    "restaurant_id": { "type": "integer" },
+    "slug":          { "type": "string" },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "title":       { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "brand": {
+      "type": "object",
+      "properties": {
+        "name":    { "type": "string" },
+        "tagline": { "type": "string" },
+        "year":    { "type": "string" }
+      }
+    },
+    "contact": {
+      "type": "object",
+      "properties": {
+        "phone":        { "type": "string" },
+        "waNumber":     { "type": "string", "description": "Digits only, country code, no +" },
+        "email":        { "type": "string" },
+        "address":      { "type": "string" },
+        "city":         { "type": "string" },
+        "deliveryZone": { "type": "string" }
+      }
+    },
+    "products": {
+      "type": "object",
+      "properties": {
+        "presence": { "type": "boolean" },
+        "orders":   { "type": "boolean" },
+        "catering": { "type": "boolean" },
+        "insights": { "type": "boolean" }
+      }
+    },
+    "menu": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id":       { "type": "integer" },
+          "name":     { "type": "string" },
+          "subtitle": { "type": ["string", "null"] },
+          "items":    {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id":         { "type": "integer" },
+                "name":       { "type": "string" },
+                "price":      { "type": "integer", "description": "In rupees (not paise)" },
+                "desc":       { "type": "string" },
+                "image":      { "type": "string" },
+                "badge":      { "type": ["string", "null"] },
+                "customise":  { "type": "boolean" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "addons": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": { "type": "string" },
+          "price": { "type": "integer" }
+        }
+      }
+    },
+    "spiceLevels": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

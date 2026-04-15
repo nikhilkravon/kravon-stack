@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%"   stop-color="#1C0E07"/>
+      <stop offset="55%"  stop-color="#0C0604"/>
+      <stop offset="100%" stop-color="#040202"/>
+    </linearGradient>
+    <radialGradient id="bokA" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#C8973A" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#C8973A" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bokB" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#E8A840" stop-opacity="0.38"/>
+      <stop offset="100%" stop-color="#E8A840" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bokC" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#FF6820" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#FF6820" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vignette" cx="50%" cy="50%" r="65%">
+      <stop offset="0%"   stop-color="#000000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.72"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="55"/>
+    </filter>
+    <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="28"/>
+    </filter>
+  </defs>
+
+  <!-- Base -->
+  <rect width="1920" height="1080" fill="url(#bgGrad)"/>
+
+  <!-- Bokeh orbs -->
+  <circle cx="310"  cy="760" r="220" fill="url(#bokA)" filter="url(#glow)"/>
+  <circle cx="1620" cy="240" r="180" fill="url(#bokB)" filter="url(#glow)"/>
+  <circle cx="960"  cy="500" r="380" fill="url(#bokA)" opacity="0.14" filter="url(#glow)"/>
+  <circle cx="1420" cy="880" r="150" fill="url(#bokC)" filter="url(#glow)"/>
+  <circle cx="160"  cy="160" r="110" fill="url(#bokB)" filter="url(#glow)"/>
+  <circle cx="1790" cy="660" r="95"  fill="url(#bokA)" filter="url(#softGlow)"/>
+  <circle cx="560"  cy="320" r="75"  fill="url(#bokC)" filter="url(#softGlow)"/>
+  <circle cx="1180" cy="920" r="110" fill="url(#bokB)" filter="url(#softGlow)"/>
+  <circle cx="720"  cy="880" r="60"  fill="url(#bokA)" filter="url(#softGlow)" opacity="0.7"/>
+
+  <!-- Subtle table surface at bottom -->
+  <rect x="550" y="910" width="820" height="14" rx="3" fill="#2A1508" opacity="0.55"/>
+  <rect x="660" y="924" width="14"  height="156" rx="3" fill="#2A1508" opacity="0.45"/>
+  <rect x="1246" y="924" width="14" height="156" rx="3" fill="#2A1508" opacity="0.45"/>
+
+  <!-- Plate on table -->
+  <ellipse cx="960" cy="930" rx="130" ry="22" fill="#110806" opacity="0.7"/>
+  <circle  cx="960" cy="910" r="105"  fill="none" stroke="#2D1A0A" stroke-width="2.5" opacity="0.5"/>
+
+  <!-- Candle 1 -->
+  <g transform="translate(840, 858)">
+    <rect x="-5" y="28" width="10" height="52" rx="3" fill="#2A1608" opacity="0.9"/>
+    <ellipse cx="0" cy="12"  rx="9"   ry="20"  fill="#E8A040" opacity="0.5"  filter="url(#softGlow)"/>
+    <ellipse cx="0" cy="3"   rx="6"   ry="13"  fill="#FFC060" opacity="0.75" filter="url(#softGlow)"/>
+    <circle  cx="0" cy="28"  r="3.5"            fill="#FFC060" opacity="0.95"/>
+  </g>
+
+  <!-- Candle 2 -->
+  <g transform="translate(1080, 872)">
+    <rect x="-4" y="22" width="8"  height="42" rx="2" fill="#2A1608" opacity="0.9"/>
+    <ellipse cx="0" cy="10"  rx="7"   ry="16"  fill="#E8A040" opacity="0.45" filter="url(#softGlow)"/>
+    <ellipse cx="0" cy="3"   rx="4.5" rx2="4.5" ry="11"  fill="#FFC060" opacity="0.7"  filter="url(#softGlow)"/>
+    <circle  cx="0" cy="22"  r="3"              fill="#FFC060" opacity="0.9"/>
+  </g>
+
+  <!-- Vignette -->
+  <rect width="1920" height="1080" fill="url(#vignette)"/>
+</svg>

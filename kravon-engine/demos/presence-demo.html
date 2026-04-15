@@ -1,0 +1,2178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kravon Presence Demo</title>
+  <meta name="description" content="Kravon Presence Demo — Static Showcase Build">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Space+Mono:ital@0;1&display=swap" rel="stylesheet">
+
+  <style>
+    /* ═══════════════════════════════════════════════════════════
+       KRAVON SHARED — BASE.CSS
+       Design tokens, reset, typography.
+       ═══════════════════════════════════════════════════════════ */
+
+    :root {
+      /* Surfaces */
+      --black:      #0a0905;
+      --dark:       #111008;
+      --panel:      #181510;
+      --card:       #1e1a12;
+      --card-2:     #242018;
+      --cream:      #f5f2ea;
+      --white:      #ffffff;
+
+      /* Brand */
+      --ink:        #1a4a2e;
+      --ink-deep:   #112e1d;
+      --lime:       #c2d62a;
+      --lime-dk:    #9eb020;
+      --amber:      #e8a020;
+      --red:        #d93a2b;
+      --green:      #4caf50;
+
+      /* WhatsApp */
+      --wa:         #25d366;
+      --wa-dark:    #1da851;
+
+      /* Borders */
+      --border:     rgba(255, 255, 255, 0.07);
+      --border-2:   rgba(255, 255, 255, 0.12);
+      --border-lt:  rgba(26, 74, 46, 0.12);
+
+      /* Text */
+      --muted:      #7a7670;
+      --stone:      #e0dcd4;
+
+      /* Typography */
+      --font-head:  'Syne', sans-serif;
+      --font-body:  'DM Sans', sans-serif;
+      --font-mono:  'Space Mono', monospace;
+
+      /* Spacing scale */
+      --sp-1:  4px;
+      --sp-2:  8px;
+      --sp-3:  12px;
+      --sp-4:  16px;
+      --sp-5:  24px;
+      --sp-6:  32px;
+      --sp-7:  48px;
+      --sp-8:  64px;
+      --sp-9:  96px;
+      --sp-10: 128px;
+
+      /* Radius */
+      --r-sm:  2px;
+      --r-md:  4px;
+      --r-lg:  8px;
+
+      /* Transitions */
+      --t-fast:   0.15s ease;
+      --t-mid:    0.25s ease;
+      --t-slow:   0.45s ease;
+
+      /* Z-index scale */
+      --z-base:    1;
+      --z-sticky:  100;
+      --z-overlay: 200;
+      --z-modal:   300;
+      --z-toast:   400;
+    }
+
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      font-size: 16px;
+      scroll-behavior: smooth;
+      scroll-padding-top: 68px;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      background: var(--dark);
+      color: var(--white);
+      font-family: var(--font-body);
+      font-weight: 400;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow-x: hidden;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button { font-family: inherit; cursor: pointer; border: none; background: none; }
+    img, svg { display: block; max-width: 100%; }
+    ul, ol { list-style: none; }
+
+    h1, h2, h3, h4, h5, h6 {
+      font-family: var(--font-head);
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+    }
+
+    .label-mono {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.3);
+      display: block;
+    }
+
+    .label-lime {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--lime);
+      display: block;
+    }
+
+    .label-ink {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--lime-dk);
+      display: block;
+    }
+
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 56px;
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.55s ease, transform 0.55s ease;
+    }
+    .reveal.in { opacity: 1; transform: translateY(0); }
+    .reveal-d1 { transition-delay: 0.1s; }
+    .reveal-d2 { transition-delay: 0.2s; }
+    .reveal-d3 { transition-delay: 0.3s; }
+    .reveal-d4 { transition-delay: 0.4s; }
+
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @media (max-width: 1024px) { .wrap { padding: 0 32px; } }
+    @media (max-width: 768px) { .wrap { padding: 0 20px; } }
+
+    /* ═══════════════════════════════════════════════════════════
+       KRAVON SHARED — LAYOUT.CSS
+       ═══════════════════════════════════════════════════════════ */
+
+    .demo-banner {
+      background: var(--ink);
+      border-bottom: 1px solid rgba(194, 214, 42, 0.15);
+      padding: 10px 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--sp-5);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      min-height: 40px;
+    }
+
+    .demo-banner-left {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-3);
+    }
+
+    .demo-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--lime);
+      flex-shrink: 0;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    .demo-text {
+      color: rgba(255, 255, 255, 0.5);
+      letter-spacing: 0.5px;
+      line-height: 1.5;
+    }
+
+    .demo-right {
+      color: var(--lime);
+      letter-spacing: 2px;
+      font-size: 10px;
+      text-transform: uppercase;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: var(--z-sticky);
+      height: 60px;
+      background: rgba(17, 16, 8, 0.97);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 56px;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-4);
+    }
+
+    .nav-logo {
+      font-family: var(--font-head);
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--white);
+      letter-spacing: -0.4px;
+    }
+
+    .nav-logo-sub {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.25);
+      margin-top: 2px;
+    }
+
+    .nav-sep {
+      width: 1px;
+      height: 24px;
+      background: var(--border-2);
+    }
+
+    .nav-badge {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--lime);
+    }
+
+    .hero {
+      background: var(--black);
+      border-bottom: 1px solid var(--border);
+      padding: 72px 0 64px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 55% 70% at 75% 50%, rgba(232, 160, 32, 0.04), transparent);
+      pointer-events: none;
+    }
+
+    .hero-inner {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: var(--sp-8);
+      align-items: end;
+    }
+
+    .hero-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--amber);
+      display: block;
+      margin-bottom: var(--sp-5);
+    }
+
+    .hero-headline {
+      font-size: clamp(44px, 7vw, 88px);
+      font-weight: 800;
+      line-height: 0.95;
+      letter-spacing: -0.03em;
+      color: var(--white);
+      margin-bottom: var(--sp-5);
+    }
+
+    .hero-headline em {
+      font-style: normal;
+      color: var(--amber);
+    }
+
+    .hero-sub {
+      font-size: 17px;
+      font-weight: 300;
+      color: rgba(255, 255, 255, 0.5);
+      line-height: 1.65;
+      max-width: 480px;
+      margin-bottom: var(--sp-7);
+    }
+
+    .hero-meta {
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-4);
+      padding-left: var(--sp-8);
+      border-left: 1px solid var(--border-2);
+    }
+
+    .h-stat-num {
+      font-family: var(--font-head);
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--white);
+      letter-spacing: -1px;
+      display: block;
+    }
+
+    .h-stat-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.25);
+      line-height: 1.6;
+    }
+
+    .status-open { color: var(--green); }
+
+    .sec-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--lime-dk);
+      display: block;
+      margin-bottom: var(--sp-3);
+    }
+
+    .sec-headline {
+      font-family: var(--font-head);
+      font-size: clamp(28px, 3.5vw, 44px);
+      font-weight: 800;
+      color: var(--white);
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      margin-bottom: var(--sp-6);
+    }
+
+    .upgrade {
+      background: var(--ink-deep);
+      border-top: 1px solid rgba(194, 214, 42, 0.08);
+      padding: var(--sp-6) 0;
+    }
+
+    .upgrade-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--sp-6);
+    }
+
+    .upgrade-headline {
+      font-size: 15px;
+      color: rgba(255, 255, 255, 0.5);
+      line-height: 1.5;
+    }
+
+    .upgrade-headline strong { color: var(--white); }
+
+    footer {
+      background: var(--black);
+      border-top: 1px solid var(--border);
+      padding: var(--sp-6) 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--sp-5);
+    }
+
+    .footer-left {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: rgba(255, 255, 255, 0.2);
+      line-height: 1.8;
+    }
+
+    .footer-right {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-5);
+    }
+
+    .footer-kravon {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 1.5px;
+      color: rgba(255, 255, 255, 0.2);
+    }
+
+    .footer-kravon a {
+      color: var(--lime);
+      transition: opacity var(--t-fast);
+    }
+    .footer-kravon a:hover { opacity: 0.7; }
+
+    .wa-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-3);
+      background: var(--wa);
+      color: var(--white);
+      font-family: var(--font-head);
+      font-weight: 700;
+      border-radius: var(--r-sm);
+      transition: background var(--t-fast);
+      cursor: pointer;
+      border: none;
+      white-space: nowrap;
+    }
+    .wa-btn:hover { background: var(--wa-dark); }
+    .wa-btn--sm  { padding: 9px 18px;  font-size: 12px; }
+    .wa-btn--md  { padding: 12px 22px; font-size: 13px; }
+    .wa-btn--lg  { padding: 15px 28px; font-size: 15px; color: var(--white); }
+
+    .wa-btn svg {
+      width: 16px;
+      height: 16px;
+      fill: currentColor;
+      flex-shrink: 0;
+    }
+
+    .stat-card {
+      padding: var(--sp-5) var(--sp-6);
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      position: relative;
+    }
+
+    .stat-card-num {
+      font-family: var(--font-head);
+      font-size: 36px;
+      font-weight: 800;
+      color: var(--lime);
+      letter-spacing: -1.5px;
+      line-height: 1;
+      display: block;
+      margin-bottom: var(--sp-2);
+    }
+
+    .stat-card-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.25);
+      line-height: 1.6;
+    }
+
+    .rcard {
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: var(--sp-6);
+    }
+
+    .rcard-stars {
+      color: var(--amber);
+      font-size: 14px;
+      letter-spacing: 2px;
+      display: block;
+      margin-bottom: var(--sp-4);
+    }
+
+    .rcard-text {
+      font-size: 15px;
+      color: rgba(255, 255, 255, 0.65);
+      line-height: 1.7;
+      font-style: normal;
+      margin-bottom: var(--sp-5);
+    }
+
+    .rcard-author {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-3);
+    }
+
+    .rcard-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--ink);
+      border: 1px solid rgba(194, 214, 42, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--lime);
+      flex-shrink: 0;
+    }
+
+    .rcard-name {
+      font-family: var(--font-head);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--white);
+      letter-spacing: -0.3px;
+    }
+
+    .rcard-source {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.2);
+      margin-top: 2px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       PRESENCE — PRESENCE.CSS
+       ═══════════════════════════════════════════════════════════ */
+
+    .story {
+      background: var(--dark);
+      border-bottom: 1px solid var(--border);
+      padding: 64px 0;
+    }
+
+    .story-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+      align-items: start;
+    }
+
+    .story-body {
+      margin-top: 20px;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.38);
+      line-height: 1.85;
+    }
+
+    .story-body p { margin-bottom: 16px; }
+    .story-body p:last-child { margin-bottom: 0; }
+    .story-body strong { color: rgba(255, 255, 255, 0.7); font-weight: 500; }
+
+    .story-facts {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding-top: 42px;
+    }
+
+    .sfact {
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 20px 22px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .sfact-icon {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--amber);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .sfact-title {
+      font-family: var(--font-head);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--white);
+      letter-spacing: -0.2px;
+      margin-bottom: 3px;
+    }
+
+    .sfact-body {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.3);
+      line-height: 1.65;
+    }
+
+    .menu-sec {
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      padding: 64px 0;
+    }
+
+    .menu-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      margin-bottom: 36px;
+    }
+
+    .menu-wa-note {
+      text-align: right;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.18);
+      border-left: 2px solid var(--border-2);
+      padding-left: 16px;
+      line-height: 1.8;
+    }
+
+    .menu-wa-note span { color: var(--wa); }
+
+    .menu-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+      margin-bottom: 20px;
+    }
+
+    .menu-footnote {
+      text-align: center;
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.28);
+      padding: 18px 0 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .menu-footnote strong { color: var(--wa); }
+
+    .mcard {
+      background: var(--card);
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: border-color var(--t-fast);
+    }
+
+    .mcard:hover { border-color: rgba(255, 255, 255, 0.13); }
+
+    .mcard-img {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 38px;
+      position: relative;
+    }
+
+    .mbadge {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-family: var(--font-mono);
+      font-size: 8px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 4px 10px;
+    }
+
+    .mb-top  { background: rgba(232, 160, 32, 0.9);  color: #000; }
+    .mb-hot  { background: rgba(217, 58, 43, 0.85);  color: #fff; }
+    .mb-veg  { background: rgba(61, 122, 40, 0.85);  color: #fff; }
+    .mb-save { background: rgba(194, 214, 42, 0.9);  color: #111; }
+
+    .mcard-body {
+      padding: 18px 20px 20px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .mcard-name {
+      font-family: var(--font-head);
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--white);
+      letter-spacing: -0.3px;
+      margin-bottom: 6px;
+    }
+
+    .mcard-desc {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.32);
+      line-height: 1.65;
+      flex: 1;
+    }
+
+    .mcard-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    .mcard-price {
+      font-family: var(--font-head);
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--white);
+      letter-spacing: -0.5px;
+    }
+
+    .add-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--wa);
+      color: #000;
+      padding: 7px 14px;
+      font-family: var(--font-head);
+      font-size: 11px;
+      font-weight: 800;
+      border: none;
+      cursor: pointer;
+      transition: background var(--t-fast);
+      white-space: nowrap;
+    }
+
+    .add-btn:hover { background: var(--wa-dark); }
+
+    .qty-ctrl {
+      display: inline-flex;
+      align-items: center;
+      background: var(--card-2);
+      border: 1px solid var(--wa);
+      border-radius: 4px;
+      overflow: hidden;
+      height: 30px;
+    }
+
+    .qty-btn {
+      width: 30px;
+      height: 30px;
+      background: transparent;
+      border: none;
+      color: var(--wa);
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background var(--t-fast);
+      flex-shrink: 0;
+    }
+
+    .qty-btn:hover  { background: rgba(37, 211, 102, 0.12); }
+    .qty-btn:active { background: rgba(37, 211, 102, 0.22); }
+
+    .qty-num {
+      min-width: 26px;
+      text-align: center;
+      font-family: var(--font-head);
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--white);
+      user-select: none;
+    }
+
+    .how-sec {
+      background: var(--black);
+      border-bottom: 1px solid var(--border);
+      padding: 64px 0;
+    }
+
+    .how-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 72px;
+      align-items: start;
+    }
+
+    .how-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-top: 28px;
+    }
+
+    .how-step {
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 22px 24px;
+      display: flex;
+      align-items: flex-start;
+      gap: 20px;
+    }
+
+    .how-num {
+      font-family: var(--font-head);
+      font-size: 28px;
+      font-weight: 800;
+      color: rgba(255, 255, 255, 0.1);
+      letter-spacing: -1px;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    .how-step-title {
+      font-family: var(--font-head);
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--white);
+      letter-spacing: -0.3px;
+      margin-bottom: 5px;
+    }
+
+    .how-step-body {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.32);
+      line-height: 1.65;
+    }
+
+    .how-wa-card {
+      background: rgba(37, 211, 102, 0.04);
+      border: 1px solid rgba(37, 211, 102, 0.1);
+      padding: 32px 28px;
+      margin-bottom: 2px;
+    }
+
+    .how-wa-icon {
+      font-size: 32px;
+      display: block;
+      margin-bottom: 16px;
+    }
+
+    .how-wa-title {
+      font-family: var(--font-head);
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--white);
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+
+    .how-wa-sub {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.32);
+      line-height: 1.7;
+      margin-bottom: 24px;
+    }
+
+    .how-wa-notes {
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .how-wa-note {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.2);
+    }
+
+    .how-wa-note::before {
+      content: '';
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--wa);
+      flex-shrink: 0;
+    }
+
+    .reviews-sec {
+      background: var(--dark);
+      border-bottom: 1px solid var(--border);
+      padding: 64px 0;
+    }
+
+    .reviews-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+      margin-top: 32px;
+    }
+
+    .loc-sec {
+      background: var(--black);
+      border-bottom: 1px solid var(--border);
+      padding: 64px 0;
+    }
+
+    .loc-inner {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 60px;
+      align-items: start;
+    }
+
+    .loc-map {
+      aspect-ratio: 4 / 3;
+      background: var(--card);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .loc-map-grid {
+      position: absolute;
+      inset: 0;
+      background:
+        repeating-linear-gradient(0deg,   var(--border) 0, var(--border) 1px, transparent 1px, transparent 48px),
+        repeating-linear-gradient(90deg,  var(--border) 0, var(--border) 1px, transparent 1px, transparent 48px);
+    }
+
+    .loc-pin {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+    }
+
+    .loc-pin-icon {
+      font-size: 36px;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .loc-pin-name {
+      font-family: var(--font-head);
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--white);
+    }
+
+    .loc-pin-sub {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.2);
+      margin-top: 4px;
+    }
+
+    .loc-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-top: 20px;
+    }
+
+    .loc-row {
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 18px 22px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+
+    .loc-icon {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--amber);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .loc-title {
+      font-family: var(--font-head);
+      font-size: 13px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.65);
+      margin-bottom: 4px;
+    }
+
+    .loc-body {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.28);
+      line-height: 1.65;
+    }
+
+    .loc-body--highlight { color: var(--amber); }
+
+    .hero-ctas {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-5);
+    }
+
+    .hero-footnote {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 1px;
+      color: rgba(255, 255, 255, 0.2);
+    }
+
+    .cart-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 500;
+      background: rgba(10, 9, 5, 0.98);
+      border-top: 1px solid var(--border-2);
+      padding: 14px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      transform: translateY(100%);
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+      backdrop-filter: blur(20px);
+    }
+    .cart-bar.visible { transform: translateY(0); }
+
+    .cart-bar-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .cart-count {
+      width: 28px;
+      height: 28px;
+      background: var(--wa);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Syne', sans-serif;
+      font-size: 13px;
+      font-weight: 800;
+      color: #000;
+    }
+    .cart-summary {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: rgba(255, 255, 255, 0.4);
+      line-height: 1.6;
+    }
+    .cart-summary strong {
+      color: var(--white);
+      font-size: 12px;
+      display: block;
+    }
+    .cart-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .cart-view-btn {
+      background: transparent;
+      border: 1px solid var(--border-2);
+      color: rgba(255, 255, 255, 0.4);
+      padding: 9px 16px;
+      font-family: 'Space Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .cart-view-btn:hover {
+      border-color: var(--border);
+      color: rgba(255, 255, 255, 0.7);
+    }
+    .cart-wa-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--wa);
+      color: #000;
+      padding: 10px 20px;
+      font-family: 'Syne', sans-serif;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: background 0.15s;
+      border: none;
+    }
+    .cart-wa-btn:hover { background: var(--wa-dark); }
+    .cart-wa-btn svg { width: 14px; height: 14px; fill: #000; }
+
+    .cart-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 600;
+      background: rgba(0, 0, 0, 0);
+      pointer-events: none;
+      transition: background 0.25s;
+    }
+    .cart-overlay.open {
+      background: rgba(0, 0, 0, 0.6);
+      pointer-events: all;
+    }
+
+    .cart-drawer {
+      position: fixed;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 380px;
+      max-width: 100vw;
+      z-index: 700;
+      background: var(--dark);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .cart-drawer.open { transform: translateX(0); }
+
+    .cart-drawer-head {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .cart-drawer-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+    }
+    .cart-close {
+      background: transparent;
+      border: 1px solid var(--border-2);
+      width: 32px;
+      height: 32px;
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    .cart-close:hover {
+      border-color: var(--border);
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .cart-items {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .cart-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .cart-item-info { flex: 1; }
+    .cart-item-name {
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--white);
+      letter-spacing: -0.2px;
+      margin-bottom: 2px;
+    }
+    .cart-item-price {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      color: var(--wa);
+    }
+    .cart-item-total {
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--white);
+      min-width: 56px;
+      text-align: right;
+    }
+
+    .cart-empty {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: rgba(255, 255, 255, 0.2);
+    }
+    .cart-empty-icon { font-size: 36px; opacity: 0.3; }
+    .cart-empty-text {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .cart-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .cart-total-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-top: 1px solid var(--border);
+    }
+    .cart-total-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.3);
+    }
+    .cart-total-val {
+      font-family: 'Syne', sans-serif;
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--white);
+      letter-spacing: -0.5px;
+    }
+    .cart-checkout-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: var(--wa);
+      color: #000;
+      padding: 14px;
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+      border: none;
+      width: 100%;
+      transition: background 0.15s;
+    }
+    .cart-checkout-btn:hover { background: var(--wa-dark); }
+    .cart-checkout-btn svg { width: 18px; height: 18px; fill: #000; }
+
+    .cart-min-note {
+      font-family: 'Space Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.18);
+      text-align: center;
+    }
+    .cart-min-note.warn { color: var(--amber); }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--white);
+      color: var(--dark);
+      padding: 12px 24px;
+      border-radius: var(--r-md);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      z-index: var(--z-toast);
+      opacity: 0;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      pointer-events: none;
+      white-space: nowrap;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    @media (max-width: 900px) {
+      .story-inner, .how-inner, .loc-inner { grid-template-columns: 1fr; }
+      .menu-grid { grid-template-columns: 1fr 1fr; }
+      .reviews-grid { grid-template-columns: 1fr; }
+      .nav, footer, .demo-banner { padding-left: 20px; padding-right: 20px; }
+    }
+
+    @media (max-width: 600px) {
+      .menu-grid { grid-template-columns: 1fr; }
+      .nav-badge { display: none; }
+    }
+  </style>
+
+  <!-- SVG sprite -->
+  <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="icon-wa" viewBox="0 0 24 24">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+    </symbol>
+  </svg>
+</head>
+<body>
+  <div id="demoBanner" class="demo-banner" aria-label="Demo notice"></div>
+  <div id="app"></div>
+  <div id="upgradeSection" class="upgrade"></div>
+  <footer>
+    <div class="footer-left" id="footerLeft"></div>
+    <div class="footer-right">
+      <span class="footer-kravon" id="footerKravon"></span>
+    </div>
+  </footer>
+
+  <div class="cart-bar" id="cartBar" role="region" aria-label="Cart summary" aria-live="polite">
+    <div class="cart-bar-left">
+      <div class="cart-count" id="cartCount" aria-label="Items in cart">0</div>
+      <div class="cart-summary">
+        <strong id="cartBarTotal">₹0</strong>
+        <span id="cartBarItems">0 items</span>
+      </div>
+    </div>
+    <div class="cart-bar-right">
+      <button class="cart-view-btn" data-action="open-cart" aria-label="View cart">View Cart</button>
+      <button class="cart-wa-btn" data-action="checkout" aria-label="Checkout via WhatsApp">
+        <svg aria-hidden="true" focusable="false"><use href="#icon-wa"/></svg>
+        Checkout on WhatsApp
+      </button>
+    </div>
+  </div>
+
+  <div class="cart-overlay" id="cartOverlay" aria-hidden="true"></div>
+
+  <div class="cart-drawer" id="cartDrawer"
+       role="dialog" aria-modal="true" aria-label="Your Order" aria-hidden="true">
+    <div class="cart-drawer-head">
+      <div class="cart-drawer-title">Your Order</div>
+      <button class="cart-close" data-action="close-cart" aria-label="Close cart">✕</button>
+    </div>
+    <div class="cart-items" id="cartItemsList" aria-live="polite"></div>
+    <div class="cart-footer" id="cartFooter" style="display:none">
+      <div class="cart-total-row">
+        <span class="cart-total-label">Order Total</span>
+        <span class="cart-total-val" id="cartTotalVal">₹0</span>
+      </div>
+      <p class="cart-min-note" id="cartMinNote"></p>
+      <button class="cart-checkout-btn" data-action="checkout" aria-label="Send order on WhatsApp">
+        <svg aria-hidden="true" focusable="false"><use href="#icon-wa"/></svg>
+        Send Order on WhatsApp
+      </button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="alert" aria-live="assertive" aria-atomic="true"></div>
+
+  <script>
+    /* ═══════════════════════════════════════════════════════════
+       KRAVON SHARED — KRAVON.JS (INLINED)
+       ═══════════════════════════════════════════════════════════ */
+    
+    const Kravon = (function () {
+      'use strict';
+
+      function scrollReveal() {
+        const els = document.querySelectorAll('.reveal');
+        if (!els.length) return;
+
+        const observer = new IntersectionObserver(
+          (entries) => entries.forEach(e => {
+            if (e.isIntersecting) {
+              e.target.classList.add('in');
+              observer.unobserve(e.target);
+            }
+          }),
+          { threshold: 0.08 }
+        );
+
+        els.forEach(el => observer.observe(el));
+      }
+
+      function buildWaLink(number, greeting) {
+        const text = encodeURIComponent(greeting || 'Hi!');
+        return `https://wa.me/${number}?text=${text}`;
+      }
+
+      function setWaLinks(url) {
+        document.querySelectorAll('[data-wa-link]').forEach(el => {
+          el.href = url;
+        });
+      }
+
+      function renderDemoBanner(demo) {
+        const el = document.getElementById('demoBanner');
+        if (!el) return;
+
+        if (!demo || !demo.show) {
+          el.style.display = 'none';
+          return;
+        }
+
+        el.innerHTML = `
+          <div class="demo-banner-left">
+            <div class="demo-dot" aria-hidden="true"></div>
+            <span class="demo-text">${demo.text || ''}</span>
+          </div>
+          <span class="demo-right">${demo.label || 'kravon.in'}</span>
+        `;
+      }
+
+      function renderUpgrade(upgrade) {
+        const el = document.getElementById('upgradeSection');
+        if (!el) return;
+
+        if (!upgrade || upgrade.show === false) {
+          el.style.display = 'none';
+          return;
+        }
+
+        el.innerHTML = `
+          <div class="wrap">
+            <div class="upgrade-inner" style="flex-direction: column; align-items: flex-start;">
+              <div>
+                <div class="upgrade-headline">${upgrade.headline || ''}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      function renderFooter(brand, contact, footer) {
+        const left = document.getElementById('footerLeft');
+        if (left) {
+          left.innerHTML =
+            `© ${brand.year || new Date().getFullYear()} ${brand.name}` +
+            (contact && contact.city ? ` · ${contact.city}` : '') +
+            (contact && contact.phone ? `<br>${contact.phone}` : '');
+        }
+
+        const kravon = document.getElementById('footerKravon');
+        if (kravon && footer) {
+          kravon.innerHTML =
+            `${footer.poweredBy || 'Powered by'} ` +
+            `<a href="${footer.poweredUrl || 'https://kravon.in'}" ` +
+            `target="_blank" rel="noopener noreferrer">` +
+            `${footer.poweredLabel || 'Kravon'}</a>`;
+        }
+      }
+
+      function toast(msg, duration) {
+        const el = document.getElementById('toast');
+        if (!el) return;
+        el.textContent = msg;
+        el.classList.add('show');
+        setTimeout(() => el.classList.remove('show'), duration || 2400);
+      }
+
+      return {
+        scrollReveal,
+        buildWaLink,
+        setWaLinks,
+        renderDemoBanner,
+        renderUpgrade,
+        renderFooter,
+        toast,
+      };
+    })();
+
+    window.Kravon = Kravon;
+
+    /* ═══════════════════════════════════════════════════════════
+       PRESENCE — CART.JS (INLINED)
+       ═══════════════════════════════════════════════════════════ */
+
+    const Cart = (function () {
+      'use strict';
+
+      let _state = {};
+      const _subs = [];
+
+      function _notify() { _subs.forEach(fn => fn()); }
+
+      function subscribe(fn) { _subs.push(fn); }
+
+      function add(id) {
+        _state[String(id)] = 1;
+        _notify();
+      }
+
+      function change(id, delta) {
+        const key  = String(id);
+        const next = (_state[key] || 0) + delta;
+        if (next <= 0) { delete _state[key]; }
+        else           { _state[key] = next;  }
+        _notify();
+      }
+
+      function qty(id)   { return _state[String(id)] || 0; }
+      function count()   { return Object.values(_state).reduce((a, b) => a + b, 0); }
+      function items()   { return { ..._state }; }
+
+      function total() {
+        return Object.entries(_state).reduce((sum, [id, q]) => {
+          const item = window.MENU.find(m => String(m.id) === id);
+          return sum + (item ? item.price * q : 0);
+        }, 0);
+      }
+
+      return { subscribe, add, change, qty, count, total, items };
+    })();
+
+    /* ═══════════════════════════════════════════════════════════
+       MOCK RESTAURANT CONFIG
+       ═══════════════════════════════════════════════════════════ */
+
+    window.CONFIG = {
+      meta: {
+        title: 'Dead Flat Co. — Finest Burgers & Craft Beer',
+        description: 'Order fresh burgers online from Dead Flat Co. Cozy ambiance, craft beer selection.'
+      },
+      brand: {
+        name: 'Dead Flat Co.',
+        tagline: 'Premium Burgers',
+        eyebrow: 'Welcome to',
+        year: 2024
+      },
+      contact: {
+        waNumber: '919876543210',
+        waGreeting: 'Hi! I\'d like to place an order.',
+        phone: '+91 9876 543210',
+        city: 'Bangalore'
+      },
+      hours: {
+        navBadge: '11:00 - 22:30',
+        kitchenNote: 'Kitchen closes at 10:30 PM. Orders received by then are confirmed.',
+      },
+      hero: {
+        headline: 'Handcrafted <em>Burgers</em> & Cold Brew',
+        sub: 'Experience gourmet burgers made fresh to order. From classic beef to creative veggie options.',
+        ctaLabel: 'Browse Menu',
+        footnote: 'Order now, pick up in 15 mins.',
+        stats: [
+          { num: '12+ yrs', label: 'In\nBusiness', className: 'status-open' },
+          { num: '1200+', label: 'Monthly\nCustomers' },
+          { num: '4.9★', label: 'Google\nRating' }
+        ]
+      },
+      story: {
+        label: 'Our Story',
+        headline: 'Burgers Made With Passion',
+        body: [
+          'Dead Flat Co. started as a small food truck dream in 2012. We believed that great burgers don\'t have to be complicated—just premium ingredients, proper cooking, and care.',
+          'Today, our cozy restaurant serves hundreds of burger lovers every week. Every patty is ground fresh, every bun is toasted to perfection, and every sauce is made in-house.',
+          'We\'ve stayed true to our roots: no shortcuts, no frozen ingredients, just honest, delicious food.'
+        ],
+        facts: [
+          { icon: '🔥', title: 'Fresh Beef', body: 'Sourced daily from local farms.' },
+          { icon: '🌱', title: 'Seasonal Greens', body: 'Lettuce, tomato, and pickles picked fresh.' },
+          { icon: '🤝', title: 'Local First', body: 'We support local suppliers and artisans.' }
+        ]
+      },
+      menu: {
+        label: 'Menu',
+        headline: 'Pick Your Burger',
+        waNote: 'Order via WhatsApp for fastest service. Replies in 2 mins.'
+      },
+      order: {
+        currency: '₹',
+        minOrder: 300,
+        footnote: 'Minimum order ₹300. FREE delivery for orders above ₹500 within 3km.'
+      },
+      how: {
+        label: 'How It Works',
+        headline: 'Order in 3 Easy Steps',
+        steps: [
+          { title: 'Pick Your Burger', body: 'Choose from our menu. Customize toppings and sides.' },
+          { title: 'Send on WhatsApp', body: 'Click "Checkout on WhatsApp" to send your order.' },
+          { title: 'We\'ll Confirm & Cook', body: 'We reply within 2 minutes. Ready in 15–20 mins.' }
+        ],
+        benefits: [
+          'Fast & Direct — No middleman app fees',
+          'Customization — Tell us exactly what you want',
+          'Personal Touch — Ask us anything, anytime',
+          'Secure — No payment data stored online'
+        ],
+        waCard: {
+          icon: '💬',
+          title: 'Order on WhatsApp',
+          ctaLabel: 'Start Order Now'
+        }
+      },
+      reviews: {
+        label: 'Reviews',
+        headline: 'What Our Customers Say',
+        items: [
+          { stars: 5, text: 'Best burgers in Bangalore! Fresh patties, amazing flavors. Worth every rupee.', name: 'Arjun M.', avatar: 'A', source: 'Google Reviews' },
+          { stars: 5, text: 'The garlic mayo burger is INSANE. WhatsApp ordering is super convenient.', name: 'Priya S.', avatar: 'P', source: 'Google Reviews' },
+          { stars: 5, text: 'Friendly awesome staff, clean place, and burgers that taste like homemade love.', name: 'Sam K.', avatar: 'S', source: 'Google Reviews' }
+        ]
+      },
+      location: {
+        label: 'Visit Us',
+        mapLabel: 'Location map',
+        pinName: 'Dead Flat Co.',
+        pinSub: 'Koramangala, Bangalore',
+        rows: [
+          { icon: '📍', title: 'Address', body: '456 Koramangala 5th Block, Bangalore 560034', highlight: true },
+          { icon: '🕐', title: 'Hours', body: 'Mon–Sun 11:00 AM – 10:30 PM' },
+          { icon: '📞', title: 'Phone', body: '+91 9876 543210' },
+          { icon: '🚗', title: 'Parking', body: 'Free street parking nearby, paid lot 2 mins walk.' }
+        ]
+      },
+      demo: {
+        show: true,
+        text: 'Kravon Presence Demo — Static Showcase Build',
+        label: 'DEMO'
+      },
+      upgrade: {
+        show: false
+      },
+      footer: {
+        poweredBy: 'Powered by',
+        poweredUrl: 'https://kravon.in',
+        poweredLabel: 'Kravon'
+      }
+    };
+
+    window.MENU = [
+      { id: 1, name: 'Classic Beef Burger', desc: 'Juicy beef patty, lettuce, tomato, pickles, house mayo.', price: 320, emoji: '🍔', bg: '#2a1810', badge: 'TOP', badgeClass: 'mb-top' },
+      { id: 2, name: 'Garlic Parmesan Burger', desc: 'Roasted garlic mayo, aged cheddar, crispy bacon bits.', price: 380, emoji: '🧄', bg: '#1a3a1a', badge: 'HOT', badgeClass: 'mb-hot' },
+      { id: 3, name: 'Mushroom & Swiss', desc: 'Sautéed mushrooms, melted Swiss cheese, truffle aioli.', price: 350, emoji: '🍄', bg: '#3a2a1a', badge: null, badgeClass: null },
+      { id: 4, name: 'Spicy Jalapeño Burger', desc: 'Spicy mayo, fresh jalapeños, pepper jack cheese, sriracha.', price: 340, emoji: '🌶️', bg: '#2a1a0a', badge: 'SAVE', badgeClass: 'mb-save' },
+      { id: 5, name: 'The Veggie Wonder', desc: 'Beetroot patty, quinoa, green chutney, cucumber.', price: 280, emoji: '🥬', bg: '#1a3a1a', badge: 'VEG', badgeClass: 'mb-veg' },
+      { id: 6, name: 'BBQ Bacon Burger', desc: 'Crispy bacon, cheddar, onion rings, BBQ sauce.', price: 400, emoji: '🥓', bg: '#2a1810', badge: null, badgeClass: null },
+      { id: 7, name: 'Double Decker Beef', desc: 'Two beef patties, triple cheddar, pickles, special sauce.', price: 480, emoji: '⬆️', bg: '#3a2a1a', badge: 'HOT', badgeClass: 'mb-hot' },
+      { id: 8, name: 'Cream Cheese & Bacon', desc: 'Whipped cream cheese, crispy bacon, caramelized onions.', price: 420, emoji: '🧀', bg: '#2a1a0a', badge: null, badgeClass: null },
+      { id: 9, name: 'Greek Feta Burger', desc: 'Feta cheese, sun-dried tomatoes, oregano aioli, greek salad topping.', price: 360, emoji: '🇬🇷', bg: '#1a3a1a', badge: null, badgeClass: null }
+    ];
+
+    /* ═══════════════════════════════════════════════════════════
+       PRESENCE — RENDERER.JS (INLINED)
+       ═══════════════════════════════════════════════════════════ */
+
+    (function () {
+      'use strict';
+
+      const C  = window.CONFIG;
+      const M  = window.MENU;
+      const $  = id => document.getElementById(id);
+      const el = (tag, cls, html) => {
+        const e = document.createElement(tag);
+        if (cls)  e.className   = cls;
+        if (html !== undefined) e.innerHTML = html;
+        return e;
+      };
+
+      function waLink() {
+        return Kravon.buildWaLink(C.contact.waNumber, C.contact.waGreeting);
+      }
+
+      function waIcon() {
+        return `<svg aria-hidden="true" focusable="false" width="16" height="16"><use href="#icon-wa"/></svg>`;
+      }
+
+      function currency(n) {
+        return `${C.order.currency}${n}`;
+      }
+
+      function renderNav() {
+        const nav = el('nav', 'nav');
+        nav.setAttribute('aria-label', 'Main navigation');
+        nav.innerHTML = `
+          <div class="nav-brand">
+            <div>
+              <div class="nav-logo">${C.brand.name}</div>
+              <div class="nav-logo-sub">${C.brand.tagline}</div>
+            </div>
+            <div class="nav-sep" aria-hidden="true"></div>
+            <span class="nav-badge">${C.hours.navBadge}</span>
+          </div>
+          <a href="${waLink()}" target="_blank" rel="noopener noreferrer"
+             class="wa-btn wa-btn--sm" data-wa-link aria-label="Order on WhatsApp">
+            ${waIcon()} Order on WhatsApp
+          </a>
+        `;
+        return nav;
+      }
+
+      function renderHero() {
+        const stats = C.hero.stats.map((s, i) => {
+          const cls = s.className ? ` ${s.className}` : '';
+          const sep = i < C.hero.stats.length - 1
+            ? '<div class="h-sep" aria-hidden="true"></div>' : '';
+          return `
+            <div>
+              <span class="h-stat-num${cls}">${s.num}</span>
+              <span class="h-stat-label">${s.label.replace('\n', '<br>')}</span>
+            </div>${sep}`;
+        }).join('');
+
+        const section = el('section', 'hero');
+        section.setAttribute('aria-labelledby', 'hero-heading');
+        section.innerHTML = `
+          <div class="wrap">
+            <div class="hero-inner">
+              <div>
+                <span class="hero-eyebrow">${C.brand.eyebrow}</span>
+                <h1 class="hero-headline" id="hero-heading">${C.hero.headline}</h1>
+                <p class="hero-sub">${C.hero.sub}</p>
+                <div class="hero-ctas">
+                  <a href="#menu" class="wa-btn wa-btn--lg" aria-label="Go to menu">
+                    ${waIcon()}
+                    <span>${C.hero.ctaLabel}</span>
+                  </a>
+                  <span class="hero-footnote">${C.hero.footnote}</span>
+                </div>
+              </div>
+              <aside class="hero-meta" aria-label="Key facts">${stats}</aside>
+            </div>
+          </div>
+        `;
+        return section;
+      }
+
+      function renderStory() {
+        const bodyHtml = C.story.body.map(p => `<p>${p}</p>`).join('');
+        const factsHtml = C.story.facts.map(f => `
+          <div class="sfact">
+            <span class="sfact-icon" aria-hidden="true">${f.icon}</span>
+            <div>
+              <div class="sfact-title">${f.title}</div>
+              <div class="sfact-body">${f.body}</div>
+            </div>
+          </div>`).join('');
+
+        const section = el('section', 'story');
+        section.setAttribute('aria-labelledby', 'story-heading');
+        section.innerHTML = `
+          <div class="wrap">
+            <div class="story-inner">
+              <div>
+                <span class="sec-label" aria-hidden="true">${C.story.label}</span>
+                <h2 class="sec-headline" id="story-heading">${C.story.headline}</h2>
+                <div class="story-body">${bodyHtml}</div>
+              </div>
+              <aside class="story-facts" aria-label="Brand facts">${factsHtml}</aside>
+            </div>
+          </div>
+        `;
+        return section;
+      }
+
+      function renderMenuCtrl(id) {
+        const qty = Cart.qty(id);
+        if (qty === 0) {
+          return `<button class="add-btn" data-action="add" data-id="${id}" aria-label="Add to cart">+ Add</button>`;
+        }
+        return `
+          <div class="qty-ctrl" role="group" aria-label="Quantity">
+            <button class="qty-btn" data-action="dec" data-id="${id}" aria-label="Decrease">−</button>
+            <div class="qty-num" aria-live="polite">${qty}</div>
+            <button class="qty-btn" data-action="inc" data-id="${id}" aria-label="Increase">+</button>
+          </div>`;
+      }
+
+      function renderMenuGrid() {
+        return M.map(item => {
+          const badge = item.badge
+            ? `<span class="mbadge ${item.badgeClass}">${item.badge}</span>` : '';
+          return `
+            <article class="mcard reveal" aria-label="${item.name}">
+              <div class="mcard-img" style="background:${item.bg}" aria-hidden="true">
+                ${item.emoji}${badge}
+              </div>
+              <div class="mcard-body">
+                <h3 class="mcard-name">${item.name}</h3>
+                <p class="mcard-desc">${item.desc}</p>
+                <div class="mcard-footer">
+                  <div class="mcard-price">${currency(item.price)}</div>
+                  <div id="ctrl-${item.id}">${renderMenuCtrl(item.id)}</div>
+                </div>
+              </div>
+            </article>`;
+        }).join('');
+      }
+
+      function renderMenu() {
+        const section = el('section', 'menu-sec');
+        section.id = 'menu';
+        section.setAttribute('aria-labelledby', 'menu-heading');
+        section.innerHTML = `
+          <div class="wrap">
+            <div class="menu-header">
+              <div>
+                <span class="sec-label" aria-hidden="true">${C.menu.label}</span>
+                <h2 class="sec-headline" id="menu-heading">${C.menu.headline}</h2>
+              </div>
+              <div class="menu-wa-note" aria-hidden="true">${C.menu.waNote}</div>
+            </div>
+            <div class="menu-grid" id="menuGrid" role="list" aria-label="Menu items">
+              ${renderMenuGrid()}
+            </div>
+            <p class="menu-footnote">${C.order.footnote}</p>
+          </div>
+        `;
+        return section;
+      }
+
+      function renderHow() {
+        const stepsHtml = C.how.steps.map((s, i) => `
+          <li class="how-step">
+            <div class="how-num" aria-hidden="true">${String(i + 1).padStart(2, '0')}</div>
+            <div>
+              <div class="how-step-title">${s.title}</div>
+              <div class="how-step-body">${s.body}</div>
+            </div>
+          </li>`).join('');
+
+        const benefitsHtml = C.how.benefits
+          .map(b => `<li class="how-wa-note">${b}</li>`).join('');
+
+        const section = el('section', 'how-sec');
+        section.setAttribute('aria-labelledby', 'how-heading');
+        section.innerHTML = `
+          <div class="wrap">
+            <div class="how-inner">
+              <div>
+                <span class="sec-label" aria-hidden="true">${C.how.label}</span>
+                <h2 class="sec-headline" id="how-heading">${C.how.headline}</h2>
+                <ol class="how-steps" aria-label="Ordering steps">${stepsHtml}</ol>
+              </div>
+              <div>
+                <div class="how-wa-card">
+                  <span class="how-wa-icon" aria-hidden="true">${C.how.waCard.icon}</span>
+                  <div class="how-wa-title">${C.how.waCard.title}</div>
+                  <p class="how-wa-sub">${C.hours.kitchenNote}</p>
+                  <a href="${waLink()}" target="_blank" rel="noopener noreferrer"
+                     class="wa-btn wa-btn--md" data-wa-link aria-label="Start order on WhatsApp">
+                    ${waIcon()} ${C.how.waCard.ctaLabel}
+                  </a>
+                </div>
+                <ul class="how-wa-notes" aria-label="Order benefits">${benefitsHtml}</ul>
+              </div>
+            </div>
+          </div>
+        `;
+        return section;
+      }
+
+      function renderReviews() {
+        const cardsHtml = C.reviews.items.map(r => {
+          const stars = '★'.repeat(r.stars) + '☆'.repeat(5 - r.stars);
+          return `
+            <article class="rcard reveal">
+              <span class="rcard-stars" aria-label="${r.stars} stars">${stars}</span>
+              <blockquote class="rcard-text">"${r.text}"</blockquote>
+              <div class="rcard-author">
+                <div class="rcard-avatar" aria-hidden="true">${r.avatar}</div>
+                <div>
+                  <div class="rcard-name">${r.name}</div>
+                  <div class="rcard-source">${r.source}</div>
+                </div>
+              </div>
+            </article>`;
+        }).join('');
+
+        const section = el('section', 'reviews-sec');
+        section.setAttribute('aria-labelledby', 'reviews-heading');
+        section.innerHTML = `
+          <div class="wrap">
+            <span class="sec-label" aria-hidden="true">${C.reviews.label}</span>
+            <h2 class="sec-headline" id="reviews-heading">${C.reviews.headline}</h2>
+            <div class="reviews-grid">${cardsHtml}</div>
+          </div>
+        `;
+        return section;
+      }
+
+      function renderLocation() {
+        const rowsHtml = C.location.rows.map(row => {
+          const bodyCls = row.highlight ? 'loc-body loc-body--highlight' : 'loc-body';
+          return `
+            <div class="loc-row">
+              <span class="loc-icon" aria-hidden="true">${row.icon}</span>
+              <div>
+                <div class="loc-title">${row.title}</div>
+                <div class="${bodyCls}">${row.body}</div>
+              </div>
+            </div>`;
+        }).join('');
+
+        const section = el('section', 'loc-sec');
+        section.setAttribute('aria-labelledby', 'location-heading');
+        section.innerHTML = `
+          <div class="wrap">
+            <div class="loc-inner">
+              <div class="loc-map" role="img" aria-label="${C.location.mapLabel}">
+                <div class="loc-map-grid" aria-hidden="true"></div>
+                <div class="loc-pin">
+                  <span class="loc-pin-icon" aria-hidden="true">📍</span>
+                  <div class="loc-pin-name">${C.location.pinName}</div>
+                  <div class="loc-pin-sub">${C.location.pinSub}</div>
+                </div>
+              </div>
+              <div>
+                <h2 class="sec-headline" id="location-heading">${C.location.label}</h2>
+                <div class="loc-rows">${rowsHtml}</div>
+              </div>
+            </div>
+          </div>
+        `;
+        return section;
+      }
+
+      function mount() {
+        document.title = C.meta.title;
+        document.querySelector('meta[name="description"]').setAttribute('content', C.meta.description);
+
+        const app = $('app');
+        app.appendChild(renderNav());
+        app.appendChild(renderHero());
+        app.appendChild(renderStory());
+        app.appendChild(renderMenu());
+        app.appendChild(renderHow());
+        app.appendChild(renderReviews());
+        app.appendChild(renderLocation());
+
+        Kravon.renderDemoBanner(C.demo);
+        Kravon.renderUpgrade(C.upgrade);
+        Kravon.renderFooter(C.brand, C.contact, C.footer);
+        Kravon.setWaLinks(Kravon.buildWaLink(C.contact.waNumber, C.contact.waGreeting));
+        Kravon.scrollReveal();
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', mount);
+      } else {
+        mount();
+      }
+
+      window.PresenceRenderer = {
+        updateMenuCtrl: function (id) {
+          const el = document.getElementById(`ctrl-${id}`);
+          if (el) el.innerHTML = renderMenuCtrl(id);
+        }
+      };
+
+    })();
+
+    /* ═══════════════════════════════════════════════════════════
+       PRESENCE — BEHAVIOUR.JS (INLINED)
+       ═══════════════════════════════════════════════════════════ */
+
+    (function () {
+      'use strict';
+
+      const C   = window.CONFIG;
+      const $   = id => document.getElementById(id);
+
+      const DOM = {
+        cartBar:      $('cartBar'),
+        cartCount:    $('cartCount'),
+        cartBarTotal: $('cartBarTotal'),
+        cartBarItems: $('cartBarItems'),
+        cartItemsList:$('cartItemsList'),
+        cartFooter:   $('cartFooter'),
+        cartTotalVal: $('cartTotalVal'),
+        cartMinNote:  $('cartMinNote'),
+        cartDrawer:   $('cartDrawer'),
+        cartOverlay:  $('cartOverlay'),
+      };
+
+      function updateCartBar() {
+        const count  = Cart.count();
+        const total  = Cart.total();
+        const cur    = C.order.currency;
+        const min    = C.order.minOrder;
+        const belowMin = total < min;
+
+        DOM.cartCount.textContent    = count;
+        DOM.cartBarTotal.textContent = `${cur}${total}`;
+        DOM.cartBarItems.textContent = `${count} item${count !== 1 ? 's' : ''}`;
+        DOM.cartBar.classList.toggle('visible', count > 0);
+
+        const barBtn = DOM.cartBar.querySelector('.cart-wa-btn');
+        if (barBtn) {
+          barBtn.disabled = belowMin;
+          barBtn.setAttribute('aria-disabled', String(belowMin));
+        }
+      }
+
+      function renderCartDrawer() {
+        const count = Cart.count();
+        const total = Cart.total();
+        const cur   = C.order.currency;
+        const min   = C.order.minOrder;
+
+        if (count === 0) {
+          DOM.cartItemsList.innerHTML = `
+            <div class="cart-empty">
+              <div class="cart-empty-icon" aria-hidden="true">🛒</div>
+              <div class="cart-empty-text">Your cart is empty</div>
+            </div>`;
+          DOM.cartFooter.style.display = 'none';
+          return;
+        }
+
+        DOM.cartItemsList.innerHTML = Object.entries(Cart.items())
+          .map(([id, q]) => {
+            const item = window.MENU.find(m => String(m.id) === id);
+            if (!item) return '';
+            return `
+              <div class="cart-item">
+                <div class="cart-item-info">
+                  <div class="cart-item-name">${item.name}</div>
+                  <div class="cart-item-price">${cur}${item.price} × ${q}</div>
+                </div>
+                <div class="qty-ctrl" role="group" aria-label="Quantity for ${item.name}">
+                  <button class="qty-btn" data-action="dec" data-id="${id}" aria-label="Remove one">−</button>
+                  <div class="qty-num" aria-live="polite">${q}</div>
+                  <button class="qty-btn" data-action="inc" data-id="${id}" aria-label="Add one">+</button>
+                </div>
+                <div class="cart-item-total">${cur}${item.price * q}</div>
+              </div>`;
+          }).join('');
+
+        DOM.cartTotalVal.textContent = `${cur}${total}`;
+        DOM.cartFooter.style.display = 'flex';
+
+        if (total < min) {
+          DOM.cartMinNote.textContent = `Min order ${cur}${min} · Add ${cur}${min - total} more`;
+          DOM.cartMinNote.className   = 'cart-min-note warn';
+        } else {
+          DOM.cartMinNote.textContent = 'Ready to order';
+          DOM.cartMinNote.className   = 'cart-min-note';
+        }
+
+        const drawerBtn = document.querySelector('.cart-checkout-btn');
+        if (drawerBtn) {
+          drawerBtn.disabled = total < min;
+          drawerBtn.setAttribute('aria-disabled', String(total < min));
+        }
+      }
+
+      function openCart() {
+        DOM.cartDrawer.classList.add('open');
+        DOM.cartDrawer.setAttribute('aria-hidden', 'false');
+        DOM.cartOverlay.classList.add('open');
+        document.body.style.overflow = 'hidden';
+        const close = DOM.cartDrawer.querySelector('.cart-close');
+        if (close) close.focus();
+      }
+
+      function closeCart() {
+        DOM.cartDrawer.classList.remove('open');
+        DOM.cartDrawer.setAttribute('aria-hidden', 'true');
+        DOM.cartOverlay.classList.remove('open');
+        document.body.style.overflow = '';
+      }
+
+      function checkout() {
+        if (Cart.count() === 0) return;
+        if (Cart.total() < C.order.minOrder) return;
+        const cur   = C.order.currency;
+        const lines = Object.entries(Cart.items())
+          .map(([id, q]) => {
+            const item = window.MENU.find(m => String(m.id) === id);
+            return item ? `• ${item.name} x${q} — ${cur}${item.price * q}` : null;
+          })
+          .filter(Boolean)
+          .join('\n');
+
+        const msg = `Hi! I'd like to place an order:\n\n${lines}\n\nTotal: ${cur}${Cart.total()}\n\nPlease confirm and share delivery details.`;
+        window.open(Kravon.buildWaLink(C.contact.waNumber, msg), '_blank', 'noopener,noreferrer');
+      }
+
+      let _prevCartIds = new Set();
+
+      function onCartChange() {
+        updateCartBar();
+        renderCartDrawer();
+        if (window.PresenceRenderer) {
+          const currentIds = new Set(Object.keys(Cart.items()));
+          currentIds.forEach(id => PresenceRenderer.updateMenuCtrl(id));
+          _prevCartIds.forEach(id => {
+            if (!currentIds.has(id)) PresenceRenderer.updateMenuCtrl(id);
+          });
+          _prevCartIds = currentIds;
+        }
+      }
+
+      Cart.subscribe(onCartChange);
+
+      document.addEventListener('click', function (e) {
+        const btn = e.target.closest('[data-action]');
+        if (!btn) return;
+
+        const action = btn.dataset.action;
+        const id     = btn.dataset.id;
+
+        switch (action) {
+          case 'add':
+            Cart.add(id);
+            if (window.PresenceRenderer) PresenceRenderer.updateMenuCtrl(id);
+            break;
+          case 'inc':
+            Cart.change(id, +1);
+            if (window.PresenceRenderer) PresenceRenderer.updateMenuCtrl(id);
+            break;
+          case 'dec':
+            Cart.change(id, -1);
+            if (window.PresenceRenderer) PresenceRenderer.updateMenuCtrl(id);
+            break;
+          case 'open-cart':  openCart();   break;
+          case 'close-cart': closeCart();  break;
+          case 'checkout':   checkout();   break;
+        }
+      });
+
+      DOM.cartOverlay.addEventListener('click', closeCart);
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeCart();
+      });
+
+      updateCartBar();
+      renderCartDrawer();
+
+    })();
+  </script>
+</body>
+</html>

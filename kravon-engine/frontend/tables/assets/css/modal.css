@@ -1,0 +1,261 @@
+/* ═══════════════════════════════════════════════════════════
+   ORDERS — MODAL.CSS
+   Customisation modal (add-ons, spice, special instructions).
+   Form field styles shared between cart form and modal.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ─── MODAL OVERLAY ─── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 800;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+
+.modal {
+  background: var(--card);
+  border: 1px solid var(--border-2);
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  border-radius: var(--r-sm);
+}
+
+.modal-header {
+  padding: 24px 28px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.modal-title {
+  font-family: var(--font-head);
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--white);
+  letter-spacing: -0.5px;
+  margin-bottom: 4px;
+}
+
+.modal-price {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--amber);
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 0 0 16px;
+  line-height: 1;
+  transition: color var(--t-fast);
+}
+.modal-close:hover { color: var(--white); }
+
+.modal-body { padding: 20px 28px; }
+
+.modal-section { margin-bottom: 24px; }
+.modal-section:last-child { margin-bottom: 0; }
+
+.modal-section-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.3);
+  display: block;
+  margin-bottom: 12px;
+}
+
+/* ─── ADD-ON ROWS ─── */
+.option-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.option-row:last-child { border-bottom: none; }
+
+.option-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.option-price {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--amber);
+}
+
+.option-toggle {
+  width: 22px;
+  height: 22px;
+  border-radius: 2px;
+  border: 1px solid var(--border-2);
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  transition: all var(--t-fast);
+  position: relative;
+  flex-shrink: 0;
+}
+.option-toggle.checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.option-toggle.checked::after {
+  content: '✓';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #111;
+  font-weight: 800;
+}
+
+/* ─── SPICE LEVELS ─── */
+.spice-options {
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+.spice-btn {
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: all var(--t-fast);
+  border-radius: var(--r-sm);
+}
+.spice-btn:hover  { border-color: rgba(255, 255, 255, 0.25); color: var(--white); }
+.spice-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #111;
+  font-weight: 700;
+}
+
+/* ─── MODAL FOOTER ─── */
+.modal-footer {
+  padding: 20px 28px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.modal-qty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.modal-qty-btn {
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-2);
+  color: var(--white);
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--t-fast);
+  border-radius: var(--r-sm);
+}
+.modal-qty-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.modal-qty-num {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--white);
+  min-width: 24px;
+  text-align: center;
+}
+
+.modal-add-btn {
+  flex: 1;
+  padding: 12px 16px;
+  background: var(--accent);
+  color: #111;
+  font-family: var(--font-head);
+  font-size: 14px;
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+  transition: background var(--t-fast);
+  letter-spacing: -0.2px;
+  border-radius: var(--r-sm);
+}
+.modal-add-btn:hover { background: #d0e830; }
+
+/* ─── FORM FIELDS ─── */
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+}
+
+.form-row { margin-bottom: 2px; }
+
+.form-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.25);
+  margin-bottom: 6px;
+}
+.form-label small {
+  font-size: 8px;
+  opacity: 0.6;
+}
+
+.form-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  color: var(--white);
+  font-size: 13px;
+  font-family: var(--font-body);
+  padding: 10px 12px;
+  transition: border-color var(--t-fast);
+  border-radius: var(--r-sm);
+}
+.form-input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+.form-input::placeholder { color: rgba(255, 255, 255, 0.15); }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 480px) {
+  .modal-header,
+  .modal-body,
+  .modal-footer { padding-left: 20px; padding-right: 20px; }
+  .form-grid-2 { grid-template-columns: 1fr; }
+}

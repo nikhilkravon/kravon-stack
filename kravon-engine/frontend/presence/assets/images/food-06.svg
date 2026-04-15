@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#3A1850"/>
+      <stop offset="100%" stop-color="#0D0618"/>
+    </linearGradient>
+    <radialGradient id="shine" cx="35%" cy="30%" r="55%">
+      <stop offset="0%"   stop-color="#FFFFFF" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="plateSh" cx="40%" cy="35%" r="50%">
+      <stop offset="0%"   stop-color="#FFFFFF" stop-opacity="0.20"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="s"><feGaussianBlur stdDeviation="6"/></filter>
+    <filter id="soft"><feGaussianBlur stdDeviation="3"/></filter>
+  </defs>
+  <rect width="600" height="600" fill="url(#bg)"/>
+  <rect width="600" height="600" fill="url(#shine)"/>
+  <!-- Plate shadow -->
+  <ellipse cx="300" cy="338" rx="172" ry="28" fill="#000" opacity="0.35" filter="url(#s)"/>
+  <!-- Plate — pristine white for dessert -->
+  <circle cx="300" cy="295" r="168" fill="#F8F2FF"/>
+  <circle cx="300" cy="295" r="168" fill="url(#plateSh)"/>
+  <circle cx="300" cy="295" r="150" fill="#FDFAFF"/>
+  <circle cx="300" cy="295" r="147" fill="none" stroke="#E8D8F8" stroke-width="1.5"/>
+  <!-- Dessert — mousse/panna cotta -->
+  <ellipse cx="300" cy="310" rx="72" ry="48" fill="#F5E8D0"/>
+  <ellipse cx="300" cy="300" rx="68" ry="44" fill="#FAF0E0"/>
+  <ellipse cx="300" cy="292" rx="62" ry="40" fill="#FFF8F0"/>
+  <!-- Top dome -->
+  <ellipse cx="300" cy="282" rx="58" ry="36" fill="#FFFBF5"/>
+  <ellipse cx="300" cy="278" rx="50" ry="28" fill="#FFFFFF" opacity="0.8"/>
+  <!-- Gloss highlight -->
+  <ellipse cx="285" cy="270" rx="18" ry="10" fill="#FFFFFF" opacity="0.5" transform="rotate(-20 285 270)"/>
+  <!-- Caramel drizzle -->
+  <path d="M260 295 Q280 280 300 292 Q318 302 335 288 Q348 278 355 295" stroke="#C87820" stroke-width="4" fill="none" opacity="0.8" stroke-linecap="round"/>
+  <path d="M268 310 Q285 298 302 308 Q320 318 338 305" stroke="#D48828" stroke-width="3" fill="none" opacity="0.6" stroke-linecap="round"/>
+  <!-- Berry garnish -->
+  <circle cx="270" cy="272" r="9"  fill="#C02880"/>
+  <circle cx="267" cy="269" r="3"  fill="#E050A0" opacity="0.6"/>
+  <circle cx="330" cy="270" r="8"  fill="#A01870"/>
+  <circle cx="328" cy="267" r="2.5" fill="#D040A0" opacity="0.55"/>
+  <circle cx="300" cy="265" r="7"  fill="#B82278"/>
+  <!-- Mint sprig -->
+  <path d="M308 264 Q315 255 322 262" stroke="#1A8030" stroke-width="2" fill="none"/>
+  <ellipse cx="318" cy="258" rx="7" ry="5" fill="#22A040" opacity="0.8" transform="rotate(-20 318 258)"/>
+  <ellipse cx="312" cy="262" rx="6" ry="4" fill="#28B048" opacity="0.7" transform="rotate(15 312 262)"/>
+  <!-- Powdered sugar dots -->
+  <circle cx="278" cy="286" r="2"  fill="#FFFFFF" opacity="0.7"/>
+  <circle cx="295" cy="280" r="1.5" fill="#FFFFFF" opacity="0.6"/>
+  <circle cx="318" cy="283" r="2"  fill="#FFFFFF" opacity="0.65"/>
+  <circle cx="285" cy="299" r="1.5" fill="#FFFFFF" opacity="0.5"/>
+  <circle cx="310" cy="296" r="1.5" fill="#FFFFFF" opacity="0.55"/>
+  <!-- Dessert spoon -->
+  <rect x="408" y="228" width="4" height="88" rx="2" fill="#C8C0D8"/>
+  <ellipse cx="410" cy="225" rx="8" ry="12" fill="#D0C8E0"/>
+  <!-- Fork -->
+  <rect x="192" y="228" width="4" height="88" rx="2" fill="#C8C0D8"/>
+  <rect x="188" y="228" width="2" height="33" rx="1" fill="#C8C0D8"/>
+  <rect x="192" y="228" width="2" height="33" rx="1" fill="#C8C0D8"/>
+  <rect x="196" y="228" width="2" height="33" rx="1" fill="#C8C0D8"/>
+  <!-- Label -->
+  <rect x="0" y="528" width="600" height="72" fill="rgba(0,0,0,0.58)"/>
+  <text x="300" y="562" text-anchor="middle" font-family="Georgia, serif" font-size="19" fill="rgba(255,255,255,0.88)" letter-spacing="4" font-style="italic">Chef's Dessert</text>
+  <text x="300" y="584" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="rgba(255,255,255,0.38)" letter-spacing="5">PLACEHOLDER IMAGE</text>
+</svg>

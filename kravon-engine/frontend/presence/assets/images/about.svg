@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#3A1E0E"/>
+      <stop offset="50%"  stop-color="#1E0D06"/>
+      <stop offset="100%" stop-color="#0C0503"/>
+    </linearGradient>
+    <radialGradient id="light1" cx="30%" cy="20%" r="50%">
+      <stop offset="0%"   stop-color="#C8973A" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#C8973A" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="light2" cx="75%" cy="70%" r="45%">
+      <stop offset="0%"   stop-color="#E8A040" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#E8A040" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="light3" cx="55%" cy="40%" r="60%">
+      <stop offset="0%"   stop-color="#FF6820" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#FF6820" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="30"/></filter>
+    <filter id="softBlur"><feGaussianBlur stdDeviation="15"/></filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="600" fill="url(#bg)"/>
+  <rect width="800" height="600" fill="url(#light1)"/>
+  <rect width="800" height="600" fill="url(#light2)"/>
+  <rect width="800" height="600" fill="url(#light3)"/>
+
+  <!-- Architectural elements — walls/arches suggestion -->
+  <rect x="0"   y="0"   width="2"   height="600" fill="#C8973A" opacity="0.15"/>
+  <rect x="798" y="0"   width="2"   height="600" fill="#C8973A" opacity="0.15"/>
+  <rect x="0"   y="0"   width="800" height="2"   fill="#C8973A" opacity="0.12"/>
+  <rect x="0"   y="598" width="800" height="2"   fill="#C8973A" opacity="0.12"/>
+
+  <!-- Arch left -->
+  <path d="M80 600 L80 200 Q80 120 160 120 Q240 120 240 200 L240 600" fill="none" stroke="#3D2010" stroke-width="2.5" opacity="0.6"/>
+  <!-- Arch right -->
+  <path d="M560 600 L560 200 Q560 120 640 120 Q720 120 720 200 L720 600" fill="none" stroke="#3D2010" stroke-width="2.5" opacity="0.6"/>
+
+  <!-- Tables -->
+  <rect x="280" y="380" width="240" height="10" rx="3" fill="#4A2A12" opacity="0.8"/>
+  <rect x="320" y="390" width="12"  height="210" rx="2" fill="#4A2A12" opacity="0.7"/>
+  <rect x="468" y="390" width="12"  height="210" rx="2" fill="#4A2A12" opacity="0.7"/>
+
+  <!-- Plates on table -->
+  <ellipse cx="360" cy="378" rx="38" ry="8" fill="#2A1408" opacity="0.6"/>
+  <circle  cx="360" cy="370" r="32"          fill="none" stroke="#5A3018" stroke-width="2" opacity="0.5"/>
+  <ellipse cx="440" cy="378" rx="38" ry="8"  fill="#2A1408" opacity="0.6"/>
+  <circle  cx="440" cy="370" r="32"          fill="none" stroke="#5A3018" stroke-width="2" opacity="0.5"/>
+
+  <!-- Candle glow -->
+  <circle cx="400" cy="340" r="80" fill="#E8A040" opacity="0.08" filter="url(#blur)"/>
+  <g transform="translate(400, 340)">
+    <rect x="-4" y="20" width="8" height="40" rx="2" fill="#3A1C08" opacity="0.9"/>
+    <ellipse cx="0" cy="8"  rx="6"  ry="14"  fill="#E8A040" opacity="0.55" filter="url(#softBlur)"/>
+    <ellipse cx="0" cy="2"  rx="4"  ry="9"   fill="#FFC060" opacity="0.75" filter="url(#softBlur)"/>
+    <circle  cx="0" cy="20" r="3"             fill="#FFC060" opacity="0.9"/>
+  </g>
+
+  <!-- Wine glasses suggestion -->
+  <g transform="translate(340, 310)" opacity="0.45">
+    <path d="M0 0 Q-12 20 -12 35 Q-12 55 0 60 Q12 55 12 35 Q12 20 0 0Z" fill="none" stroke="#8A6040" stroke-width="1.5"/>
+    <rect x="-1" y="60" width="2" height="25" fill="#8A6040"/>
+    <rect x="-8" y="85" width="16" height="2" rx="1" fill="#8A6040"/>
+  </g>
+  <g transform="translate(460, 305)" opacity="0.45">
+    <path d="M0 0 Q-12 20 -12 35 Q-12 55 0 60 Q12 55 12 35 Q12 20 0 0Z" fill="none" stroke="#8A6040" stroke-width="1.5"/>
+    <rect x="-1" y="60" width="2" height="25" fill="#8A6040"/>
+    <rect x="-8" y="85" width="16" height="2" rx="1" fill="#8A6040"/>
+  </g>
+
+  <!-- Floor reflection -->
+  <rect x="0" y="500" width="800" height="100" fill="url(#bg)" opacity="0.5"/>
+  <rect x="0" y="480" width="800" height="2" fill="#C8973A" opacity="0.06"/>
+
+  <!-- Label -->
+  <rect x="0" y="540" width="800" height="60" fill="rgba(0,0,0,0.55)"/>
+  <text x="400" y="572" text-anchor="middle" font-family="Georgia, serif" font-size="16" fill="rgba(255,255,255,0.75)" letter-spacing="5" font-style="italic">Restaurant Interior</text>
+  <text x="400" y="590" text-anchor="middle" font-family="Arial, sans-serif" font-size="9"  fill="rgba(255,255,255,0.35)" letter-spacing="5">PLACEHOLDER IMAGE</text>
+</svg>

@@ -1,0 +1,207 @@
+/* ═══════════════════════════════════════════════════════════
+   KRAVON SHARED — BASE.CSS
+   Design tokens, reset, typography.
+   Single source of truth across all products.
+   No hex values appear in any other CSS file.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ─── DESIGN TOKENS ─── */
+:root {
+
+  /* Surfaces */
+  --black:      #0a0905;
+  --dark:       #111008;
+  --panel:      #181510;
+  --card:       #1e1a12;
+  --card-2:     #242018;
+  --cream:      #f5f2ea;
+  --white:      #ffffff;
+
+  /* Brand */
+  --ink:        #1a4a2e;
+  --ink-deep:   #112e1d;
+  --lime:       #c2d62a;
+  --lime-dk:    #9eb020;
+  --amber:      #e8a020;
+  --red:        #d93a2b;
+  --green:      #4caf50;
+
+  /* WhatsApp */
+  --wa:         #25d366;
+  --wa-dark:    #1da851;
+
+  /* Borders */
+  --border:     rgba(255, 255, 255, 0.07);
+  --border-2:   rgba(255, 255, 255, 0.12);
+  --border-lt:  rgba(26, 74, 46, 0.12);
+
+  /* Text */
+  --muted:      #7a7670;
+  --stone:      #e0dcd4;
+
+  /* Typography */
+  --font-head:  'Syne', sans-serif;
+  --font-body:  'DM Sans', sans-serif;
+  --font-mono:  'Space Mono', monospace;
+
+  /* Spacing scale */
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3:  12px;
+  --sp-4:  16px;
+  --sp-5:  24px;
+  --sp-6:  32px;
+  --sp-7:  48px;
+  --sp-8:  64px;
+  --sp-9:  96px;
+  --sp-10: 128px;
+
+  /* Radius */
+  --r-sm:  2px;
+  --r-md:  4px;
+  --r-lg:  8px;
+
+  /* Transitions */
+  --t-fast:   0.15s ease;
+  --t-mid:    0.25s ease;
+  --t-slow:   0.45s ease;
+
+  /* Z-index scale */
+  --z-base:    1;
+  --z-sticky:  100;
+  --z-overlay: 200;
+  --z-modal:   300;
+  --z-toast:   400;
+}
+
+/* ─── RESET ─── */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+  scroll-padding-top: 68px; /* clear sticky nav (60px) + 8px breathing room */
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--dark);
+  color: var(--white);
+  font-family: var(--font-body);
+  font-weight: 400;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+img, svg {
+  display: block;
+  max-width: 100%;
+}
+
+ul, ol {
+  list-style: none;
+}
+
+/* ─── TYPOGRAPHY PRIMITIVES ─── */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-head);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.label-mono {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.3);
+  display: block;
+}
+
+.label-lime {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--lime);
+  display: block;
+}
+
+.label-ink {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--lime-dk);
+  display: block;
+}
+
+/* ─── LAYOUT PRIMITIVE ─── */
+.wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 56px;
+}
+
+/* ─── GOOGLE FONTS PRELOAD HINT ─── */
+/* Load order: preconnect in <head>, then font link. */
+/* All three products use: Syne · DM Sans · Space Mono */
+/* Font URL: https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800
+             &family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300
+             &family=Space+Mono:ital@0;1&display=swap */
+
+/* ─── SCROLL REVEAL ─── */
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.55s ease, transform 0.55s ease;
+}
+.reveal.in {
+  opacity: 1;
+  transform: translateY(0);
+}
+.reveal-d1 { transition-delay: 0.1s; }
+.reveal-d2 { transition-delay: 0.2s; }
+.reveal-d3 { transition-delay: 0.3s; }
+.reveal-d4 { transition-delay: 0.4s; }
+
+/* ─── UTILITY ─── */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 1024px) {
+  .wrap { padding: 0 32px; }
+}
+
+@media (max-width: 768px) {
+  .wrap { padding: 0 20px; }
+}

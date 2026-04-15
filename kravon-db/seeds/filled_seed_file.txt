@@ -1,0 +1,49 @@
+– filled_seed_file.txt – Minimal working seed dataset for one restaurant
+
+– TENANT INSERT INTO tenant.restaurants (id, slug, name, plan,
+has_presence, has_orders) VALUES ( gen_random_uuid(), ‘fire-bowl’, ‘Fire
+Bowl Kitchen’, ‘full’, true, true );
+
+– LOCATION INSERT INTO tenant.locations (id, tenant_id, name, city)
+VALUES ( gen_random_uuid(), (SELECT id FROM tenant.restaurants WHERE
+slug=‘fire-bowl’), ‘Fire Bowl Kitchen Bandra’, ‘Mumbai’ );
+
+– BRAND THEME INSERT INTO brand.themes (id, tenant_id, primary_color,
+secondary_color) VALUES ( gen_random_uuid(), (SELECT id FROM
+tenant.restaurants WHERE slug=‘fire-bowl’), ‘#ff3c00’, ‘#111111’ );
+
+– MENU INSERT INTO menu.menus (id, tenant_id, name) VALUES (
+gen_random_uuid(), (SELECT id FROM tenant.restaurants WHERE
+slug=‘fire-bowl’), ‘Dinner Menu’ );
+
+– CATEGORY INSERT INTO menu.categories (id, tenant_id, menu_id, name)
+VALUES ( gen_random_uuid(), (SELECT id FROM tenant.restaurants WHERE
+slug=‘fire-bowl’), (SELECT id FROM menu.menus LIMIT 1), ‘Ramen Bowls’ );
+
+– MENU ITEMS INSERT INTO menu.menu_items (id, tenant_id, category_id,
+name, price) VALUES (gen_random_uuid(), (SELECT id FROM
+tenant.restaurants WHERE slug=‘fire-bowl’), (SELECT id FROM
+menu.categories LIMIT 1), ‘Chicken Ramen Bowl’, 420 ),
+(gen_random_uuid(), (SELECT id FROM tenant.restaurants WHERE
+slug=‘fire-bowl’), (SELECT id FROM menu.categories LIMIT 1), ‘Veg
+Teriyaki Bowl’, 360 );
+
+– CUSTOMER INSERT INTO customer.customers (id, tenant_id, name, phone)
+VALUES ( gen_random_uuid(), (SELECT id FROM tenant.restaurants WHERE
+slug=‘fire-bowl’), ‘Nikhil’, ‘9999999999’ );
+
+– ORDER INSERT INTO orders.orders (id, tenant_id, status,
+subtotal_amount, total_amount) VALUES ( gen_random_uuid(), (SELECT id
+FROM tenant.restaurants WHERE slug=‘fire-bowl’), ‘completed’, 420, 420
+);
+
+– ORDER ITEM INSERT INTO orders.order_items (id, tenant_id, order_id,
+item_name, unit_price, quantity, total_price) VALUES (
+gen_random_uuid(), (SELECT id FROM tenant.restaurants WHERE
+slug=‘fire-bowl’), (SELECT id FROM orders.orders LIMIT 1), ‘Chicken
+Ramen Bowl’, 420, 1, 420 );
+
+– PAYMENT INSERT INTO payments.payments (id, tenant_id, order_id,
+amount, method, status) VALUES ( gen_random_uuid(), (SELECT id FROM
+tenant.restaurants WHERE slug=‘fire-bowl’), (SELECT id FROM
+orders.orders LIMIT 1), 420, ‘upi’, ‘captured’ );

@@ -1,0 +1,34 @@
+{
+  "_comment": "configs/{slug}.json — static snapshot of restaurant config. Generated from DB via scripts/export-config.js. Used as reference/backup. The live source of truth is the database — GET /v1/restaurants/:slug/config serves this data dynamically.",
+
+  "brand": {
+    "name": "Dead Flat Co.",
+    "tagline": "Andheri West · Cloud Kitchen",
+    "year": "2025"
+  },
+
+  "features": {
+    "presence": true,
+    "tables":   false,
+    "orders":   true,
+    "catering": true,
+    "insights": true
+  },
+
+  "location": {
+    "address": "Andheri West, Mumbai 400053",
+    "city":    "Andheri West, Mumbai",
+    "phone":   "+91 72084 00844",
+    "delivery_zone": "Andheri · Juhu · Versova · Lokhandwala"
+  },
+
+  "hours": {
+    "display":   "Mon – Sun: 12:00 PM – 1:00 AM",
+    "open_until": "1:00 AM"
+  },
+
+  "contact": {
+    "email":     "hello@deadflat.in",
+    "wa_number": "917208400844"
+  }
+}
