@@ -1,0 +1,253 @@
+KRAVON STACK — PROJECT STATUS
+As of: 2026-04-15
+Repo:  https://github.com/nikhilkravon/kravon-stack
+===============================================================
+
+
+OVERVIEW
+--------
+Kravon is a multi-tenant restaurant platform. One backend serves all
+restaurant tenants (slug/domain-based resolution). Each tenant can have
+a subset of products enabled via feature flags.
+
+Products: Presence | Orders | Tables | Catering | Insights
+
+
+REPOSITORY STRUCTURE
+--------------------
+kravon-stack/
+├── kravon-db/          PostgreSQL schema, seeds, queries, scripts
+├── kravon-engine/
+│   ├── backend/        Node.js / Express API server
+│   ├── frontend/       Vanilla HTML/CSS/JS storefront modules
+│   ├── configs/        Per-restaurant JSON config snapshots
+│   ├── demos/          Standalone HTML demo pages per module
+│   └── docs/           Architecture, API reference, onboarding
+└── DEV_HANDOFF.txt     Prior dev notes
+
+
+===============================================================
+1. kravon-db
+===============================================================
+
+Schema
+------
+  File:    kravon-db/schema/kravon_schema_v12.sql
+  Target:  PostgreSQL 17
+  Tables:  83 across 10 schemas
+
+  Schemas and key tables:
+    tenant      restaurants, locations, domains, operating_hours,
+                virtual_brands, staff, roles, permissions,
+                tax_rules, subscriptions, feature_flags
+    brand       themes, assets, seo, contact_links, announcements
+    menu        menus, categories, menu_items, item_variants,
+                customization_groups, combos, menu_schedules
+    customer    customers, addresses, loyalty_accounts,
+                loyalty_transactions, feedback, identities
+    orders      orders, order_items, order_taxes, order_discounts,
+                coupons, delivery_jobs, order_events
+    payments    payments, payment_events
+    dining      tables, sessions, reservations, waitlist, reviews
+    catering    leads, lead_notes, events, quotes, packages
+    insights    daily_metrics, item_performance, review_summary,
+                customer_segments, menu_views
+    platform    event_outbox, webhooks, audit_log, api_keys,
+                notifications, usage_ledger
+    inventory   items, movements  [stub, not yet active]
+
+Seeds
+-----
+  kravon-db/seeds/kravon_seed_v12.sql    — full dummy dataset (642 lines)
+    Seeds: 1 tenant, 1 location, brand, 2 staff, 3 tables,
+           1 menu (3 categories, 8 items), 1 customer,
+           1 order with payment, review_summary
+    All UUIDs are fixed for cross-file referencing.
+  kravon-db/seeds/blank_template.txt     — scaffold template
+  kravon-db/seeds/filled_seed_file.txt   — minimal working example
+  kravon-db/seeds/filled_seed_file_detailed.txt  — detailed example
+
+Queries
+-------
+  analytics/  customer_repeat_rate.sql, daily_revenue.sql, top_menu_items.sql
+  debug/      inspect_customers.sql, inspect_orders.sql
+
+Scripts
+-------
+  load_schema.sh   — apply schema to DB
+  reset_db.sh      — drop and recreate DB
+  seed_db.sh       — run seed file
+
+Docker
+------
+  docker/docker-compose.yml  — local Postgres 17 container
+
+
+===============================================================
+2. kravon-engine/backend
+===============================================================
+
+Stack:  Node.js 18+, Express 4, PostgreSQL (via pg)
+Entry:  server.js
+Deploy: Railway (railway.json present)
+
+Dependencies
+------------
+  express, pg, dotenv, razorpay, cors, helmet,
+  express-rate-limit, jsonwebtoken, bcryptjs, resend, zod
+
+Middleware  (api/middleware/)
+-----------------------------
+  tenant.js    — resolves restaurant from slug / domain / subdomain,
+                 attaches req.tenant
+  auth.js      — JWT verification
+  cors.js      — per-restaurant origin whitelist
+  feature.js   — requireFeature(flag) gate — 403 if product not enabled
+  error.js     — global error handler
+
+Routes  (api/routes/)
+---------------------
+  config.js    — GET /v1/restaurants/:slug/config
+                 serves full tenant config (brand, menu, features, hours)
+                 used by all frontend modules on boot
+  orders.js    — order creation, status, history
+  leads.js     — catering enquiry / lead capture
+  insights.js  — analytics read endpoints
+  reviews.js   — review submission
+  webhooks.js  — Razorpay payment webhook (raw body)
+  admin.js     — internal admin endpoints
+
+Services  (services/)
+---------------------
+  order.service.js   — order creation, tax calculation, stock check
+  lead.service.js    — catering lead handling, notifications
+  notify.service.js  — email (Resend) + WhatsApp notifications
+
+Integrations  (integrations/)
+------------------------------
+  razorpay.js    — payment order creation, signature verification
+  email.js       — Resend API wrapper
+  whatsapp.js    — WhatsApp notification stub
+  webhook.js     — outbound webhook dispatcher
+
+Database  (db/)
+---------------
+  pool.js        — pg connection pool
+  schema.js      — programmatic schema reference
+  migrate.js     — migration runner
+  migrations/    — v9-tables.js, v10-domain.js, v10-column-rename.js
+  seeds/         — dead-flat-co.js (tenant seed script)
+
+Scripts
+-------
+  generate-qr.js      — QR code generator for table URLs
+  validate-config.js  — validates configs/{slug}.json against schema
+
+Configs  (configs/)
+-------------------
+  _template.json      — blank config scaffold
+  dead-flat-co.json   — Dead Flat Co. (Andheri West, Mumbai)
+                        features: presence=on, orders=on, catering=on,
+                                  insights=on, tables=off
+
+
+===============================================================
+3. kravon-engine/frontend
+===============================================================
+
+Stack:    Vanilla HTML / CSS / JS (no build step)
+Deploy:   Vercel (vercel.json present)
+Boot:     Each module calls GET /config on load to hydrate from DB
+
+Shared  (shared/)
+-----------------
+  css/  base.css, components.css, layout.css
+  js/   kravon.js  — shared utilities
+
+API Client  (api-client/)
+--------------------------
+  kravon-api.js  — centralised fetch wrapper used by all modules
+
+Modules
+-------
+  presence/     — Restaurant landing page (menu, hero, about, hours)
+                  assets: 9 SVG images, CSS, JS (boot/behaviour/renderer/cart)
+                  status: COMPLETE — most built-out module
+
+  orders/       — Online ordering (cart, checkout, Razorpay payment)
+                  assets: 3 CSS, 7 JS (boot/behaviour/cart/checkout/
+                          modal/renderer/ui)
+                  status: COMPLETE
+
+  tables/       — QR-based dine-in ordering (scan table QR → order)
+                  assets: 2 CSS, 7 JS (mirrors orders module)
+                  status: COMPLETE
+
+  catering/     — Catering enquiry + lead capture form
+                  assets: 3 CSS, 5 JS (boot/behaviour/main/renderer/tests)
+                  status: COMPLETE
+
+  insights/     — Analytics dashboard (stub — index.html only)
+                  status: STUB — not yet built out
+
+Config  (config/)
+-----------------
+  restaurant-config.schema.json  — JSON Schema for config validation
+
+Demos  (demos/)
+---------------
+  presence-demo.html, orders-demo.html, tables-demo.html,
+  catering-demo.html, insights-demo.html
+  — Standalone pages for testing each module in isolation
+
+
+===============================================================
+WHAT IS WORKING / DONE
+===============================================================
+
+  [x] Full PostgreSQL schema (v12) — 83 tables, production-ready
+  [x] Complete seed dataset (kravon_seed_v12.sql)
+  [x] Backend API — tenant resolution, feature gating, all routes
+  [x] Razorpay integration — payment creation + webhook verification
+  [x] Email notifications via Resend
+  [x] Frontend — Presence module (complete)
+  [x] Frontend — Orders module (complete)
+  [x] Frontend — Tables / dine-in module (complete)
+  [x] Frontend — Catering enquiry module (complete)
+  [x] Per-restaurant JSON config system
+  [x] Docker setup for local Postgres
+  [x] Railway deployment config
+
+
+===============================================================
+WHAT IS INCOMPLETE / NOT YET BUILT
+===============================================================
+
+  [ ] Insights frontend — index.html stub only, no JS/CSS
+  [ ] Inventory schema — tables exist but no routes or frontend
+  [ ] Admin dashboard — route stub exists, no UI
+  [ ] Auth flow — JWT middleware exists, no login/register endpoints
+  [ ] Multi-tenant onboarding flow
+  [ ] package-lock.json not committed (run npm install before dev)
+
+
+===============================================================
+LOCAL DEV SETUP (quick ref)
+===============================================================
+
+  1. cd kravon-db
+     docker-compose up -d           # start Postgres
+     make load-schema               # apply schema
+     psql ... < seeds/kravon_seed_v12.sql
+
+  2. cd kravon-engine/backend
+     cp .env.example .env           # fill in DB + API keys
+     npm install
+     npm run dev                    # starts on port 3000
+
+  3. cd kravon-engine/frontend
+     # open any module's index.html in browser (or serve via Vercel CLI)
+     # modules boot by calling GET /v1/restaurants/:slug/config
+
+
+===============================================================
