@@ -1,8 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm install:*)",
-      "Bash(node --check /c/Users/91720/Dev_act/kravon-backend/server.js)"
+      "Bash(echo \"exit: $?\")",
+      "Bash(wc -l d:/KRAVON/Dev_act/kravon-db/seeds/demo_*.sql d:/KRAVON/Dev_act/kravon-db/seeds/kravon_seed_v12.sql)",
+      "Bash(git push *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
+    ],
+    "additionalDirectories": [
+      "d:\\KRAVON\\Dev_act\\kravon-db\\.git"
     ]
   }
 }
