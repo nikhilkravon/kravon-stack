@@ -46,7 +46,7 @@ const KravonAPI = (() => {
     _config = data.config;
 
     window.CONFIG       = _config;
-    window.MENU         = _config.menu;
+    window.MENU         = _config.menu.items || _config.menu;  // flat item array for renderer
     window.ADDONS       = _config.addons;
     window.SPICE_LEVELS = _config.spiceLevels;
 

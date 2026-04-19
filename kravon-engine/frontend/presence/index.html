@@ -19,9 +19,9 @@
   </style>
 
   <!-- Shared styles -->
-  <link rel="stylesheet" href="../shared/base.css">
-  <link rel="stylesheet" href="../shared/layout.css">
-  <link rel="stylesheet" href="../shared/components.css">
+  <link rel="stylesheet" href="../shared/css/base.css">
+  <link rel="stylesheet" href="../shared/css/layout.css">
+  <link rel="stylesheet" href="../shared/css/components.css">
 
   <!-- Presence-specific styles -->
   <link rel="stylesheet" href="assets/css/presence.css">
@@ -94,11 +94,12 @@
   <div class="toast" id="toast" role="alert" aria-live="assertive" aria-atomic="true"></div>
 
   <!-- Load order: shared → config → modules → renderer → behaviour -->
-  <script src="../shared/kravon.js"></script>
+  <script src="../shared/js/kravon.js"></script>
   <script>
-    // Inject env vars from Vercel build
-    const KRAVON_API_URL    = "__KRAVON_API_URL__";
-    const RESTAURANT_SLUG_ENV = "__RESTAURANT_SLUG__";
+    // Injected by Vercel at build time; falls back to URL query params for local dev
+    const _q = new URLSearchParams(window.location.search);
+    const KRAVON_API_URL      = "__KRAVON_API_URL__"    !== "__KRAVON_API_URL__"    ? "__KRAVON_API_URL__"    : (_q.get('api')  || 'http://localhost:3000');
+    const RESTAURANT_SLUG_ENV = "__RESTAURANT_SLUG__"   !== "__RESTAURANT_SLUG__"   ? "__RESTAURANT_SLUG__"   : _q.get('slug');
   </script>
   <script src="../api-client/kravon-api.js"></script>
   <script src="assets/js/cart.js"></script>

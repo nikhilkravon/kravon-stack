@@ -7,7 +7,7 @@
 (function () {
   'use strict';
 
-  const C   = window.CONFIG;
+  let C;
   const $   = id => document.getElementById(id);
 
   /* ── DOM refs ─────────────────────────────────────────── */
@@ -187,8 +187,10 @@
     if (e.key === 'Escape') closeCart();
   });
 
-  /* ── Initial render ───────────────────────────────────── */
-  updateCartBar();
-  renderCartDrawer();
+  window.initBehaviour = function () {
+    C = window.CONFIG;
+    updateCartBar();
+    renderCartDrawer();
+  };
 
 })();

@@ -7,8 +7,7 @@
 (function () {
   'use strict';
 
-  const C  = window.CONFIG;
-  const M  = window.MENU;
+  let C, M;
   const $  = id => document.getElementById(id);
   const el = (tag, cls, html) => {
     const e = document.createElement(tag);
@@ -344,11 +343,11 @@
     Kravon.scrollReveal();
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', mount);
-  } else {
+  window.initRenderer = function () {
+    C = window.CONFIG;
+    M = window.MENU;
     mount();
-  }
+  };
 
   window.PresenceRenderer = {
     updateMenuCtrl: function (id) {

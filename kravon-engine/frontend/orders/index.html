@@ -12,9 +12,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Space+Mono:ital@0;1&display=swap" rel="stylesheet">
 
   <!-- Shared styles -->
-  <link rel="stylesheet" href="../shared/base.css">
-  <link rel="stylesheet" href="../shared/layout.css">
-  <link rel="stylesheet" href="../shared/components.css">
+  <link rel="stylesheet" href="../shared/css/base.css">
+  <link rel="stylesheet" href="../shared/css/layout.css">
+  <link rel="stylesheet" href="../shared/css/components.css">
 
   <!-- Orders-specific styles -->
   <link rel="stylesheet" href="assets/css/orders.css">
@@ -120,11 +120,12 @@
   <div class="toast" id="toast" role="alert" aria-live="assertive" aria-atomic="true"></div>
 
   <!-- Load order: shared → config → cart → renderer → modules → behaviour (last) -->
-  <script src="../shared/kravon.js"></script>
+  <script src="../shared/js/kravon.js"></script>
   <script>
-    // Inject env vars from Vercel build
-    const KRAVON_API_URL    = "__KRAVON_API_URL__";
-    const RESTAURANT_SLUG_ENV = "__RESTAURANT_SLUG__";
+    // Injected by Vercel at build time; falls back to URL query params for local dev
+    const _q = new URLSearchParams(window.location.search);
+    const KRAVON_API_URL      = "__KRAVON_API_URL__"    !== "__KRAVON_API_URL__"    ? "__KRAVON_API_URL__"    : (_q.get('api')  || 'http://localhost:3000');
+    const RESTAURANT_SLUG_ENV = "__RESTAURANT_SLUG__"   !== "__RESTAURANT_SLUG__"   ? "__RESTAURANT_SLUG__"   : _q.get('slug');
   </script>
   <script src="../api-client/kravon-api.js"></script>
   <script src="assets/js/cart.js"></script>

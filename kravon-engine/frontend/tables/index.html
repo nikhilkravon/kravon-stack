@@ -80,8 +80,10 @@
   <!-- Script load order: shared → env → api-client → cart → renderer → modal → checkout → behaviour → boot -->
   <script src="../shared/js/kravon.js"></script>
   <script>
-    const KRAVON_API_URL      = "__KRAVON_API_URL__";
-    const RESTAURANT_SLUG_ENV = "__RESTAURANT_SLUG__";
+    // Injected by Vercel at build time; falls back to URL query params for local dev
+    const _q = new URLSearchParams(window.location.search);
+    const KRAVON_API_URL      = "__KRAVON_API_URL__"    !== "__KRAVON_API_URL__"    ? "__KRAVON_API_URL__"    : (_q.get('api')  || 'http://localhost:3000');
+    const RESTAURANT_SLUG_ENV = "__RESTAURANT_SLUG__"   !== "__RESTAURANT_SLUG__"   ? "__RESTAURANT_SLUG__"   : _q.get('slug');
   </script>
   <script src="../api-client/kravon-api.js"></script>
   <script src="assets/js/cart.js"></script>
