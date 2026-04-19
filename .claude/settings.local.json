@@ -5,7 +5,14 @@
       "Bash(wc -l d:/KRAVON/Dev_act/kravon-db/seeds/demo_*.sql d:/KRAVON/Dev_act/kravon-db/seeds/kravon_seed_v12.sql)",
       "Bash(git push *)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(ls d:/KRAVON/Dev_act/kravon-engine/backend/.env*)",
+      "Bash(psql --version)",
+      "Bash(docker --version)",
+      "Bash(curl -s http://localhost:3000/v1/restaurants/spice-of-india/config)",
+      "Bash(curl -s -H \"X-Kravon-Admin-Key: 97bd65a82b73ac6b1863db0f7862704d5bddb1c022113b8d01d9691b77b44755\" http://localhost:3000/v1/admin/restaurants)",
+      "Bash(curl -s http://localhost:3000/v1/restaurants/spice-of-india/config/config)",
+      "Bash(node -e \"const d=JSON.parse\\(require\\('fs'\\).readFileSync\\('/dev/stdin','utf8'\\)\\); const c=d.config; console.log\\('Name:', c.brand.name\\); console.log\\('Menu items:', c.menu.items.length\\); console.log\\('Categories:', c.categories.length\\); console.log\\('Addons:', c.addons.length\\); console.log\\('First item:', c.menu.items[0]?.name, '₹'+c.menu.items[0]?.price\\);\")"
     ],
     "additionalDirectories": [
       "d:\\KRAVON\\Dev_act\\kravon-db\\.git"
