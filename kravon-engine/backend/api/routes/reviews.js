@@ -26,7 +26,7 @@ const CreateReviewSchema = z.object({
   table_identifier: z.string().max(20).optional(),
 });
 
-router.post('/reviews', async (req, res, next) => {
+router.post('/', async (req, res, next) => {
   try {
     const parsed = CreateReviewSchema.safeParse(req.body);
     if (!parsed.success) {

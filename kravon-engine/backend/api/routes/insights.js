@@ -17,10 +17,10 @@ const { requireRestaurantAuth } = require('../middleware/auth');
 const router = express.Router();
 
 // All insight routes require authentication
-router.use('/insights', requireRestaurantAuth);
+router.use(requireRestaurantAuth);
 
 /* ── Summary — last 30 days ──────────────────────────────────────────────── */
-router.get('/insights/summary', async (req, res, next) => {
+router.get('/summary', async (req, res, next) => {
   try {
     const id = req.tenant.rest_id;
     const [ordersRes, leadsRes, repeatRes] = await Promise.all([
@@ -64,7 +64,7 @@ router.get('/insights/summary', async (req, res, next) => {
 });
 
 /* ── Orders by day ───────────────────────────────────────────────────────── */
-router.get('/insights/orders', async (req, res, next) => {
+router.get('/orders', async (req, res, next) => {
   try {
     const id   = req.tenant.rest_id;
     const rawDays = parseInt(req.query.days, 10);
@@ -77,7 +77,7 @@ router.get('/insights/orders', async (req, res, next) => {
       FROM orders
       WHERE rest_id=$1
         AND status NOT IN ('cancelled')
-        AND created_at > NOW() - ($2 || ' days')::INTERVAL
+        AND created_at > NOW() - INTERVAL '1 day' * $2
       GROUP BY 1
       ORDER BY 1
     `, [id, days]);

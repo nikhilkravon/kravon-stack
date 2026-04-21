@@ -88,6 +88,9 @@ function buildTenant(row) {
     hours_display: row.hours_display,
     open_until:    row.open_until,
 
+    // Story
+    story_headline: row.story_headline,
+
     // Raw row kept for any fields not explicitly mapped above
     _row: row,
   };

@@ -78,7 +78,7 @@ const CreateOrderSchema = z.discriminatedUnion('order_surface', [
 ]);
 
 /* ── POST /orders ────────────────────────────────────────────────────────── */
-router.post('/orders', async (req, res, next) => {
+router.post('/', async (req, res, next) => {
   try {
     const parsed = CreateOrderSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -101,7 +101,7 @@ router.post('/orders', async (req, res, next) => {
 });
 
 /* ── GET /orders/:id (admin only) ────────────────────────────────────────── */
-router.get('/orders/:id', requireRestaurantAuth, async (req, res, next) => {
+router.get('/:id', requireRestaurantAuth, async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     const result = await query(

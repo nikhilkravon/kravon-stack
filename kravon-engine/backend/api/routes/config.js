@@ -92,6 +92,7 @@ router.get('/', async (req, res, next) => {
     const locationRows = [
       r.address      ? { icon: '📍', title: 'Address',       body: r.address,        highlight: false } : null,
       r.phone        ? { icon: '📞', title: 'Phone',          body: r.phone,          highlight: false } : null,
+      r.email        ? { icon: '✉️',  title: 'Email',          body: r.email,          highlight: false } : null,
       r.hours_display? { icon: '🕐', title: 'Hours',          body: r.hours_display,  highlight: true  } : null,
       r.delivery_zone? { icon: '🛵', title: 'Delivery Zone',  body: r.delivery_zone,  highlight: false } : null,
     ].filter(Boolean);
@@ -162,9 +163,9 @@ router.get('/', async (req, res, next) => {
 
       story: {
         label:    'Our Story',
-        headline: `About ${r.name}`,
-        body:     [],
-        facts:    [],
+        headline: r.story_headline || `About ${r.name}`,
+        body:     r._row.story_body  || [],
+        facts:    r._row.story_facts || [],
       },
 
       how: {
@@ -194,6 +195,7 @@ router.get('/', async (req, res, next) => {
         mapLabel: `${r.name}${r.city ? ' — ' + r.city : ''}`,
         pinName:  r.name || '',
         pinSub:   r.city || '',
+        mapUrl:   r._row.map_url || null,
         rows:     locationRows,
       },
 

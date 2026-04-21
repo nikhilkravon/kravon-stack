@@ -32,6 +32,10 @@ const corsOptions = {
   origin: async (origin, callback) => {
     // Non-browser requests (curl, server-to-server, health checks) have no origin
     if (!origin) return callback(null, true);
+    // Allow any localhost port in development
+    if (process.env.NODE_ENV !== 'production' && /^http:\/\/localhost(:\d+)?$/.test(origin)) {
+      return callback(null, true);
+    }
     try {
       const allowed = await getAllowedOrigins();
       if (allowed.has(origin)) {

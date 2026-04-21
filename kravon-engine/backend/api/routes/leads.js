@@ -29,7 +29,7 @@ const CreateLeadSchema = z.object({
   notes:      z.string().max(2000).optional(),
 });
 
-router.post('/leads', async (req, res, next) => {
+router.post('/', async (req, res, next) => {
   try {
     const parsed = CreateLeadSchema.safeParse(req.body);
     if (!parsed.success) {
