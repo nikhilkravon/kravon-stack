@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e ' *)",
+      "Bash(cmd //c \"cd C:\\\\Users\\\\Nikhil\\\\Desktop\\\\KravonSAAS\\\\kravon-stack\\\\kravon-engine\\\\backend && node -e \\\\\"const { query } = require\\('./db/pool'\\); Promise.all\\([query\\('SELECT id, slug, name FROM tenant.restaurants'\\), query\\(\\\\\\\\\\\\\"SELECT table_schema, table_name FROM information_schema.tables WHERE table_schema = ANY\\(ARRAY['tenant','brand','menu','customer','orders','payments','dining','catering','insights','platform']\\) ORDER BY table_schema, table_name\\\\\\\\\\\\\"\\)]\\).then\\(\\([r,t]\\) => { console.log\\('RESTAURANTS:', JSON.stringify\\(r.rows\\)\\); console.log\\('TABLE COUNT:', t.rows.length\\); process.exit\\(0\\); }\\).catch\\(e => { console.error\\(e.message\\); process.exit\\(1\\); }\\)\\\\\"\")",
+      "Bash(psql \"postgresql://postgres:fCxAtglgstOexCzeTXVjWxadgoxVkkSy@turntable.proxy.rlwy.net:17128/railway\" -c \"SELECT id, slug, name, has_presence, has_orders, has_tables, has_catering, has_insights FROM tenant.restaurants;\")",
+      "Bash(cmd //c \"psql --version\")",
+      "Bash(curl -s \"http://localhost:3000/health\")",
+      "Bash(curl -s \"http://localhost:3000/v1/admin/restaurants\" -H \"X-Kravon-Admin-Key: 97bd65a82b73ac6b1863db0f7862704d5bddb1c022113b8d01d9691b77b44755\")",
+      "Read(//c/c/Users/Nikhil/Desktop/KravonSAAS/kravon-stack/kravon-engine/backend/**)"
+    ]
+  }
+}

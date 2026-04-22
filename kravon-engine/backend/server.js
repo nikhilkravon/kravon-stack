@@ -64,6 +64,7 @@ const orderRoutes   = require('./api/routes/orders');
 const leadRoutes    = require('./api/routes/leads');
 const reviewRoutes  = require('./api/routes/reviews');
 const insightRoutes = require('./api/routes/insights');
+const dineInRoutes  = require('./api/routes/dine-in');
 const webhookRoutes = require('./api/routes/webhooks');
 const adminRoutes   = require('./api/routes/admin');
 
@@ -135,6 +136,14 @@ app.use('/v1/restaurants/:slug/insights',
   resolveRestaurant,
   requireFeature('has_insights'),
   insightRoutes
+);
+
+// Dine-in: session management, QR ordering, kitchen view, bill
+// has_tables gates the module; /session/status and /order are public inside the router
+app.use('/v1/restaurants/:slug/dine-in',
+  resolveRestaurant,
+  requireFeature('has_tables'),
+  dineInRoutes
 );
 
 /* ── 404 ───────────────────────────────────────────────────────────────────── */
