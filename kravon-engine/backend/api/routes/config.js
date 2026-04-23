@@ -78,7 +78,7 @@ router.get('/', async (req, res, next) => {
           badge:      row.badge,
           badgeStyle: row.badge_style,
           badgeClass: row.badge_style || '',   // V7 renderer uses badgeClass
-          customise:  row.customisable,
+          customisable: row.customisable,
         };
         catMap.get(row.cat_id).items.push(item);
         flatItems.push(item);

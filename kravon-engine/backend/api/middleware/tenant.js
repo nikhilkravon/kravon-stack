@@ -41,59 +41,64 @@ const TTL_MS  = 60 * 1000; // 1 minute
  * Build the req.tenant object from a DB restaurant row.
  * This is the single place where DB column names map to spec names.
  *
- * @param {object} row - raw Postgres row from restaurants table
- * @returns {object} tenant object per V10 spec
+ * @param {object} publicRow - raw Postgres row from public.restaurants
+ * @param {object} tenantRow - raw Postgres row from tenant.restaurants (optional)
+ * @returns {object} tenant object per V10 spec + tenant_id
  */
-function buildTenant(row) {
+function buildTenant(publicRow, tenantRow = null) {
   return {
-    // V10 spec name (rest_id) ← DB column (id)
-    rest_id:      row.rest_id,
+    // V10 spec name (rest_id) ← DB column (rest_id)
+    rest_id:      publicRow.rest_id,
+
+    // New: tenant UUID from tenant.restaurants (null if not found)
+    tenant_id:    tenantRow?.id || null,
 
     // Core identity
-    slug:         row.slug,
-    domain:       row.domain       || null,
-    name:         row.name,
-    tagline:      row.tagline,
+    slug:         publicRow.slug,
+    domain:       publicRow.domain       || null,
+    name:         publicRow.name,
+    tagline:      publicRow.tagline,
 
     // Product flags — routes check these before executing
-    has_presence: row.has_presence,
-    has_tables:   row.has_tables,
-    has_orders:   row.has_orders,
-    has_catering: row.has_catering,
-    has_insights: row.has_insights,
+    has_presence: publicRow.has_presence,
+    has_tables:   publicRow.has_tables,
+    has_orders:   publicRow.has_orders,
+    has_catering: publicRow.has_catering,
+    has_insights: publicRow.has_insights,
 
     // Contact
-    phone:        row.phone,
-    wa_number:    row.wa_number,
-    email:        row.email,
-    address:      row.address,
-    city:         row.city,
+    phone:        publicRow.phone,
+    wa_number:    publicRow.wa_number,
+    email:        publicRow.email,
+    address:      publicRow.address,
+    city:         publicRow.city,
 
     // Payment
-    razorpay_key_id:     row.razorpay_key_id,
-    razorpay_key_secret: row.razorpay_key_secret,
+    razorpay_key_id:     publicRow.razorpay_key_id,
+    razorpay_key_secret: publicRow.razorpay_key_secret,
 
     // Tables config
-    review_threshold:  row.review_threshold,
-    google_review_url: row.google_review_url,
+    review_threshold:  publicRow.review_threshold,
+    google_review_url: publicRow.google_review_url,
 
     // Delivery config
-    delivery_fee:        row.delivery_fee,
-    free_delivery_above: row.free_delivery_above,
+    delivery_fee:        publicRow.delivery_fee,
+    free_delivery_above: publicRow.free_delivery_above,
 
     // Webhook
-    webhook_url:  row.webhook_url,
+    webhook_url:  publicRow.webhook_url,
 
     // Hours
-    hours_display: row.hours_display,
-    open_until:    row.open_until,
+    hours_display: publicRow.hours_display,
+    open_until:    publicRow.open_until,
 
     // Story
-    story_headline: row.story_headline,
+    story_headline: publicRow.story_headline,
 
     // Raw row kept for any fields not explicitly mapped above
-    _row: row,
+    _row: publicRow,
   };
+
 }
 
 /**
@@ -144,7 +149,7 @@ async function resolveRestaurant(req, res, next) {
   }
 
   try {
-    let row;
+    let publicRow, tenantRow;
 
     if (raw.startsWith('__domain__:')) {
       // Domain resolution — look up by domain column
@@ -153,21 +158,30 @@ async function resolveRestaurant(req, res, next) {
         'SELECT * FROM restaurants WHERE domain = $1 LIMIT 1',
         [domain]
       );
-      row = result.rows[0];
+      publicRow = result.rows[0];
     } else {
       // Slug resolution
       const result = await query(
         'SELECT * FROM restaurants WHERE slug = $1 LIMIT 1',
         [raw]
       );
-      row = result.rows[0];
+      publicRow = result.rows[0];
     }
 
-    if (!row) {
+    if (!publicRow) {
       return res.status(404).json({ error: 'Restaurant not found.' });
     }
 
-    const tenant = buildTenant(row);
+    // Also fetch tenant data if available
+    if (publicRow.slug) {
+      const tenantResult = await query(
+        'SELECT id FROM tenant.restaurants WHERE slug = $1 LIMIT 1',
+        [publicRow.slug]
+      );
+      tenantRow = tenantResult.rows[0];
+    }
+
+    const tenant = buildTenant(publicRow, tenantRow);
     _cache.set(raw, { tenant, ts: Date.now() });
     req.tenant = tenant;
     next();

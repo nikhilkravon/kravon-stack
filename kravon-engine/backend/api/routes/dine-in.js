@@ -32,7 +32,7 @@ const router = express.Router();
 
 /* ── POST /session/open ─────────────────────────────────────────────────── */
 const OpenSessionSchema = z.object({
-  table_id: z.number().int().positive(),
+  table_id: z.string().uuid(),
   covers:   z.number().int().min(1).max(50).optional(),
 });
 
@@ -42,7 +42,11 @@ router.post('/session/open', requireRestaurantAuth, async (req, res, next) => {
     return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
   }
   const { table_id, covers } = parsed.data;
-  const rest_id = req.tenant.rest_id;
+  const tenant_id = req.tenant.tenant_id;
+
+  if (!tenant_id) {
+    return res.status(400).json({ error: 'Dining tables not configured for this restaurant.' });
+  }
 
   const client = await getClient();
   try {
@@ -51,8 +55,8 @@ router.post('/session/open', requireRestaurantAuth, async (req, res, next) => {
     // Verify table belongs to this tenant
     const tableRes = await client.query(
       `SELECT id FROM dining.tables
-       WHERE id = $1 AND rest_id = $2 AND deleted_at IS NULL`,
-      [table_id, rest_id]
+       WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
+      [table_id, tenant_id]
     );
     if (!tableRes.rows.length) {
       await client.query('ROLLBACK');
@@ -71,16 +75,16 @@ router.post('/session/open', requireRestaurantAuth, async (req, res, next) => {
     }
 
     const sessionRes = await client.query(
-      `INSERT INTO dining.sessions (rest_id, table_id, covers, opened_at)
+      `INSERT INTO dining.sessions (tenant_id, table_id, covers, opened_at)
        VALUES ($1, $2, $3, NOW())
        RETURNING id, opened_at`,
-      [rest_id, table_id, covers ?? null]
+      [tenant_id, table_id, covers ?? null]
     );
 
     await client.query(
       `UPDATE dining.tables SET status = 'occupied', updated_at = NOW()
-       WHERE id = $1 AND rest_id = $2`,
-      [table_id, rest_id]
+       WHERE id = $1 AND tenant_id = $2`,
+      [table_id, tenant_id]
     );
 
     await client.query('COMMIT');
@@ -96,7 +100,7 @@ router.post('/session/open', requireRestaurantAuth, async (req, res, next) => {
 
 /* ── POST /session/close ────────────────────────────────────────────────── */
 const CloseSessionSchema = z.object({
-  session_id: z.number().int().positive(),
+  session_id: z.string().uuid(),
 });
 
 router.post('/session/close', requireRestaurantAuth, async (req, res, next) => {
@@ -106,6 +110,11 @@ router.post('/session/close', requireRestaurantAuth, async (req, res, next) => {
   }
   const { session_id } = parsed.data;
   const rest_id = req.tenant.rest_id;
+  const tenant_id = req.tenant.tenant_id;
+
+  if (!tenant_id) {
+    return res.status(400).json({ error: 'Dining tables not configured for this restaurant.' });
+  }
 
   const client = await getClient();
   try {
@@ -126,9 +135,9 @@ router.post('/session/close', requireRestaurantAuth, async (req, res, next) => {
     const closeRes = await client.query(
       `UPDATE dining.sessions
        SET closed_at = NOW(), total_billed = $1
-       WHERE id = $2 AND rest_id = $3 AND closed_at IS NULL
+       WHERE id = $2 AND tenant_id = $3 AND closed_at IS NULL
        RETURNING closed_at, table_id`,
-      [totalRupees, session_id, rest_id]
+      [totalRupees, session_id, tenant_id]
     );
     if (!closeRes.rows.length) {
       await client.query('ROLLBACK');
@@ -139,8 +148,8 @@ router.post('/session/close', requireRestaurantAuth, async (req, res, next) => {
 
     await client.query(
       `UPDATE dining.tables SET status = 'available', updated_at = NOW()
-       WHERE id = $1 AND rest_id = $2`,
-      [table_id, rest_id]
+       WHERE id = $1 AND tenant_id = $2`,
+      [table_id, tenant_id]
     );
 
     await client.query('COMMIT');
@@ -155,18 +164,24 @@ router.post('/session/close', requireRestaurantAuth, async (req, res, next) => {
 
 /* ── GET /session/status?table_id=xxx ──────────────────────────────────── */
 // Public — called by customer QR scan to check if their table has an active session.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 router.get('/session/status', async (req, res, next) => {
-  const table_id = parseInt(req.query.table_id, 10);
-  if (!Number.isFinite(table_id) || table_id <= 0) {
-    return res.status(400).json({ error: 'table_id query param is required.' });
+  const { table_id } = req.query;
+  if (!table_id || !UUID_RE.test(table_id)) {
+    return res.status(400).json({ error: 'table_id query param (UUID) is required.' });
   }
-  const rest_id = req.tenant.rest_id;
+  const tenant_id = req.tenant.tenant_id;
+
+  if (!tenant_id) {
+    return res.status(400).json({ error: 'Dining tables not configured for this restaurant.' });
+  }
 
   try {
     // Tenant check: table must belong to this restaurant
     const tableCheck = await query(
-      `SELECT id FROM dining.tables WHERE id = $1 AND rest_id = $2 AND deleted_at IS NULL`,
-      [table_id, rest_id]
+      `SELECT id FROM dining.tables WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
+      [table_id, tenant_id]
     );
     if (!tableCheck.rows.length) {
       return res.status(404).json({ error: 'Table not found.' });
@@ -177,11 +192,11 @@ router.get('/session/status', async (req, res, next) => {
        FROM dining.sessions s
        JOIN dining.tables t ON t.id = s.table_id
        WHERE s.table_id = $1
-         AND s.rest_id  = $2
+         AND s.tenant_id  = $2
          AND s.closed_at   IS NULL
          AND s.deleted_at  IS NULL
        LIMIT 1`,
-      [table_id, rest_id]
+      [table_id, tenant_id]
     );
 
     if (!result.rows.length) {
@@ -198,7 +213,7 @@ router.get('/session/status', async (req, res, next) => {
 /* ── POST /order ────────────────────────────────────────────────────────── */
 // Public — customer places order against an active session.
 const DineInOrderSchema = z.object({
-  session_id:    z.number().int().positive(),
+  session_id:    z.string().uuid(),
   items: z.array(z.object({
     menu_item_id:   z.number().int().positive(),
     quantity:       z.number().int().min(1).max(20),
@@ -214,13 +229,18 @@ router.post('/order', async (req, res, next) => {
   }
   const { session_id, items, special_notes } = parsed.data;
   const rest_id = req.tenant.rest_id;
+  const tenant_id = req.tenant.tenant_id;
+
+  if (!tenant_id) {
+    return res.status(400).json({ error: 'Dining tables not configured for this restaurant.' });
+  }
 
   try {
     // Verify session is open and belongs to this tenant
     const sessionRes = await query(
       `SELECT id FROM dining.sessions
-       WHERE id = $1 AND rest_id = $2 AND closed_at IS NULL AND deleted_at IS NULL`,
-      [session_id, rest_id]
+       WHERE id = $1 AND tenant_id = $2 AND closed_at IS NULL AND deleted_at IS NULL`,
+      [session_id, tenant_id]
     );
     if (!sessionRes.rows.length) {
       return res.status(409).json({ error: 'Session is closed or not found.' });
@@ -276,6 +296,12 @@ router.post('/order', async (req, res, next) => {
 /* ── GET /kitchen ───────────────────────────────────────────────────────── */
 // All open sessions with their active (non-cancelled) orders for the kitchen display.
 router.get('/kitchen', requireRestaurantAuth, async (req, res, next) => {
+  const tenant_id = req.tenant.tenant_id;
+
+  if (!tenant_id) {
+    return res.status(400).json({ error: 'Dining tables not configured for this restaurant.' });
+  }
+
   try {
     const result = await query(
       `SELECT
@@ -297,12 +323,12 @@ router.get('/kitchen', requireRestaurantAuth, async (req, res, next) => {
          ON  o.session_id = s.id
          AND o.status IN ('pending', 'confirmed', 'preparing')
          AND o.deleted_at IS NULL
-       WHERE s.rest_id    = $1
+       WHERE s.tenant_id    = $1
          AND s.closed_at  IS NULL
          AND s.deleted_at IS NULL
        GROUP BY t.name, s.id, s.opened_at, s.covers
        ORDER BY s.opened_at ASC`,
-      [req.tenant.rest_id]
+      [tenant_id]
     );
     res.json({ ok: true, tables: result.rows });
   } catch (err) {
@@ -313,11 +339,15 @@ router.get('/kitchen', requireRestaurantAuth, async (req, res, next) => {
 /* ── GET /bill?session_id=xxx ───────────────────────────────────────────── */
 // Full itemised bill for a session — used before closing or for receipt printout.
 router.get('/bill', requireRestaurantAuth, async (req, res, next) => {
-  const session_id = parseInt(req.query.session_id, 10);
-  if (!Number.isFinite(session_id) || session_id <= 0) {
-    return res.status(400).json({ error: 'session_id query param is required.' });
+  const { session_id } = req.query;
+  if (!session_id || !UUID_RE.test(session_id)) {
+    return res.status(400).json({ error: 'session_id query param (UUID) is required.' });
   }
-  const rest_id = req.tenant.rest_id;
+  const tenant_id = req.tenant.tenant_id;
+
+  if (!tenant_id) {
+    return res.status(400).json({ error: 'Dining tables not configured for this restaurant.' });
+  }
 
   try {
     const result = await query(
@@ -342,9 +372,9 @@ router.get('/bill', requireRestaurantAuth, async (req, res, next) => {
          AND o.status NOT IN ('cancelled', 'refunded')
          AND o.deleted_at IS NULL
        WHERE s.id       = $1
-         AND s.rest_id  = $2
+         AND s.tenant_id  = $2
        GROUP BY s.id, t.name, s.covers, s.opened_at, s.closed_at`,
-      [session_id, rest_id]
+      [session_id, tenant_id]
     );
 
     if (!result.rows.length) {

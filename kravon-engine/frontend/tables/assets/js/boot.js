@@ -2,8 +2,15 @@
  * BOOT — tables/boot.js
  * Async initialiser for the Tables product.
  *
- * Reads the ?table= URL param before anything else.
- * Passes table context to renderer, modal, checkout, and behaviour.
+ * URL param: ?table_id=<uuid>  — dine-in mode, specific table
+ * No param                     — choice screen (Dine In / Takeaway)
+ *
+ * On dine-in arrival the boot sequence:
+ *   1. Load config (sets window.CONFIG)
+ *   2. Override window.MENU with categories (tables renderer needs categorised shape)
+ *   3. Parse ?table_id UUID
+ *   4. Call GET /dine-in/session/status to get session_id + table_name
+ *   5. Set window.TABLE_CONTEXT and init all modules
  */
 
 (async () => {
@@ -14,16 +21,32 @@
   try {
     await KravonAPI.loadConfig();
 
-    // Parse table identifier from URL
-    // ?table=T4 → dine-in mode, table T4
-    // no param  → choice screen (Dine In / Takeaway)
-    const urlParams  = new URLSearchParams(window.location.search);
-    const tableParam = urlParams.get('table');  // "T4" | null
+    // Tables renderer needs categorised menu — override the flat-items default
+    window.MENU = window.CONFIG.categories || [];
+
+    // Parse table UUID from URL
+    const urlParams    = new URLSearchParams(window.location.search);
+    const tableIdParam = urlParams.get('table_id');
 
     window.TABLE_CONTEXT = {
-      tableIdentifier: tableParam || null,
-      isDineIn:        !!tableParam,
+      tableId:   tableIdParam || null,  // UUID
+      tableName: null,                  // e.g. "T1" — set after session check
+      sessionId: null,                  // UUID — set after session check
+      isDineIn:  !!tableIdParam,
     };
+
+    // If arriving from a QR, fetch the active session
+    if (tableIdParam) {
+      try {
+        const status = await KravonAPI.getDineInSessionStatus(tableIdParam);
+        if (status.open) {
+          window.TABLE_CONTEXT.sessionId = status.session_id;
+          window.TABLE_CONTEXT.tableName = status.table_name;
+        }
+      } catch (err) {
+        console.warn('[kravon:tables] Session check failed:', err.message);
+      }
+    }
 
     if (typeof TablesCart !== 'undefined' && typeof TablesCart.init === 'function') {
       TablesCart.init();
@@ -31,7 +54,6 @@
     if (typeof window.initTablesRenderer === 'function') {
       window.initTablesRenderer();
     }
-    // Modal init runs after renderer so DOM elements exist
     if (typeof TablesModal !== 'undefined' && typeof TablesModal.init === 'function') {
       TablesModal.init();
     }
@@ -44,7 +66,7 @@
 
     document.body.removeAttribute('data-loading');
   } catch (err) {
-    console.error('[kravon:tables] Failed to load config:', err.message);
+    console.error('[kravon:tables] Failed to boot:', err.message);
     document.body.setAttribute('data-error', 'true');
   }
 })();

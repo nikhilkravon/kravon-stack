@@ -47,33 +47,47 @@ const TablesCheckout = (() => {
 
   /* ── Place order ─────────────────────────────────────────── */
   async function placeOrder() {
-    if (!validateFields()) return;
-
-    const btn  = document.getElementById('placeOrderBtn');
-    const note = document.getElementById('placeOrderNote');
-    if (btn) btn.disabled = true;
-    if (note) note.textContent = 'Placing order…';
-
+    const TC    = window.TABLE_CONTEXT;
+    const btn   = document.getElementById('placeOrderBtn');
+    const note  = document.getElementById('placeOrderNote');
     const items = TablesCart.getItems();
+    const notes = document.getElementById('fieldNotes')?.value.trim() || '';
+
     if (!items.length) {
       if (note) note.textContent = 'Your cart is empty.';
-      if (btn) btn.disabled = false;
       return;
     }
 
-    const TC     = window.TABLE_CONTEXT;
-    const name   = document.getElementById('fieldName').value.trim();
-    const phone  = document.getElementById('fieldPhone').value.trim();
-    const notes  = document.getElementById('fieldNotes')?.value.trim() || '';
+    if (TC.sessionId) {
+      // ── Dine-in with active session ──────────────────────
+      // No customer identity needed — session tracks the table
+      if (btn) btn.disabled = true;
+      if (note) note.textContent = 'Placing order…';
+      try {
+        const result = await KravonAPI.createDineInOrder(TC.sessionId, items, notes);
+        _orderId = result.order_id;
+        showConfirmScreen(result.order_id, { isDineIn: true });
+      } catch (err) {
+        console.error('[tables:checkout] dine-in order failed:', err.message);
+        if (note) note.textContent = err.message || 'Something went wrong. Please try again.';
+        if (btn) btn.disabled = false;
+      }
+      return;
+    }
 
-    // Determine table identifier
-    const tableId = TC.tableIdentifier || 'takeaway';
+    // ── Takeaway / no session — generic order route ────────
+    if (!validateFields()) return;
+    if (btn) btn.disabled = true;
+    if (note) note.textContent = 'Placing order…';
+
+    const name  = document.getElementById('fieldName').value.trim();
+    const phone = document.getElementById('fieldPhone').value.trim();
 
     const orderData = {
       order_surface:    'tables',
       customer_name:    name,
       customer_phone:   phone,
-      table_identifier: tableId,
+      table_identifier: 'takeaway',
       items: items.map(i => ({
         id:    parseInt(i.id, 10),
         name:  i.name,
@@ -87,14 +101,11 @@ const TablesCheckout = (() => {
 
     try {
       const result = await KravonAPI.createOrder(orderData);
-      _orderId = result.order_id;
-      _deferredBillTable = tableId;
-
+      _orderId          = result.order_id;
+      _deferredBillTable = 'takeaway';
       if (_selectedPaymentId === 'razorpay' && result.razorpay_order_id) {
-        // Open Razorpay checkout
         openRazorpay(result, name, phone, orderData);
       } else {
-        // Offline / immediate confirm
         showConfirmScreen(result.order_id, orderData);
       }
     } catch (err) {
@@ -176,7 +187,7 @@ const TablesCheckout = (() => {
       // Pre-wire the bill request button
       const billBtn = document.getElementById('billRequestBtn');
       if (billBtn) {
-        const tableLabel = TC2.tableIdentifier || orderData.table_identifier || 'my table';
+        const tableLabel = TC2.tableName || orderData.table_identifier || 'my table';
         const waNumber = window.CONFIG.contact?.waNumber || '';
         const msg = encodeURIComponent(`Bill please — Table ${tableLabel}.`);
         billBtn.dataset.waUrl = `https://wa.me/${waNumber}?text=${msg}`;
@@ -221,7 +232,7 @@ const TablesCheckout = (() => {
     });
 
     const TC = window.TABLE_CONTEXT;
-    const tableId = TC.tableIdentifier || 'takeaway';
+    const tableId = TC.tableName || 'takeaway';
 
     try {
       const result = await KravonAPI.submitReview({
@@ -258,7 +269,7 @@ const TablesCheckout = (() => {
     const feedback = textEl ? textEl.value.trim() : '';
 
     const TC = window.TABLE_CONTEXT;
-    const tableId = TC.tableIdentifier || 'takeaway';
+    const tableId = TC.tableName || 'takeaway';
 
     try {
       // Update review with feedback text

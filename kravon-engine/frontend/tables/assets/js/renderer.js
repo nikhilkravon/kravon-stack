@@ -19,9 +19,7 @@
 (function () {
   'use strict';
 
-  const C  = window.CONFIG;
-  const M  = window.MENU;
-  const TC = window.TABLE_CONTEXT;  // { tableIdentifier, isDineIn }
+  let C, M, TC;
   const $  = id => document.getElementById(id);
 
   /* ── Escape ──────────────────────────────────────────────── */
@@ -61,6 +59,55 @@
           </button>
         </div>
       </nav>`;
+  }
+
+  /* ── Hero section ───────────────────────────────────────── */
+  function buildHero() {
+    if (!C.hero || !C.hero.headline) return '';
+
+    const statsHtml = (C.hero.stats || []).map(s => `
+      <div class="tables-hero-stat">
+        <span class="tables-hero-stat-num${s.className ? ' ' + s.className : ''}">${esc(s.num)}</span>
+        <span class="tables-hero-stat-label">${esc(s.label.replace('\n', ' '))}</span>
+      </div>`).join('');
+
+    return `
+      <section class="tables-hero" aria-labelledby="hero-heading">
+        <div class="tables-hero-grid">
+          <div class="tables-hero-copy">
+            <span class="tables-eyebrow">${esc(C.hero.label || C.brand.tagline || 'Welcome')}</span>
+            <h1 class="tables-hero-headline" id="hero-heading">${esc(C.hero.headline)}</h1>
+            <p class="tables-hero-sub">${esc(C.hero.sub || '')}</p>
+            <div class="tables-hero-ctas">
+              <a href="#menu" class="btn-primary">Browse Menu</a>
+            </div>
+            ${C.hero.footnote ? `<p class="tables-hero-footnote">${esc(C.hero.footnote)}</p>` : ''}
+          </div>
+          ${statsHtml ? `<div class="tables-hero-stats" aria-label="Highlights">${statsHtml}</div>` : ''}
+        </div>
+      </section>`;
+  }
+
+  /* ── Story section ───────────────────────────────────────── */
+  function buildStory() {
+    if (!C.story || !C.story.headline) return '';
+
+    const bodyHtml = (C.story.body || []).map(p => `<p>${esc(p)}</p>`).join('');
+    const factsHtml = (C.story.facts || []).map(f => `
+      <div class="tables-story-fact">
+        <strong>${esc(f.label)}</strong>
+        <span>${esc(f.value)}</span>
+      </div>`).join('');
+
+    return `
+      <section class="tables-story" aria-labelledby="story-heading">
+        <div class="tables-story-copy">
+          <span class="tables-eyebrow">${esc(C.story.label || 'Our story')}</span>
+          <h2 class="tables-story-headline" id="story-heading">${esc(C.story.headline)}</h2>
+          <div class="tables-story-body">${bodyHtml}</div>
+        </div>
+        ${factsHtml ? `<div class="tables-story-facts">${factsHtml}</div>` : ''}
+      </section>`;
   }
 
   /* ── Screen: Choice ─────────────────────────────────────── */
@@ -171,11 +218,14 @@
     return `
       <div id="screenOrdering" class="tables-screen" role="main" style="display:none">
         ${buildNav(navLabel)}
+        ${buildHero()}
+        ${buildStory()}
         <div class="tables-layout">
           <aside class="cat-sidebar" aria-label="Menu categories">
             <div class="cat-sidebar-inner">${cats}</div>
           </aside>
-          <main class="menu-main" id="menuMain">
+          <main class="menu-main" id="menuMain" tabindex="-1">
+            <div id="menu"></div>
             ${sections}
           </main>
         </div>
@@ -413,6 +463,9 @@
 
   /* ── Main init ───────────────────────────────────────────── */
   function initTablesRenderer() {
+    C  = window.CONFIG;
+    M  = window.MENU;
+    TC = window.TABLE_CONTEXT;
     applyAccent();
 
     document.title = `${C.brand.name} — Order Direct`;
@@ -420,8 +473,7 @@
     if (descEl) descEl.content = `${C.brand.name} — ${C.brand.tagline}`;
 
     const isDineIn = TC.isDineIn;
-    const table    = TC.tableIdentifier;
-    const navLabel = isDineIn ? `Table ${table}` : 'Order';
+    const navLabel = isDineIn ? (TC.tableName ? `Table ${TC.tableName}` : 'Dine In') : 'Order';
 
     const app = document.getElementById('app');
     app.innerHTML = [

@@ -100,7 +100,27 @@ const KravonAPI = (() => {
     return _post('/leads', leadData);
   }
 
-  return { loadConfig, getConfig, createOrder, submitReview, submitLead };
+  /* ── Dine-in ─────────────────────────────────────────────────────────── */
+  async function getDineInSessionStatus(tableId) {
+    const res  = await fetch(_url(`/dine-in/session/status?table_id=${encodeURIComponent(tableId)}`));
+    const data = await res.json();
+    if (!res.ok) throw Object.assign(new Error(data.error || 'Request failed'), { status: res.status });
+    return data;
+  }
+
+  async function createDineInOrder(sessionId, cartItems, specialNotes) {
+    return _post('/dine-in/order', {
+      session_id:    sessionId,
+      items:         cartItems.map(i => ({
+        menu_item_id:   parseInt(i.id, 10),
+        quantity:       i.qty,
+        customizations: i.note || undefined,
+      })),
+      special_notes: specialNotes || undefined,
+    });
+  }
+
+  return { loadConfig, getConfig, createOrder, submitReview, submitLead, getDineInSessionStatus, createDineInOrder };
 
 })();
 
