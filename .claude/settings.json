@@ -7,7 +7,27 @@
       "Bash(cmd //c \"psql --version\")",
       "Bash(curl -s \"http://localhost:3000/health\")",
       "Bash(curl -s \"http://localhost:3000/v1/admin/restaurants\" -H \"X-Kravon-Admin-Key: 97bd65a82b73ac6b1863db0f7862704d5bddb1c022113b8d01d9691b77b44755\")",
-      "Read(//c/c/Users/Nikhil/Desktop/KravonSAAS/kravon-stack/kravon-engine/backend/**)"
+      "Read(//c/c/Users/Nikhil/Desktop/KravonSAAS/kravon-stack/kravon-engine/backend/**)",
+      "Bash(netstat -ano)",
+      "Bash(awk '{print $5}')",
+      "Bash(xargs -I{} taskkill //PID {} //F)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('ok:', d.get\\('ok'\\)\\)\")",
+      "Bash(curl -s \"http://localhost:3000/v1/restaurants/spice-of-india/dine-in/session/status?table_id=e1000000-0000-0000-0000-000000000002\")",
+      "Bash(curl -s \"http://localhost:3000/v1/restaurants/spice-of-india/dine-in/session/status?table_id=T1\")",
+      "Bash(curl -s -X POST \"http://localhost:3000/v1/restaurants/spice-of-india/dine-in/order\" -H \"Content-Type: application/json\" -d \"{\\\\\"session_id\\\\\":\\\\\"e2000000-0000-0000-0000-000000000001\\\\\",\\\\\"items\\\\\":[{\\\\\"menu_item_id\\\\\":12,\\\\\"quantity\\\\\":2},{\\\\\"menu_item_id\\\\\":13,\\\\\"quantity\\\\\":1}],\\\\\"special_notes\\\\\":\\\\\"Less spicy please\\\\\"}\")",
+      "Bash(curl -s -X POST \"http://localhost:3000/v1/restaurants/spice-of-india/dine-in/order\" -H \"Content-Type: application/json\" -d \"{\\\\\"session_id\\\\\":\\\\\"not-a-uuid\\\\\",\\\\\"items\\\\\":[{\\\\\"menu_item_id\\\\\":12,\\\\\"quantity\\\\\":1}]}\")",
+      "Bash(node db/migrations/v13-dine-in.js)",
+      "Bash(curl -s http://localhost:3000/v1/restaurants/spice-of-india/dine-in/kitchen -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyZXN0YXVyYW50SWQiOjEsInNsdWciOiJzcGljZS1vZi1pbmRpYSIsImlhdCI6MTc3Njk3MDU4MSwiZXhwIjoxNzc2OTc0MTgxfQ.3zWyKFh4GarvoGp16Osf9bseNPc7wic2cO4vivB8RS8')",
+      "Bash(curl -s 'http://localhost:3000/v1/restaurants/spice-of-india/dine-in/bill?session_id=e2000000-0000-0000-0000-000000000001' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyZXN0YXVyYW50SWQiOjEsInNsdWciOiJzcGljZS1vZi1pbmRpYSIsImlhdCI6MTc3Njk3MDU4MSwiZXhwIjoxNzc2OTc0MTgxfQ.3zWyKFh4GarvoGp16Osf9bseNPc7wic2cO4vivB8RS8')",
+      "Bash(curl -s -X POST http://localhost:3000/v1/restaurants/spice-of-india/dine-in/session/open -H 'Content-Type: application/json' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyZXN0YXVyYW50SWQiOjEsInNsdWciOiJzcGljZS1vZi1pbmRpYSIsImlhdCI6MTc3Njk3MDU4MSwiZXhwIjoxNzc2OTc0MTgxfQ.3zWyKFh4GarvoGp16Osf9bseNPc7wic2cO4vivB8RS8' -d '{\"table_id\":\"e1000000-0000-0000-0000-000000000002\",\"covers\":3}')",
+      "Bash(curl -s -X POST http://localhost:3000/v1/restaurants/spice-of-india/dine-in/session/close -H 'Content-Type: application/json' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyZXN0YXVyYW50SWQiOjEsInNsdWciOiJzcGljZS1vZi1pbmRpYSIsImlhdCI6MTc3Njk3MDU4MSwiZXhwIjoxNzc2OTc0MTgxfQ.3zWyKFh4GarvoGp16Osf9bseNPc7wic2cO4vivB8RS8' -d '{\"session_id\":\"e38e784c-f559-4748-9670-6a518151ff4a\"}')",
+      "Bash(npx --yes serve kravon-engine/frontend -p 8000)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/qr-test.html)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:8000/tables/index.html?slug=spice-of-india&table_id=e1000000-0000-0000-0000-000000000001\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:3000/v1/restaurants/spice-of-india/config\")",
+      "Bash(node -e \"const d=require\\('fs'\\).readFileSync\\('/dev/stdin','utf8'\\); const j=JSON.parse\\(d\\); console.log\\('ok:', j.ok, 'brand:', JSON.stringify\\(j.config?.brand\\), 'tables:', JSON.stringify\\(j.config?.tables\\), 'err:', j.error\\);\")",
+      "Bash(node -e \"const j=JSON.parse\\(require\\('fs'\\).readFileSync\\('/tmp/cfg.json'\\)\\); console.log\\('ok:', j.ok, '\\\\nbrand:', JSON.stringify\\(j.config?.brand\\), '\\\\ntables:', JSON.stringify\\(j.config?.tables\\), '\\\\nerror:', j.error\\)\")",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
