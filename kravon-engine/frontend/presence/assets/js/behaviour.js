@@ -26,8 +26,8 @@
 
   /* ── Cart bar ─────────────────────────────────────────── */
   function updateCartBar() {
-    const count  = Cart.count();
-    const total  = Cart.total();
+    const count  = EnhancedCart.count();
+    const total  = EnhancedCart.total();
     const cur    = C.order.currency;
     const min    = C.order.minOrder;
     const belowMin = total < min;
@@ -62,22 +62,20 @@
       return;
     }
 
-    DOM.cartItemsList.innerHTML = Object.entries(Cart.items())
-      .map(([id, q]) => {
-        const item = window.MENU.find(m => String(m.id) === id);
-        if (!item) return '';
+    DOM.cartItemsList.innerHTML = items
+      .map((item) => {
         return `
           <div class="cart-item">
             <div class="cart-item-info">
               <div class="cart-item-name">${item.name}</div>
-              <div class="cart-item-price">${cur}${item.price} × ${q}</div>
+              <div class="cart-item-price">${cur}${item.basePrice} × ${item.quantity}</div>
             </div>
             <div class="qty-ctrl" role="group" aria-label="Quantity for ${item.name}">
-              <button class="qty-btn" data-action="dec" data-id="${id}" aria-label="Remove one">−</button>
-              <div class="qty-num" aria-live="polite">${q}</div>
-              <button class="qty-btn" data-action="inc" data-id="${id}" aria-label="Add one">+</button>
+              <button class="qty-btn" data-action="dec" data-id="${item.cartItemId}" aria-label="Remove one">−</button>
+              <div class="qty-num" aria-live="polite">${item.quantity}</div>
+              <button class="qty-btn" data-action="inc" data-id="${item.cartItemId}" aria-label="Add one">+</button>
             </div>
-            <div class="cart-item-total">${cur}${item.price * q}</div>
+            <div class="cart-item-total">${cur}${item.totalPrice}</div>
           </div>`;
       }).join('');
 
@@ -117,21 +115,17 @@
     document.body.style.overflow = '';
   }
 
-  /* ── WhatsApp checkout ────────────────────────────────── */
+  /* ── Checkout: redirect to checkout page ────────────────– */
   function checkout() {
-    if (Cart.count() === 0) return;
-    if (Cart.total() < C.order.minOrder) return;
-    const cur   = C.order.currency;
-    const lines = Object.entries(Cart.items())
-      .map(([id, q]) => {
-        const item = window.MENU.find(m => String(m.id) === id);
-        return item ? `• ${item.name} x${q} — ${cur}${item.price * q}` : null;
-      })
-      .filter(Boolean)
-      .join('\n');
-
-    const msg = `Hi! I'd like to place an order:\n\n${lines}\n\nTotal: ${cur}${Cart.total()}\n\nPlease confirm and share delivery details.`;
-    window.open(Kravon.buildWaLink(C.contact.waNumber, msg), '_blank', 'noopener,noreferrer');
+    const count = EnhancedCart.count();
+    if (count === 0) return;
+    
+    // Save cart to sessionStorage before navigating
+    const cartData = EnhancedCart.items();
+    sessionStorage.setItem('kravon_presence_cart', JSON.stringify(cartData));
+    
+    // Navigate to checkout page
+    window.location.href = 'checkout.html';
   }
 
   /* ── Cart subscriber → refresh all cart UI ────────────── */
@@ -140,19 +134,9 @@
   function onCartChange() {
     updateCartBar();
     renderCartDrawer();
-    if (window.PresenceRenderer) {
-      const currentIds = new Set(Object.keys(Cart.items()));
-      // Update cards that are in the cart now
-      currentIds.forEach(id => PresenceRenderer.updateMenuCtrl(id));
-      // Also update cards that just left the cart (qty → 0)
-      _prevCartIds.forEach(id => {
-        if (!currentIds.has(id)) PresenceRenderer.updateMenuCtrl(id);
-      });
-      _prevCartIds = currentIds;
-    }
   }
 
-  Cart.subscribe(onCartChange);
+  EnhancedCart.subscribe(onCartChange);
 
   /* ── Delegated click handler ──────────────────────────── */
   document.addEventListener('click', function (e) {
@@ -163,18 +147,32 @@
     const id     = btn.dataset.id;
 
     switch (action) {
-      case 'add':
-        Cart.add(id);
-        if (window.PresenceRenderer) PresenceRenderer.updateMenuCtrl(id);
+      case 'customize': {
+        const item = window.MENU.find(m => String(m.id) === id);
+        if (item) {
+          CustomizationModal.open(item, (customizedItem) => {
+            EnhancedCart.add(customizedItem);
+            onCartChange();
+          });
+        }
         break;
-      case 'inc':
-        Cart.change(id, +1);
-        if (window.PresenceRenderer) PresenceRenderer.updateMenuCtrl(id);
+      }
+      case 'dec': {
+        const cartItemId = btn.dataset.id;
+        const item = EnhancedCart.getItem(cartItemId);
+        if (item) {
+          EnhancedCart.updateQuantity(cartItemId, item.quantity - 1);
+        }
         break;
-      case 'dec':
-        Cart.change(id, -1);
-        if (window.PresenceRenderer) PresenceRenderer.updateMenuCtrl(id);
+      }
+      case 'inc': {
+        const cartItemId = btn.dataset.id;
+        const item = EnhancedCart.getItem(cartItemId);
+        if (item) {
+          EnhancedCart.updateQuantity(cartItemId, item.quantity + 1);
+        }
         break;
+      }
       case 'open-cart':  openCart();   break;
       case 'close-cart': closeCart();  break;
       case 'checkout':   checkout();   break;

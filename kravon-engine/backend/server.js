@@ -110,6 +110,12 @@ app.use('/v1/restaurants/:slug/config',
   configRoutes
 );
 
+// /menu — for item details, public
+app.use('/v1/restaurants/:slug/menu',
+  resolveRestaurant,
+  configRoutes
+);
+
 // Tables: reviews only (orders shared with delivery via discriminated union)
 app.use('/v1/restaurants/:slug/reviews',
   resolveRestaurant,

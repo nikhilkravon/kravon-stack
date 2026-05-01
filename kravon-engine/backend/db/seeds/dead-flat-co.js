@@ -293,6 +293,42 @@ async function seed() {
   try {
     await client.query('BEGIN');
 
+    // Insert into tenant.restaurants first
+    const tenantRes = await client.query(`
+      INSERT INTO tenant.restaurants (
+        id, slug, name, plan, status,
+        has_presence, has_orders, has_tables, has_catering, has_insights,
+        settings
+      ) VALUES (
+        'b2000000-0000-0000-0000-000000000002',
+        $1, $2, 'full', 'active',
+        $3, $4, $5, $6, $7,
+        '{
+          "currency": "INR",
+          "timezone": "Asia/Kolkata",
+          "delivery_fee": 3900,
+          "free_delivery_above": 39900
+        }'
+      )
+      ON CONFLICT (slug) DO UPDATE SET
+        name=EXCLUDED.name,
+        has_presence=EXCLUDED.has_presence,
+        has_orders=EXCLUDED.has_orders,
+        has_tables=EXCLUDED.has_tables,
+        has_catering=EXCLUDED.has_catering,
+        has_insights=EXCLUDED.has_insights,
+        settings=EXCLUDED.settings,
+        updated_at=NOW()
+      RETURNING id
+    `, [
+      RESTAURANT.slug, RESTAURANT.name,
+      RESTAURANT.has_presence, RESTAURANT.has_orders, RESTAURANT.has_tables,
+      RESTAURANT.has_catering, RESTAURANT.has_insights
+    ]);
+
+    const tenantId = tenantRes.rows[0].id;
+    console.log(`[dead-flat-co] tenant_id: ${tenantId}`);
+
     const rRes = await client.query(`
       INSERT INTO restaurants (
         slug, name, tagline, year, phone, wa_number, email,
@@ -338,27 +374,27 @@ async function seed() {
     console.log(`[dead-flat-co] rest_id: ${restaurantId}`);
 
     // Clean existing menu for idempotent re-seed
-    await client.query('DELETE FROM menu_addons     WHERE rest_id=$1', [restaurantId]);
-    await client.query('DELETE FROM spice_levels    WHERE rest_id=$1', [restaurantId]);
-    await client.query('DELETE FROM menu_items      WHERE rest_id=$1', [restaurantId]);
-    await client.query('DELETE FROM menu_categories WHERE rest_id=$1', [restaurantId]);
+    await client.query('DELETE FROM menu_addons     WHERE tenant_id=$1', [tenantId]);
+    await client.query('DELETE FROM spice_levels    WHERE tenant_id=$1', [tenantId]);
+    await client.query('DELETE FROM menu_items      WHERE tenant_id=$1', [tenantId]);
+    await client.query('DELETE FROM menu_categories WHERE tenant_id=$1', [tenantId]);
 
     // Categories + items
     for (const cat of CATEGORIES) {
       const cRes = await client.query(`
-        INSERT INTO menu_categories (rest_id, name, subtitle, sort_order)
+        INSERT INTO menu_categories (tenant_id, name, subtitle, sort_order)
         VALUES ($1,$2,$3,$4) RETURNING id
-      `, [restaurantId, cat.name, cat.subtitle, cat.sort_order]);
+      `, [tenantId, cat.name, cat.subtitle, cat.sort_order]);
 
       const catId = cRes.rows[0].id;
       for (const item of (ITEMS[cat.name] || [])) {
         await client.query(`
           INSERT INTO menu_items
-            (rest_id, category_id, name, price_paise, description,
+            (tenant_id, category_id, name, price_paise, description,
              image, image_bg, badge, badge_style, customisable, sort_order)
           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
         `, [
-          restaurantId, catId, item.name, item.price * 100, item.desc,
+          tenantId, catId, item.name, item.price * 100, item.desc,
           item.image, item.image_bg, item.badge ?? null, item.badge_style ?? null,
           item.customisable, item.sort_order,
         ]);
@@ -368,21 +404,52 @@ async function seed() {
     // Add-ons
     for (const a of ADDONS) {
       await client.query(`
-        INSERT INTO menu_addons (rest_id, label, price_paise, sort_order)
+        INSERT INTO menu_addons (tenant_id, label, price_paise, sort_order)
         VALUES ($1,$2,$3,$4)
-      `, [restaurantId, a.label, a.price * 100, a.sort_order]);
+      `, [tenantId, a.label, a.price * 100, a.sort_order]);
     }
 
     // Spice levels
     for (const s of SPICE_LEVELS) {
       await client.query(`
-        INSERT INTO spice_levels (rest_id, label, sort_order)
+        INSERT INTO spice_levels (tenant_id, label, sort_order)
         VALUES ($1,$2,$3)
-      `, [restaurantId, s.label, s.sort_order]);
+      `, [tenantId, s.label, s.sort_order]);
+    }
+
+    // Sample customizations for burgers
+    // Get item IDs
+    const itemRes = await client.query(`
+      SELECT id, name FROM menu_items WHERE tenant_id = $1 AND customisable = TRUE
+    `, [tenantId]);
+
+    const itemMap = new Map(itemRes.rows.map(r => [r.name, r.id]));
+
+    // For Dead Flat Classic
+    const classicId = itemMap.get('Dead Flat Classic');
+    if (classicId) {
+      // Add customization group
+      const groupRes = await client.query(`
+        INSERT INTO customization_groups (item_id, name, type, min_select, max_select, sort_order)
+        VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
+      `, [classicId, 'Extra Toppings', 'multiple', 0, 2, 1]);
+
+      const groupId = groupRes.rows[0].id;
+
+      // Add options
+      await client.query(`
+        INSERT INTO customization_options (group_id, name, price_paise, active, sort_order)
+        VALUES ($1, $2, $3, $4, $5)
+      `, [groupId, 'Extra Cheese', 5000, true, 1]);
+
+      await client.query(`
+        INSERT INTO customization_options (group_id, name, price_paise, active, sort_order)
+        VALUES ($1, $2, $3, $4, $5)
+      `, [groupId, 'Bacon', 10000, true, 2]);
     }
 
     await client.query('COMMIT');
-    console.log('[dead-flat-co] seed complete. 6 categories, 30 items, 10 add-ons, 4 spice levels. Tables: OFF.');
+    console.log('[dead-flat-co] seed complete. 6 categories, 30 items, 10 add-ons, 4 spice levels, customizations added. Tables: OFF.');
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;

@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS restaurants (
 /* ─── Menu categories ─────────────────────────────────────────────────────── */
 CREATE TABLE IF NOT EXISTS menu_categories (
   id          SERIAL PRIMARY KEY,
-  rest_id     INT NOT NULL REFERENCES restaurants(rest_id) ON DELETE CASCADE,
+  tenant_id   UUID NOT NULL REFERENCES tenant.restaurants(id) ON DELETE CASCADE,
   name        VARCHAR(100) NOT NULL,
   subtitle    VARCHAR(200),
   sort_order  INT DEFAULT 0,
@@ -87,7 +87,7 @@ CREATE TABLE IF NOT EXISTS menu_categories (
 /* ─── Menu items ──────────────────────────────────────────────────────────── */
 CREATE TABLE IF NOT EXISTS menu_items (
   id           SERIAL PRIMARY KEY,
-  rest_id      INT NOT NULL REFERENCES restaurants(rest_id) ON DELETE CASCADE,
+  tenant_id    UUID NOT NULL REFERENCES tenant.restaurants(id) ON DELETE CASCADE,
   category_id  INT NOT NULL REFERENCES menu_categories(id) ON DELETE CASCADE,
   name         VARCHAR(150) NOT NULL,
   price_paise  INT NOT NULL,               -- always paise; divide by 100 for display
@@ -101,10 +101,44 @@ CREATE TABLE IF NOT EXISTS menu_items (
   sort_order   INT DEFAULT 0
 );
 
+/* ─── Menu item variants ──────────────────────────────────────────────────── */
+CREATE TABLE IF NOT EXISTS item_variants (
+  id           SERIAL PRIMARY KEY,
+  tenant_id    UUID NOT NULL REFERENCES tenant.restaurants(id) ON DELETE CASCADE,
+  menu_item_id INT NOT NULL REFERENCES menu_items(id) ON DELETE CASCADE,
+  name         VARCHAR(100) NOT NULL,
+  food_type    VARCHAR(20),               -- 'veg' | 'non_veg' | 'vegan'
+  price        DECIMAL(10,2) NOT NULL,
+  is_available BOOLEAN DEFAULT TRUE,
+  sort_order   INT DEFAULT 0
+);
+
+/* ─── Customization groups ────────────────────────────────────────────────── */
+CREATE TABLE IF NOT EXISTS customization_groups (
+  id           SERIAL PRIMARY KEY,
+  menu_item_id INT NOT NULL REFERENCES menu_items(id) ON DELETE CASCADE,
+  name         VARCHAR(100) NOT NULL,
+  group_type   VARCHAR(20) NOT NULL,      -- 'radio' | 'checkbox'
+  is_required  BOOLEAN DEFAULT FALSE,
+  sort_order   INT DEFAULT 0
+);
+ALTER TABLE customization_groups ADD COLUMN IF NOT EXISTS sort_order INT DEFAULT 0;
+
+/* ─── Customization options ───────────────────────────────────────────────── */
+CREATE TABLE IF NOT EXISTS customization_options (
+  id             SERIAL PRIMARY KEY,
+  group_id       INT NOT NULL REFERENCES customization_groups(id) ON DELETE CASCADE,
+  name           VARCHAR(100) NOT NULL,
+  price_modifier DECIMAL(10,2) DEFAULT 0,
+  is_default     BOOLEAN DEFAULT FALSE,
+  sort_order     INT DEFAULT 0
+);
+ALTER TABLE customization_options ADD COLUMN IF NOT EXISTS sort_order INT DEFAULT 0;
+
 /* ─── Menu add-ons ────────────────────────────────────────────────────────── */
 CREATE TABLE IF NOT EXISTS menu_addons (
   id          SERIAL PRIMARY KEY,
-  rest_id     INT NOT NULL REFERENCES restaurants(rest_id) ON DELETE CASCADE,
+  tenant_id   UUID NOT NULL REFERENCES tenant.restaurants(id) ON DELETE CASCADE,
   label       VARCHAR(100) NOT NULL,
   price_paise INT DEFAULT 0,
   active      BOOLEAN DEFAULT TRUE,
@@ -114,7 +148,7 @@ CREATE TABLE IF NOT EXISTS menu_addons (
 /* ─── Spice levels ────────────────────────────────────────────────────────── */
 CREATE TABLE IF NOT EXISTS spice_levels (
   id         SERIAL PRIMARY KEY,
-  rest_id    INT NOT NULL REFERENCES restaurants(rest_id) ON DELETE CASCADE,
+  tenant_id  UUID NOT NULL REFERENCES tenant.restaurants(id) ON DELETE CASCADE,
   label      VARCHAR(50) NOT NULL,
   sort_order INT DEFAULT 0
 );

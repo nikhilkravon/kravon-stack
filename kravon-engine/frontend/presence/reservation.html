@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reserve a Table</title>
+  <meta name="description" content="Reserve a table at our restaurant." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="../shared/css/base.css">
+  <link rel="stylesheet" href="../shared/css/layout.css">
+  <link rel="stylesheet" href="../shared/css/components.css">
+  <link rel="stylesheet" href="assets/css/presence.css">
+  <style>
+    body { background: #080808; color: #F0EAE0; }
+    .reserve-page { padding: 3rem 1rem; max-width: 720px; margin: 0 auto; }
+    .reserve-headline { margin-bottom: 1rem; }
+    .reserve-copy { margin-bottom: 2rem; color: rgba(240,234,224,.78); }
+    .reserve-form { display: grid; gap: 1rem; }
+    .reserve-form label { display: block; font-weight: 600; margin-bottom: .5rem; }
+    .reserve-form input,
+    .reserve-form select,
+    .reserve-form textarea { width: 100%; padding: 0.95rem 1rem; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; background: rgba(255,255,255,.04); color: #fff; }
+    .reserve-form textarea { min-height: 130px; resize: vertical; }
+    .reserve-form .form-row { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 1rem; }
+    .reserve-form .form-row > div { min-width: 0; }
+    .reserve-actions { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
+    .reserve-status { min-height: 2rem; color: #fff; }
+    .reserve-status.success { color: #b8f1c9; }
+    .reserve-status.error { color: #ff8a8a; }
+    .reserve-nav { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 2rem; }
+    .reserve-nav a { color: #F0EAE0; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="reserve-page">
+    <div class="reserve-nav">
+      <a href="index.html">← Back to menu</a>
+      <a href="index.html" class="p-btn p-btn-secondary">Home</a>
+    </div>
+    <header>
+      <h1 class="reserve-headline">Reserve a Table</h1>
+      <p class="reserve-copy">Book your table in seconds. Choose date, time and party size, then we’ll confirm your reservation.</p>
+    </header>
+
+    <form id="reservationForm" class="reserve-form">
+      <div>
+        <label for="customer_name">Name</label>
+        <input id="customer_name" name="customer_name" type="text" required maxlength="100" placeholder="Your name" />
+      </div>
+      <div>
+        <label for="customer_phone">Phone</label>
+        <input id="customer_phone" name="customer_phone" type="tel" required maxlength="20" placeholder="+9198xxxxxxx" />
+      </div>
+      <div class="form-row">
+        <div>
+          <label for="reservation_date">Date</label>
+          <input id="reservation_date" name="reservation_date" type="date" required />
+        </div>
+        <div>
+          <label for="reservation_time">Time</label>
+          <input id="reservation_time" name="reservation_time" type="time" required />
+        </div>
+      </div>
+      <div>
+        <label for="party_size">Party size</label>
+        <input id="party_size" name="party_size" type="number" required min="1" max="50" value="2" />
+      </div>
+      <div>
+        <label for="occasion">Occasion (optional)</label>
+        <input id="occasion" name="occasion" type="text" maxlength="150" placeholder="Birthday, anniversary, etc." />
+      </div>
+      <div>
+        <label for="dietary_notes">Dietary notes</label>
+        <textarea id="dietary_notes" name="dietary_notes" maxlength="500" placeholder="Any food preferences or allergies"></textarea>
+      </div>
+      <div class="reserve-actions">
+        <button id="reservationSubmit" class="p-btn p-btn-primary" type="submit">Request reservation</button>
+        <div id="reservationStatus" class="reserve-status" aria-live="polite"></div>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    const _q = new URLSearchParams(window.location.search);
+    const KRAVON_API_URL = "__KRAVON_API_URL__" !== "__KRAVON_API_URL__"
+      ? "__KRAVON_API_URL__"
+      : (_q.get('api') || 'http://localhost:3000');
+    const RESTAURANT_SLUG_ENV = "__RESTAURANT_SLUG__" !== "__RESTAURANT_SLUG__"
+      ? "__RESTAURANT_SLUG__"
+      : _q.get('slug');
+  </script>
+  <script src="../shared/js/kravon.js"></script>
+  <script src="assets/js/reservation.js"></script>
+</body>
+</html>

@@ -345,3 +345,47 @@
 @media (max-width: 480px) {
   .cart-bar-right .cart-view-btn { display: none; }
 }
+
+/* ════════════════════════════════
+   CUSTOMIZE BUTTON (for menu items)
+   ════════════════════════════════ */
+.customize-btn {
+  padding: 8px 12px;
+  background: #ff6b6b;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.customize-btn:hover {
+  background: #ff5252;
+  transform: translateY(-1px);
+}
+
+.customize-btn:active {
+  transform: translateY(0);
+}
+
+.customize-with-qty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qty-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 107, 107, 0.15);
+  color: #ff6b6b;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+}

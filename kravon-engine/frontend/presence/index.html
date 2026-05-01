@@ -26,6 +26,7 @@
   <!-- Presence-specific styles -->
   <link rel="stylesheet" href="assets/css/presence.css">
   <link rel="stylesheet" href="assets/css/cart.css">
+  <link rel="stylesheet" href="assets/css/customization-modal.css">
 
   <!-- SVG sprite -->
   <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
@@ -51,7 +52,7 @@
     </div>
   </footer>
 
-  <!-- Cart UI (presence has WhatsApp cart, not Razorpay) -->
+  <!-- Cart UI (presence has Razorpay checkout) -->
   <div class="cart-bar" id="cartBar" role="region" aria-label="Cart summary" aria-live="polite">
     <div class="cart-bar-left">
       <div class="cart-count" id="cartCount" aria-label="Items in cart">0</div>
@@ -62,9 +63,8 @@
     </div>
     <div class="cart-bar-right">
       <button class="cart-view-btn" data-action="open-cart" aria-label="View cart">View Cart</button>
-      <button class="cart-wa-btn" data-action="checkout" aria-label="Checkout via WhatsApp">
-        <svg aria-hidden="true" focusable="false"><use href="#icon-wa"/></svg>
-        Checkout on WhatsApp
+      <button class="cart-wa-btn" data-action="checkout" aria-label="Proceed to checkout">
+        Proceed to Checkout
       </button>
     </div>
   </div>
@@ -84,9 +84,8 @@
         <span class="cart-total-val" id="cartTotalVal">₹0</span>
       </div>
       <p class="cart-min-note" id="cartMinNote"></p>
-      <button class="cart-checkout-btn" data-action="checkout" aria-label="Send order on WhatsApp">
-        <svg aria-hidden="true" focusable="false"><use href="#icon-wa"/></svg>
-        Send Order on WhatsApp
+      <button class="cart-checkout-btn" data-action="checkout" aria-label="Proceed to checkout">
+        Proceed to Checkout
       </button>
     </div>
   </div>
@@ -103,6 +102,8 @@
   </script>
   <script src="../api-client/kravon-api.js"></script>
   <script src="assets/js/cart.js"></script>
+  <script src="assets/js/enhanced-cart.js"></script>
+  <script src="assets/js/customization-modal.js"></script>
   <script src="assets/js/renderer.js"></script>
   <script src="assets/js/behaviour.js"></script>
   <script src="assets/js/boot.js"></script>

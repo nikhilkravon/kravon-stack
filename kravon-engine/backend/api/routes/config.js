@@ -20,7 +20,7 @@ const router = express.Router();
 router.get('/', async (req, res, next) => {
   try {
     const r  = req.tenant;
-    const id = r.rest_id;
+    const id = r.tenant_id;
 
     // Fetch menu categories + items
     const menuRes = await query(`
@@ -37,20 +37,20 @@ router.get('/', async (req, res, next) => {
         i.image_bg,
         i.badge,
         i.badge_style,
-        i.customisable,
+        i.customisable AS is_customizable,
         i.sort_order  AS item_sort
       FROM menu_categories c
       LEFT JOIN menu_items i ON i.category_id = c.id AND i.active = TRUE
-      WHERE c.rest_id = $1 AND c.active = TRUE
+      WHERE c.tenant_id = $1 AND c.active = TRUE
       ORDER BY c.sort_order, i.sort_order
     `, [id]);
 
     const addonsRes = await query(
-      'SELECT label, price_paise FROM menu_addons WHERE rest_id=$1 AND active=TRUE ORDER BY sort_order',
+      'SELECT label, price_paise FROM menu_addons WHERE tenant_id=$1 AND active=TRUE ORDER BY sort_order',
       [id]
     );
     const spiceRes = await query(
-      'SELECT label FROM spice_levels WHERE rest_id=$1 ORDER BY sort_order',
+      'SELECT label FROM spice_levels WHERE tenant_id=$1 ORDER BY sort_order',
       [id]
     );
 
@@ -78,7 +78,8 @@ router.get('/', async (req, res, next) => {
           badge:      row.badge,
           badgeStyle: row.badge_style,
           badgeClass: row.badge_style || '',   // V7 renderer uses badgeClass
-          customisable: row.customisable,
+          is_customizable: row.is_customizable,
+          has_variants: false,
         };
         catMap.get(row.cat_id).items.push(item);
         flatItems.push(item);
@@ -227,6 +228,89 @@ router.get('/', async (req, res, next) => {
 
     res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
     res.json({ ok: true, config });
+
+  } catch (err) {
+    console.error('Config route error:', err);
+    next(err);
+  }
+});
+
+// GET /v1/restaurants/:slug/menu/items/:id — Item details with variants & customizations
+router.get('/items/:id', async (req, res, next) => {
+  try {
+    const itemId = req.params.id;
+    const tenantId = req.tenant.tenant_id;
+
+    // Fetch item
+    const itemRes = await query(`
+      SELECT id, name, price_paise, description, customisable
+      FROM menu_items
+      WHERE id = $1 AND tenant_id = $2 AND active = TRUE
+    `, [itemId, tenantId]);
+
+    if (!itemRes.rows.length) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+
+    const item = itemRes.rows[0];
+
+    // Fetch variants
+    const variantsRes = await query(`
+      SELECT id, name, price
+      FROM item_variants
+      WHERE menu_item_id = $1 AND is_available = TRUE
+      ORDER BY sort_order
+    `, [itemId]);
+
+    const variants = variantsRes.rows.map(v => ({
+      id: v.id,
+      name: v.name,
+      price: Math.round(v.price / 100)
+    }));
+
+    // Fetch customizations
+    const groupsRes = await query(`
+      SELECT id, name, group_type, is_required
+      FROM customization_groups
+      WHERE menu_item_id = $1
+      ORDER BY sort_order
+    `, [itemId]);
+
+    const customizations = [];
+    for (const group of groupsRes.rows) {
+      const optionsRes = await query(`
+        SELECT id, name, price_modifier, is_default
+        FROM customization_options
+        WHERE group_id = $1
+        ORDER BY sort_order
+      `, [group.id]);
+
+      const options = optionsRes.rows.map(o => ({
+        id: o.id,
+        name: o.name,
+        price_modifier: Math.round(o.price_modifier / 100),
+        is_default: o.is_default
+      }));
+
+      customizations.push({
+        id: group.id,
+        name: group.name,
+        group_type: group.group_type,
+        is_required: group.is_required,
+        options
+      });
+    }
+
+    res.json({
+      id: item.id,
+      name: item.name,
+      price: Math.round(item.price_paise / 100),
+      description: item.description,
+      has_variants: variants.length > 0,
+      is_customizable: item.customisable,
+      variants,
+      customizations
+    });
 
   } catch (err) {
     next(err);

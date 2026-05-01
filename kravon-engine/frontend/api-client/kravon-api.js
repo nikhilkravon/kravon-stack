@@ -15,7 +15,7 @@ const KravonAPI = (() => {
 
   const API_BASE = typeof KRAVON_API_URL !== 'undefined'
     ? KRAVON_API_URL
-    : 'https://api.kravon.in';
+    : 'http://localhost:3000';
 
   const RESTAURANT_SLUG = typeof RESTAURANT_SLUG_ENV !== 'undefined'
     ? RESTAURANT_SLUG_ENV

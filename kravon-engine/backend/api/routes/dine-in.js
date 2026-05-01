@@ -25,10 +25,26 @@
 
 const express             = require('express');
 const { z }               = require('zod');
+const rateLimit           = require('express-rate-limit');
 const { query, getClient } = require('../../db/pool');
 const { requireRestaurantAuth } = require('../middleware/auth');
 
 const router = express.Router();
+
+// Rate limiters for dine-in endpoints
+const publicDineInLimiter = rateLimit({
+  keyGenerator: (req) => `${req.tenant?.rest_id || 'unknown'}:${req.ip}`,
+  max: 50,  // per restaurant per IP per minute
+  windowMs: 60000,
+  message: { error: 'Too many requests. Please try again later.' }
+});
+
+const orderLimiter = rateLimit({
+  keyGenerator: (req) => `${req.body.session_id}:${req.ip}`,
+  max: 10,  // orders per session per IP per minute
+  windowMs: 60000,
+  message: { error: 'Too many orders. Please try again later.' }
+});
 
 /* ── POST /session/open ─────────────────────────────────────────────────── */
 const OpenSessionSchema = z.object({
@@ -89,6 +105,7 @@ router.post('/session/open', requireRestaurantAuth, async (req, res, next) => {
 
     await client.query('COMMIT');
     const { id: session_id, opened_at } = sessionRes.rows[0];
+    console.log(`[audit] dine-in.session.open tenant=${tenant_id} table=${table_id} session=${session_id} covers=${covers ?? 'null'} ts=${new Date().toISOString()}`);
     res.status(201).json({ ok: true, session_id, table_id, opened_at });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -153,6 +170,7 @@ router.post('/session/close', requireRestaurantAuth, async (req, res, next) => {
     );
 
     await client.query('COMMIT');
+    console.log(`[audit] dine-in.session.close tenant=${tenant_id} table=${table_id} session=${session_id} total=${totalRupees} ts=${new Date().toISOString()}`);
     res.json({ ok: true, session_id, closed_at, total_billed: totalRupees });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -166,7 +184,7 @@ router.post('/session/close', requireRestaurantAuth, async (req, res, next) => {
 // Public — called by customer QR scan to check if their table has an active session.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-router.get('/session/status', async (req, res, next) => {
+router.get('/session/status', publicDineInLimiter, async (req, res, next) => {
   const { table_id } = req.query;
   if (!table_id || !UUID_RE.test(table_id)) {
     return res.status(400).json({ error: 'table_id query param (UUID) is required.' });
@@ -222,7 +240,7 @@ const DineInOrderSchema = z.object({
   special_notes: z.string().max(500).optional(),
 });
 
-router.post('/order', async (req, res, next) => {
+router.post('/order', publicDineInLimiter, orderLimiter, async (req, res, next) => {
   const parsed = DineInOrderSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
@@ -290,6 +308,119 @@ router.post('/order', async (req, res, next) => {
     res.status(201).json({ ok: true, order_id: orderRes.rows[0].id, total_paise: subtotalPaise });
   } catch (err) {
     next(err);
+  }
+});
+
+/* ── POST /reservations ───────────────────────────────────────────────────── */
+const ReservationSchema = z.object({
+  customer_name:   z.string().min(1).max(100),
+  customer_phone:  z.string().min(8).max(20),
+  customer_email:  z.string().email().optional(),
+  party_size:      z.number().int().min(1).max(50),
+  reservation_time: z.string().refine((val) => !Number.isNaN(new Date(val).getTime()), {
+    message: 'reservation_time must be a valid ISO datetime string',
+  }),
+  occasion:        z.string().max(150).optional(),
+  dietary_notes:   z.string().max(500).optional(),
+  table_id:        z.string().uuid().optional(),
+});
+
+function generateConfirmationCode() {
+  return `R${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+}
+
+router.post('/reservations', async (req, res, next) => {
+  const parsed = ReservationSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
+  }
+
+  const {
+    customer_name,
+    customer_phone,
+    customer_email,
+    party_size,
+    reservation_time,
+    occasion,
+    dietary_notes,
+    table_id,
+  } = parsed.data;
+
+  const tenant_id = req.tenant.tenant_id;
+  if (!tenant_id) {
+    return res.status(400).json({ error: 'Dining tables not configured for this restaurant.' });
+  }
+
+  const reservationAt = new Date(reservation_time);
+  if (Number.isNaN(reservationAt.getTime())) {
+    return res.status(400).json({ error: 'reservation_time is invalid.' });
+  }
+
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+
+    let customer_id = null;
+    if (customer_phone) {
+      const existingCustomer = await client.query(
+        `SELECT id FROM customer.customers
+         WHERE tenant_id = $1 AND phone = $2 AND deleted_at IS NULL
+         LIMIT 1`,
+        [tenant_id, customer_phone]
+      );
+
+      if (existingCustomer.rows.length) {
+        customer_id = existingCustomer.rows[0].id;
+      } else {
+        const newCustomer = await client.query(
+          `INSERT INTO customer.customers
+             (tenant_id, name, phone, email, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, NOW(), NOW())
+           RETURNING id`,
+          [tenant_id, customer_name, customer_phone, customer_email ?? null]
+        );
+        customer_id = newCustomer.rows[0].id;
+      }
+    }
+
+    let validatedTableId = null;
+    if (table_id) {
+      const tableRes = await client.query(
+        `SELECT id FROM dining.tables
+         WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
+        [table_id, tenant_id]
+      );
+      if (!tableRes.rows.length) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Table not found.' });
+      }
+      validatedTableId = table_id;
+    }
+
+    const confirmation_code = generateConfirmationCode();
+    const reservationRes = await client.query(
+      `INSERT INTO dining.reservations (
+         tenant_id, location_id, customer_id, table_id,
+         party_size, reservation_time, status, source,
+         occasion, dietary_notes, confirmation_code,
+         metadata, created_at, updated_at
+       ) VALUES ($1, NULL, $2, $3, $4, $5, 'pending', 'presence', $6, $7, $8, '{}', NOW(), NOW())
+       RETURNING id, confirmation_code`,
+      [tenant_id, customer_id, validatedTableId, party_size, reservationAt.toISOString(), occasion ?? null, dietary_notes ?? null, confirmation_code]
+    );
+
+    await client.query('COMMIT');
+    res.status(201).json({
+      ok: true,
+      reservation_id: reservationRes.rows[0].id,
+      confirmation_code: reservationRes.rows[0].confirmation_code,
+      status: 'pending',
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    next(err);
+  } finally {
+    client.release();
   }
 });
 
