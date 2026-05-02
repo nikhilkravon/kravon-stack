@@ -36,7 +36,7 @@ const RESTAURANT = {
   map_url: 'https://maps.google.com/?q=Andheri+West+Mumbai',
   // Products — delivery-only cloud kitchen, no dine-in
   has_presence:       true,
-  has_orders:         true,
+  has_orders:         false,
   has_tables:         false,
   has_catering:       true,
   has_insights:       true,

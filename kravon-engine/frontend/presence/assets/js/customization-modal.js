@@ -23,6 +23,9 @@ const CustomizationModal = (function () {
   let _selectedVariant = null;
   let _selectedCustomizations = {};
   let _onConfirm = null;
+  let _selectedFoodPreference = 'veg';
+  let _selectedSpiceLevel = null;
+  let _selectedAddons = [];
 
   function _esc(str) {
     if (str == null) return '';
@@ -103,9 +106,61 @@ const CustomizationModal = (function () {
     }).join('');
   }
 
+  function _buildVegNonVegSection() {
+    return `
+      <div class="cust-group">
+        <label class="cust-group-label">Food Type</label>
+        <div class="cust-options">
+          <label class="cust-option-label">
+            <input type="radio" name="food_preference" value="veg" checked />
+            <span class="cust-option-text">🟢 Veg</span>
+          </label>
+          <label class="cust-option-label">
+            <input type="radio" name="food_preference" value="non-veg" />
+            <span class="cust-option-text">🔴 Non-Veg</span>
+          </label>
+        </div>
+      </div>`;
+  }
+
+  function _buildSpiceLevelSection() {
+    const levels = window.SPICE_LEVELS;
+    if (!levels || levels.length === 0) return '';
+    const optionsHtml = levels.map((level, i) => `
+      <label class="cust-option-label">
+        <input type="radio" name="spice_level" value="${_esc(level)}" ${i === 0 ? 'checked' : ''} />
+        <span class="cust-option-text">${_esc(level)}</span>
+      </label>`).join('');
+    return `
+      <div class="cust-group">
+        <label class="cust-group-label">Spice Level</label>
+        <div class="cust-options">${optionsHtml}</div>
+      </div>`;
+  }
+
+  function _buildAddonsSection() {
+    const addons = window.ADDONS;
+    if (!addons || addons.length === 0) return '';
+    const optionsHtml = addons.map(addon => `
+      <label class="cust-option-label">
+        <input type="checkbox" name="addon" value="${_esc(addon.label)}" data-price="${addon.price}" />
+        <span class="cust-option-text">
+          ${_esc(addon.label)}${addon.price > 0 ? ` <span class="cust-price-mod">+₹${addon.price}</span>` : ''}
+        </span>
+      </label>`).join('');
+    return `
+      <div class="cust-group">
+        <label class="cust-group-label">Add-ons</label>
+        <div class="cust-options">${optionsHtml}</div>
+      </div>`;
+  }
+
   function _buildModal(item, customizations) {
-    const variantSection = _buildVariantSection(item);
-    const customizationGroups = _buildCustomizationGroups(customizations);
+    const variantSection       = _buildVariantSection(item);
+    const customizationGroups  = _buildCustomizationGroups(customizations);
+    const vegNonVegSection     = _buildVegNonVegSection();
+    const spiceLevelSection    = _buildSpiceLevelSection();
+    const addonsSection        = _buildAddonsSection();
     const basePrice = item.price || (item.variants && item.variants[0]?.price) || 0;
 
     const html = `
@@ -123,17 +178,20 @@ const CustomizationModal = (function () {
 
         <div class="cust-body">
           ${item.description ? `<p class="cust-description">${item.description}</p>` : ''}
-          
+
           <form id="customizationForm">
             ${variantSection}
             ${customizationGroups}
+            ${vegNonVegSection}
+            ${spiceLevelSection}
+            ${addonsSection}
 
             <div class="cust-group">
               <label class="cust-group-label">Special Instructions (optional)</label>
-              <textarea 
-                id="specialNote" 
-                class="cust-textarea" 
-                placeholder="e.g., No onions, Extra spicy"
+              <textarea
+                id="specialNote"
+                class="cust-textarea"
+                placeholder="e.g., No onions, less salt"
                 maxlength="500"
               ></textarea>
             </div>
@@ -161,22 +219,28 @@ const CustomizationModal = (function () {
 
   function _calculateTotal() {
     let basePrice = _selectedVariant?.price || _currentItem.price || 0;
-    let customizationModifier = 0;
+    let modifier = 0;
 
     Object.entries(_selectedCustomizations).forEach(([groupId, selectedOptions]) => {
       selectedOptions.forEach(optId => {
         const group = _currentItem.customizations?.find(g => g.id === groupId);
         const option = group?.options?.find(o => o.id === optId);
-        if (option) customizationModifier += option.price_modifier || 0;
+        if (option) modifier += option.price_modifier || 0;
       });
     });
 
+    // Addons
+    const formEl = document.getElementById('customizationForm');
+    if (formEl) {
+      formEl.querySelectorAll('input[name="addon"]:checked').forEach(input => {
+        modifier += parseFloat(input.dataset.price) || 0;
+      });
+    }
+
     const qty = parseInt(document.getElementById('quantity')?.value || 1);
-    const total = (basePrice + customizationModifier) * qty;
-    
     const priceDisplay = document.getElementById('priceDisplay');
     if (priceDisplay) {
-      priceDisplay.textContent = `₹${total.toFixed(2)}`;
+      priceDisplay.textContent = `₹${((basePrice + modifier) * qty).toFixed(0)}`;
     }
   }
 
@@ -246,11 +310,14 @@ const CustomizationModal = (function () {
     addBtn.addEventListener('click', () => {
       _collectSelections();
 
-      // Build customization array for cart
+      const formEl = document.getElementById('customizationForm');
+      const qty = parseInt(quantityInput.value) || 1;
+
+      // Item-specific customization groups
       const customizations = Object.entries(_selectedCustomizations).map(([groupId, optionIds]) => {
         const group = _currentItem.customizations?.find(g => g.id === groupId);
         return {
-          groupId: groupId,
+          groupId,
           groupName: group?.name || 'Customization',
           selections: optionIds.map(optId => {
             const option = group?.options?.find(o => o.id === optId);
@@ -263,20 +330,45 @@ const CustomizationModal = (function () {
         };
       });
 
+      // Addons (with price modifiers so _recalculatePrices picks them up)
+      const checkedAddons = [];
+      if (formEl) {
+        formEl.querySelectorAll('input[name="addon"]:checked').forEach(input => {
+          checkedAddons.push({ label: input.value, price: parseFloat(input.dataset.price) || 0 });
+        });
+      }
+      if (checkedAddons.length > 0) {
+        customizations.push({
+          groupId: 'addons',
+          groupName: 'Add-ons',
+          selections: checkedAddons.map(a => ({
+            optionId: a.label,
+            optionName: a.label,
+            priceModifier: a.price
+          }))
+        });
+      }
+
+      // Build special note: food type · spice level · user note
+      const foodPrefEl  = formEl?.querySelector('input[name="food_preference"]:checked');
+      const spiceLvlEl  = formEl?.querySelector('input[name="spice_level"]:checked');
+      const noteParts   = [];
+      if (foodPrefEl)  noteParts.push(foodPrefEl.value === 'veg' ? '🟢 Veg' : '🔴 Non-Veg');
+      if (spiceLvlEl)  noteParts.push(spiceLvlEl.value);
+      const userNote = document.getElementById('specialNote')?.value?.trim() || '';
+      if (userNote) noteParts.push(userNote);
+
       const customizedItem = {
         menuItemId: _currentItem.id,
         name: _currentItem.name,
-        quantity: parseInt(quantityInput.value),
+        quantity: qty,
         variant: _selectedVariant,
-        customizations: customizations,
-        specialNote: document.getElementById('specialNote')?.value || '',
+        customizations,
+        specialNote: noteParts.join(' · '),
         basePrice: _selectedVariant?.price || _currentItem.price || 0
       };
 
-      if (_onConfirm) {
-        _onConfirm(customizedItem);
-      }
-
+      if (_onConfirm) _onConfirm(customizedItem);
       close();
     });
   }
@@ -306,6 +398,9 @@ const CustomizationModal = (function () {
     _onConfirm = onConfirm;
     _selectedVariant = null;
     _selectedCustomizations = {};
+    _selectedFoodPreference = 'veg';
+    _selectedSpiceLevel = null;
+    _selectedAddons = [];
 
     // Fetch full item details (variants, customizations)
     if (item.has_variants || item.is_customizable) {

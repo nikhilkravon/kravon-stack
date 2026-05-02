@@ -37,18 +37,20 @@
     DOM.cartBarItems.textContent = `${count} item${count !== 1 ? 's' : ''}`;
     DOM.cartBar.classList.toggle('visible', count > 0);
 
-    // Disable the cart-bar checkout button when below min order
+    // Disable the cart-bar checkout button when below min order; label by has_orders
     const barBtn = DOM.cartBar.querySelector('.cart-wa-btn');
     if (barBtn) {
       barBtn.disabled = belowMin;
       barBtn.setAttribute('aria-disabled', String(belowMin));
+      barBtn.textContent = (C.products && C.products.orders) ? 'Proceed to Checkout' : 'Order on WhatsApp';
     }
   }
 
   /* ── Cart drawer ──────────────────────────────────────── */
   function renderCartDrawer() {
-    const count = Cart.count();
-    const total = Cart.total();
+    const cartItems = EnhancedCart.items();
+    const count = cartItems.length;
+    const total = EnhancedCart.total();
     const cur   = C.order.currency;
     const min   = C.order.minOrder;
 
@@ -62,22 +64,19 @@
       return;
     }
 
-    DOM.cartItemsList.innerHTML = items
-      .map((item) => {
-        return `
-          <div class="cart-item">
-            <div class="cart-item-info">
-              <div class="cart-item-name">${item.name}</div>
-              <div class="cart-item-price">${cur}${item.basePrice} × ${item.quantity}</div>
-            </div>
-            <div class="qty-ctrl" role="group" aria-label="Quantity for ${item.name}">
-              <button class="qty-btn" data-action="dec" data-id="${item.cartItemId}" aria-label="Remove one">−</button>
-              <div class="qty-num" aria-live="polite">${item.quantity}</div>
-              <button class="qty-btn" data-action="inc" data-id="${item.cartItemId}" aria-label="Add one">+</button>
-            </div>
-            <div class="cart-item-total">${cur}${item.totalPrice}</div>
-          </div>`;
-      }).join('');
+    DOM.cartItemsList.innerHTML = cartItems.map(item => `
+      <div class="cart-item">
+        <div class="cart-item-info">
+          <div class="cart-item-name">${item.name}</div>
+          <div class="cart-item-price">${cur}${item.basePrice} × ${item.quantity}</div>
+        </div>
+        <div class="qty-ctrl" role="group" aria-label="Quantity for ${item.name}">
+          <button class="qty-btn" data-action="dec" data-id="${item.cartItemId}" aria-label="Remove one">−</button>
+          <div class="qty-num" aria-live="polite">${item.quantity}</div>
+          <button class="qty-btn" data-action="inc" data-id="${item.cartItemId}" aria-label="Add one">+</button>
+        </div>
+        <div class="cart-item-total">${cur}${item.totalPrice}</div>
+      </div>`).join('');
 
     DOM.cartTotalVal.textContent = `${cur}${total}`;
     DOM.cartFooter.style.display = 'flex';
@@ -90,11 +89,11 @@
       DOM.cartMinNote.className   = 'cart-min-note';
     }
 
-    // Disable the drawer checkout button when below min order
     const drawerBtn = document.querySelector('.cart-checkout-btn');
     if (drawerBtn) {
       drawerBtn.disabled = total < min;
       drawerBtn.setAttribute('aria-disabled', String(total < min));
+      drawerBtn.textContent = (C.products && C.products.orders) ? 'Proceed to Checkout' : 'Order on WhatsApp';
     }
   }
 
@@ -115,17 +114,31 @@
     document.body.style.overflow = '';
   }
 
-  /* ── Checkout: redirect to checkout page ────────────────– */
+  /* ── Checkout: redirect to checkout page or open WhatsApp ─ */
   function checkout() {
-    const count = EnhancedCart.count();
-    if (count === 0) return;
-    
-    // Save cart to sessionStorage before navigating
-    const cartData = EnhancedCart.items();
-    sessionStorage.setItem('kravon_presence_cart', JSON.stringify(cartData));
-    
-    // Navigate to checkout page
-    window.location.href = 'checkout.html';
+    const items = EnhancedCart.items();
+    if (!items.length) return;
+
+    if (C.products && C.products.orders) {
+      sessionStorage.setItem('kravon_presence_cart', JSON.stringify(items));
+      const p = new URLSearchParams(window.location.search);
+      const qs = new URLSearchParams();
+      const slug = (window.CONFIG && window.CONFIG.slug) || p.get('slug');
+      if (slug) qs.set('slug', slug);
+      if (p.get('api')) qs.set('api', p.get('api'));
+      const q = qs.toString();
+      window.location.href = q ? `checkout.html?${q}` : 'checkout.html';
+    } else {
+      const cur = C.order.currency;
+      const lines = items.map(i =>
+        `• ${i.name} × ${i.quantity} — ${cur}${i.totalPrice}${i.specialNote ? ' (' + i.specialNote + ')' : ''}`
+      );
+      const total = EnhancedCart.total();
+      const greeting = (C.contact && C.contact.waGreeting) || 'Hi, I would like to order:';
+      const msg = `${greeting}\n\n${lines.join('\n')}\n\nTotal: ${cur}${total}`;
+      const waNum = (C.contact && C.contact.waNumber) || '';
+      window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
+    }
   }
 
   /* ── Cart subscriber → refresh all cart UI ────────────── */

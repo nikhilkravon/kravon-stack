@@ -291,7 +291,7 @@ const CheckoutPresence = (() => {
       console.error('Payment verification error:', err);
       _showToast('Payment recorded. Your order will be confirmed soon.');
       setTimeout(() => {
-        window.location.href = 'index.html';
+        window.location.href = _menuHref();
       }, 2000);
     }
   }
@@ -310,7 +310,7 @@ const CheckoutPresence = (() => {
           Your order has been placed successfully. You'll receive a confirmation message shortly.
         </div>
         <div class="confirmation-actions">
-          <a href="index.html" class="confirmation-btn primary">Back to Menu</a>
+          <a href="${_menuHref()}" class="confirmation-btn primary">Back to Menu</a>
           <a href="#" class="confirmation-btn" onclick="window.print();return false;">Print Receipt</a>
         </div>
       </div>`;
@@ -318,7 +318,15 @@ const CheckoutPresence = (() => {
 
   /* ── Go back to menu ── */
   function _goBack() {
-    window.location.href = 'index.html';
+    const p = new URLSearchParams(window.location.search);
+    const qs = p.toString();
+    window.location.href = qs ? `index.html?${qs}` : 'index.html';
+  }
+
+  /* ── Build back-to-menu href preserving query params ── */
+  function _menuHref() {
+    const qs = new URLSearchParams(window.location.search).toString();
+    return qs ? `index.html?${qs}` : 'index.html';
   }
 
   /* ── Check if cart is empty ── */
@@ -332,7 +340,7 @@ const CheckoutPresence = (() => {
             <div class="empty-cart-icon">🛒</div>
             <div class="empty-cart-title">Your cart is empty</div>
             <div class="empty-cart-text">Add items from the menu to get started</div>
-            <a href="index.html" class="continue-btn">Continue Shopping</a>
+            <a href="${_menuHref()}" class="continue-btn">Continue Shopping</a>
           </div>`;
       }
       return true;

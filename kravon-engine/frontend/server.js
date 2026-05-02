@@ -12,8 +12,22 @@ const server = http.createServer((req, res) => {
     pathname = '/index.html';
   }
 
-  // Handle tables route - redirect to tables/index.html
-  if (pathname === '/tables' || pathname === '/tables/') {
+  // Redirect bare slug routes to trailing-slash so relative asset paths resolve correctly
+  if (pathname === '/presence') {
+    res.writeHead(301, { 'Location': '/presence/' });
+    res.end();
+    return;
+  }
+  if (pathname === '/presence/') {
+    pathname = '/presence/index.html';
+  }
+
+  if (pathname === '/tables') {
+    res.writeHead(301, { 'Location': '/tables/' });
+    res.end();
+    return;
+  }
+  if (pathname === '/tables/') {
     pathname = '/tables/index.html';
   }
 

@@ -209,10 +209,17 @@ body {
 }
 
 .p-nav-inner {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  width: 100%;
+}
+
+.p-nav-right {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  width: 100%;
+  gap: 12px;
+  justify-content: flex-end;
 }
 
 .p-nav-brand {

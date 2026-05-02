@@ -36,6 +36,18 @@
     return `<svg aria-hidden="true" focusable="false" width="${s}" height="${s}"><use href="#icon-wa"/></svg>`;
   }
 
+  function orderCta(size, extraClass) {
+    const cls = `p-btn p-btn-wa${extraClass ? ' ' + extraClass : ''}`;
+    if (C.products && C.products.orders) {
+      const primaryCls = `p-btn p-btn-primary${extraClass ? ' ' + extraClass : ''}`;
+      return `<button class="${primaryCls}" data-action="checkout" aria-label="Proceed to checkout">Proceed to Checkout</button>`;
+    }
+    return `<a href="${waLink()}" target="_blank" rel="noopener noreferrer"
+               class="${cls}" data-wa-link aria-label="Order on WhatsApp">
+              ${waIcon(size || 16)} Order on WhatsApp
+            </a>`;
+  }
+
   function currency(n) {
     return `${C.order.currency}${n}`;
   }
@@ -67,11 +79,10 @@
               ${C.hours.navBadge}
             </div>
           </div>
-          ${reserveBtn}
-          <a href="${waLink()}" target="_blank" rel="noopener noreferrer"
-             class="p-btn p-btn-wa" data-wa-link aria-label="Order on WhatsApp">
-            ${waIcon()} Order on WhatsApp
-          </a>
+          <div class="p-nav-right">
+            ${reserveBtn}
+            ${orderCta()}
+          </div>
         </div>
       </div>
     `;
@@ -113,10 +124,7 @@
               Browse Menu
             </a>
             ${reserveHeroCta}
-            <a href="${waLink()}" target="_blank" rel="noopener noreferrer"
-               class="p-btn p-btn-wa p-btn-lg" data-wa-link aria-label="Order on WhatsApp">
-              ${waIcon(18)} ${esc(C.hero.ctaLabel)}
-            </a>
+            ${orderCta(18, 'p-btn-lg')}
           </div>
           <span class="p-hero-note">${esc(C.hero.footnote)}</span>
         </div>
@@ -166,7 +174,7 @@
 
   /* ── MENU ────────────────────────────────────────────── */
   function renderMenuCtrl(id) {
-    const item = M.find(m => String(m.id) === id);
+    const item = M.find(m => String(m.id) === String(id));
     // Count qty from EnhancedCart
     const cartItems = EnhancedCart.items().filter(ci => String(ci.menuItemId) === String(id));
     const qty = cartItems.reduce((sum, ci) => sum + ci.quantity, 0);
@@ -257,10 +265,7 @@
               <span class="p-how-wa-icon" aria-hidden="true">${esc(C.how.waCard.icon)}</span>
               <div class="p-how-wa-title">${esc(C.how.waCard.title)}</div>
               <p class="p-how-wa-sub">${esc(C.hours.kitchenNote)}</p>
-              <a href="${waLink()}" target="_blank" rel="noopener noreferrer"
-                 class="p-btn p-btn-wa p-btn-lg" data-wa-link aria-label="Start order on WhatsApp">
-                ${waIcon(18)} ${esc(C.how.waCard.ctaLabel)}
-              </a>
+              ${orderCta(18, 'p-btn-lg')}
             </div>
             <ul class="p-how-benefits" aria-label="Order benefits">${benefitsHtml}</ul>
           </div>
@@ -337,10 +342,7 @@
               <h2 class="p-headline" id="location-heading">${esc(C.location.label)}</h2>
             </div>
             <div class="p-location-rows">${rowsHtml}</div>
-            <a href="${waLink()}" target="_blank" rel="noopener noreferrer"
-               class="p-btn p-btn-wa" data-wa-link aria-label="Order on WhatsApp">
-              ${waIcon()} Order on WhatsApp
-            </a>
+            ${orderCta()}
           </div>
         </div>
       </div>

@@ -3,6 +3,20 @@
    Checkout page styling for payment flow.
    ═══════════════════════════════════════════════════════════ */
 
+:root {
+  --accent:        #C8973A;
+  --accent-subtle: rgba(200, 151, 58, 0.10);
+}
+
+body {
+  background: #080808;
+  color: #F0EAE0;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
 /* ─── Header ─── */
 .checkout-header {
   padding: 20px 24px;
