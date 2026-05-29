@@ -1,18 +1,20 @@
 /**
  * ROUTE — admin.js
  * POST /v1/admin/restaurants         — onboard new restaurant
- * PUT  /v1/admin/restaurants/:id     — update restaurant
+ * PUT  /v1/admin/restaurants/:slug   — update restaurant
  * GET  /v1/admin/restaurants         — list all restaurants
+ * POST /v1/admin/staff               — create staff member with email+password
  *
  * Protected by a single ADMIN_API_KEY header.
- * Used by the Kravon team only — not by restaurant owners.
+ * Uses v12 schema: tenant.restaurants + tenant.locations + tenant.integrations + brand.*
  */
 
 'use strict';
 
-const express   = require('express');
-const { z }     = require('zod');
-const { query } = require('../../db/pool');
+const express    = require('express');
+const bcrypt     = require('bcryptjs');
+const { z }      = require('zod');
+const { query, getClient }  = require('../../db/pool');
 const { encrypt } = require('../../utils/crypto');
 
 const router = express.Router();
@@ -27,8 +29,6 @@ function requireAdminKey(req, res, next) {
 
 router.use(requireAdminKey);
 
-/* ── Shared validation schema ─────────────────────────────────────────────── */
-// slug: URL-safe lowercase identifier; no spaces, no special chars
 const SlugSchema = z.string()
   .min(2).max(80)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'slug must be lowercase alphanumeric with hyphens only');
@@ -36,7 +36,7 @@ const SlugSchema = z.string()
 const CreateRestaurantSchema = z.object({
   slug:               SlugSchema,
   name:               z.string().min(1).max(120),
-  tagline:            z.string().max(200).optional(),
+  tagline:            z.string().max(300).optional(),
   year:               z.string().max(4).optional(),
   phone:              z.string().max(30).optional(),
   wa_number:          z.string().regex(/^\d{10,15}$/, 'wa_number must be digits only, 10–15 chars').optional(),
@@ -57,18 +57,25 @@ const CreateRestaurantSchema = z.object({
   review_threshold:   z.number().int().min(1).max(5).optional(),
   google_review_url:  z.string().url().max(300).optional(),
   webhook_url:        z.string().url().max(300).optional(),
-  delivery_fee:       z.number().int().min(0).optional(),
-  free_delivery_above:z.number().int().min(0).optional(),
+  delivery_fee:       z.number().min(0).optional(),          // rupees
+  free_delivery_above:z.number().min(0).optional(),          // rupees
+  domain:             z.string().max(200).optional(),
+  map_url:            z.string().url().max(500).optional(),
+  plan:               z.enum(['presence', 'orders', 'catering', 'insights', 'full']).optional(),
 });
 
-// PUT accepts same fields but all optional (patch semantics)
 const UpdateRestaurantSchema = CreateRestaurantSchema.partial().omit({ slug: true });
 
 /* ── GET /restaurants ────────────────────────────────────────────────────── */
 router.get('/restaurants', async (req, res, next) => {
   try {
     const result = await query(
-      'SELECT rest_id, slug, name, tagline, has_presence, has_tables, has_orders, has_catering, has_insights, created_at FROM restaurants ORDER BY rest_id'
+      `SELECT id, slug, name,
+              has_presence, has_tables, has_orders, has_catering, has_insights,
+              plan, status, created_at
+       FROM tenant.restaurants
+       WHERE deleted_at IS NULL
+       ORDER BY created_at`
     );
     res.json({ ok: true, restaurants: result.rows });
   } catch (err) { next(err); }
@@ -76,6 +83,7 @@ router.get('/restaurants', async (req, res, next) => {
 
 /* ── POST /restaurants ───────────────────────────────────────────────────── */
 router.post('/restaurants', async (req, res, next) => {
+  const client = await getClient();
   try {
     const parsed = CreateRestaurantSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -83,56 +91,98 @@ router.post('/restaurants', async (req, res, next) => {
     }
 
     const d = parsed.data;
-    const encryptedSecret = d.razorpay_key_secret
-      ? encrypt(d.razorpay_key_secret)
-      : null;
+    await client.query('BEGIN');
 
-    const result = await query(`
-      INSERT INTO restaurants (
-        slug, name, tagline, year, phone, wa_number, email, address, city,
-        delivery_zone, hours_display, open_until,
+    // Build settings JSONB for operational fields without dedicated columns
+    const settings = {
+      ...(d.tagline            && { tagline:            d.tagline            }),
+      ...(d.year               && { year:               d.year               }),
+      ...(d.email              && { email:              d.email              }),
+      ...(d.delivery_zone      && { delivery_zone:      d.delivery_zone      }),
+      ...(d.hours_display      && { hours_display:      d.hours_display      }),
+      ...(d.open_until         && { open_until:         d.open_until         }),
+      ...(d.allowed_origin     && { allowed_origin:     d.allowed_origin     }),
+      ...(d.review_threshold   != null && { review_threshold:   d.review_threshold   }),
+      ...(d.google_review_url  && { google_review_url:  d.google_review_url  }),
+      ...(d.delivery_fee       != null && { delivery_fee:       d.delivery_fee       }),
+      ...(d.free_delivery_above!= null && { free_delivery_above:d.free_delivery_above }),
+      ...(d.domain             && { domain:             d.domain             }),
+      ...(d.map_url            && { map_url:            d.map_url            }),
+      ...(d.webhook_url        && { webhook_url:        d.webhook_url        }),
+    };
+
+    // Insert into tenant.restaurants
+    const tenantRes = await client.query(`
+      INSERT INTO tenant.restaurants (
+        slug, name, plan, status,
         has_presence, has_tables, has_orders, has_catering, has_insights,
-        razorpay_key_id, razorpay_key_secret, allowed_origin,
-        review_threshold, google_review_url, webhook_url,
-        delivery_fee, free_delivery_above
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
-      RETURNING rest_id, slug
+        settings
+      ) VALUES ($1,$2,$3,'active',$4,$5,$6,$7,$8,$9)
+      RETURNING id, slug
     `, [
-      d.slug, d.name, d.tagline ?? null, d.year ?? null,
-      d.phone ?? null, d.wa_number ?? null, d.email ?? null,
-      d.address ?? null, d.city ?? null, d.delivery_zone ?? null,
-      d.hours_display ?? null, d.open_until ?? null,
-      d.has_presence  ?? true,
-      d.has_tables    ?? false,
-      d.has_orders    ?? false,
-      d.has_catering  ?? false,
-      d.has_insights  ?? false,
-      d.razorpay_key_id ?? null, encryptedSecret, d.allowed_origin ?? null,
-      d.review_threshold    ?? 4,
-      d.google_review_url   ?? null,
-      d.webhook_url         ?? null,
-      d.delivery_fee        ?? 4900,
-      d.free_delivery_above ?? 49900,
+      d.slug, d.name,
+      d.plan      ?? 'presence',
+      d.has_presence ?? true,
+      d.has_tables   ?? false,
+      d.has_orders   ?? false,
+      d.has_catering ?? false,
+      d.has_insights ?? false,
+      JSON.stringify(settings),
     ]);
 
-    res.status(201).json({ ok: true, restaurant: result.rows[0] });
+    const tenantId = tenantRes.rows[0].id;
+
+    // Insert location if any contact fields provided
+    if (d.phone || d.address || d.city) {
+      await client.query(`
+        INSERT INTO tenant.locations (tenant_id, name, address, city, phone, is_active)
+        VALUES ($1, 'Main', $2, $3, $4, true)
+      `, [tenantId, d.address ?? null, d.city ?? null, d.phone ?? null]);
+    }
+
+    // Insert Razorpay integration if keys provided
+    if (d.razorpay_key_id && d.razorpay_key_secret) {
+      const encryptedSecret = encrypt(d.razorpay_key_secret);
+      await client.query(`
+        INSERT INTO tenant.integrations (tenant_id, provider, config, is_active)
+        VALUES ($1, 'razorpay', $2, true)
+      `, [tenantId, JSON.stringify({ key_id: d.razorpay_key_id, key_secret: encryptedSecret })]);
+    }
+
+    // Insert WhatsApp contact link if wa_number provided
+    if (d.wa_number) {
+      await client.query(`
+        INSERT INTO brand.contact_links (tenant_id, platform, url, display_label, position)
+        VALUES ($1, 'whatsapp', $2, 'WhatsApp', 1)
+      `, [tenantId, `https://wa.me/${d.wa_number}`]);
+    }
+
+    // Insert SEO row with tagline as meta_description
+    if (d.tagline) {
+      await client.query(`
+        INSERT INTO brand.seo (tenant_id, meta_title, meta_description)
+        VALUES ($1, $2, $3)
+      `, [tenantId, d.name, d.tagline]);
+    }
+
+    await client.query('COMMIT');
+    res.status(201).json({ ok: true, restaurant: { id: tenantId, slug: d.slug } });
+
   } catch (err) {
-    // Unique constraint on slug
+    await client.query('ROLLBACK');
     if (err.code === '23505') {
       return res.status(409).json({ error: 'A restaurant with this slug already exists.' });
     }
     next(err);
+  } finally {
+    client.release();
   }
 });
 
-/* ── PUT /restaurants/:id ────────────────────────────────────────────────── */
-router.put('/restaurants/:id', async (req, res, next) => {
+/* ── PUT /restaurants/:slug ──────────────────────────────────────────────── */
+router.put('/restaurants/:slug', async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id, 10);
-    if (!Number.isFinite(id) || id < 1) {
-      return res.status(400).json({ error: 'Invalid restaurant id.' });
-    }
-
+    const slug   = req.params.slug;
     const parsed = UpdateRestaurantSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
@@ -143,62 +193,155 @@ router.put('/restaurants/:id', async (req, res, next) => {
       return res.status(400).json({ error: 'No fields provided to update.' });
     }
 
-    // Build SET clause dynamically from provided fields only (patch semantics)
-    const sets   = [];
-    const values = [];
-    let   idx    = 1;
-
-    const addField = (col, val) => {
-      sets.push(`${col} = $${idx++}`);
-      values.push(val);
-    };
-
-    if (d.name               !== undefined) addField('name',               d.name);
-    if (d.tagline            !== undefined) addField('tagline',            d.tagline);
-    if (d.year               !== undefined) addField('year',               d.year);
-    if (d.phone              !== undefined) addField('phone',              d.phone);
-    if (d.wa_number          !== undefined) addField('wa_number',          d.wa_number);
-    if (d.email              !== undefined) addField('email',              d.email);
-    if (d.address            !== undefined) addField('address',            d.address);
-    if (d.city               !== undefined) addField('city',               d.city);
-    if (d.delivery_zone      !== undefined) addField('delivery_zone',      d.delivery_zone);
-    if (d.hours_display      !== undefined) addField('hours_display',      d.hours_display);
-    if (d.open_until         !== undefined) addField('open_until',         d.open_until);
-    if (d.has_presence       !== undefined) addField('has_presence',       d.has_presence);
-    if (d.has_tables         !== undefined) addField('has_tables',         d.has_tables);
-    if (d.has_orders         !== undefined) addField('has_orders',         d.has_orders);
-    if (d.has_catering       !== undefined) addField('has_catering',       d.has_catering);
-    if (d.has_insights       !== undefined) addField('has_insights',       d.has_insights);
-    if (d.razorpay_key_id    !== undefined) addField('razorpay_key_id',    d.razorpay_key_id);
-    if (d.razorpay_key_secret !== undefined) {
-      addField('razorpay_key_secret', d.razorpay_key_secret ? encrypt(d.razorpay_key_secret) : null);
-    }
-    if (d.allowed_origin      !== undefined) addField('allowed_origin',      d.allowed_origin);
-    if (d.review_threshold    !== undefined) addField('review_threshold',    d.review_threshold);
-    if (d.google_review_url   !== undefined) addField('google_review_url',   d.google_review_url);
-    if (d.webhook_url         !== undefined) addField('webhook_url',         d.webhook_url);
-    if (d.delivery_fee        !== undefined) addField('delivery_fee',        d.delivery_fee);
-    if (d.free_delivery_above !== undefined) addField('free_delivery_above', d.free_delivery_above);
-
-    addField('updated_at', 'NOW()');
-    // Swap the last entry — updated_at uses NOW() not a param placeholder
-    sets[sets.length - 1]   = `updated_at = NOW()`;
-    values.splice(values.length - 1, 1);
-    idx--;
-
-    values.push(id);
-
-    const result = await query(
-      `UPDATE restaurants SET ${sets.join(', ')} WHERE rest_id = $${idx} RETURNING rest_id, slug, name`,
-      values
+    const tenantRes = await query(
+      'SELECT id, settings FROM tenant.restaurants WHERE slug = $1 AND deleted_at IS NULL LIMIT 1',
+      [slug]
     );
-
-    if (!result.rows.length) {
+    if (!tenantRes.rows.length) {
       return res.status(404).json({ error: 'Restaurant not found.' });
     }
 
-    res.json({ ok: true, restaurant: result.rows[0] });
+    const tenantId       = tenantRes.rows[0].id;
+    const existingSettings = tenantRes.rows[0].settings || {};
+
+    // Merge new settings fields
+    const settingsPatch = {};
+    const SETTINGS_FIELDS = [
+      'tagline','year','email','delivery_zone','hours_display','open_until',
+      'allowed_origin','review_threshold','google_review_url',
+      'delivery_fee','free_delivery_above','domain','map_url','webhook_url',
+    ];
+    for (const f of SETTINGS_FIELDS) {
+      if (d[f] !== undefined) settingsPatch[f] = d[f];
+    }
+
+    // Update tenant.restaurants flags/name/plan
+    const sets   = [];
+    const values = [];
+    let   idx    = 1;
+    if (d.name         !== undefined) { sets.push(`name = $${idx++}`);         values.push(d.name); }
+    if (d.has_presence !== undefined) { sets.push(`has_presence = $${idx++}`); values.push(d.has_presence); }
+    if (d.has_tables   !== undefined) { sets.push(`has_tables = $${idx++}`);   values.push(d.has_tables); }
+    if (d.has_orders   !== undefined) { sets.push(`has_orders = $${idx++}`);   values.push(d.has_orders); }
+    if (d.has_catering !== undefined) { sets.push(`has_catering = $${idx++}`); values.push(d.has_catering); }
+    if (d.has_insights !== undefined) { sets.push(`has_insights = $${idx++}`); values.push(d.has_insights); }
+    if (d.plan         !== undefined) { sets.push(`plan = $${idx++}`);         values.push(d.plan); }
+
+    if (Object.keys(settingsPatch).length) {
+      sets.push(`settings = settings || $${idx++}`);
+      values.push(JSON.stringify(settingsPatch));
+    }
+
+    if (sets.length) {
+      sets.push(`updated_at = NOW()`);
+      values.push(tenantId);
+      await query(
+        `UPDATE tenant.restaurants SET ${sets.join(', ')} WHERE id = $${idx}`,
+        values
+      );
+    }
+
+    // Update location if contact fields changed
+    if (d.phone !== undefined || d.address !== undefined || d.city !== undefined) {
+      const locRes = await query(
+        'SELECT id FROM tenant.locations WHERE tenant_id = $1 AND is_active = TRUE LIMIT 1',
+        [tenantId]
+      );
+      if (locRes.rows.length) {
+        const locSets   = [];
+        const locValues = [];
+        let   li        = 1;
+        if (d.phone   !== undefined) { locSets.push(`phone = $${li++}`);   locValues.push(d.phone); }
+        if (d.address !== undefined) { locSets.push(`address = $${li++}`); locValues.push(d.address); }
+        if (d.city    !== undefined) { locSets.push(`city = $${li++}`);    locValues.push(d.city); }
+        locValues.push(locRes.rows[0].id);
+        await query(
+          `UPDATE tenant.locations SET ${locSets.join(', ')}, updated_at = NOW() WHERE id = $${li}`,
+          locValues
+        );
+      } else {
+        await query(
+          `INSERT INTO tenant.locations (tenant_id, name, address, city, phone, is_active)
+           VALUES ($1, 'Main', $2, $3, $4, true)`,
+          [tenantId, d.address ?? null, d.city ?? null, d.phone ?? null]
+        );
+      }
+    }
+
+    // Upsert Razorpay integration if keys changed
+    if (d.razorpay_key_id !== undefined || d.razorpay_key_secret !== undefined) {
+      const existingInteg = await query(
+        `SELECT id, config FROM tenant.integrations
+         WHERE tenant_id = $1 AND provider = 'razorpay' AND deleted_at IS NULL LIMIT 1`,
+        [tenantId]
+      );
+      const keyId     = d.razorpay_key_id     ?? existingInteg.rows[0]?.config?.key_id;
+      const rawSecret = d.razorpay_key_secret ?? null;
+      const keySecret = rawSecret ? encrypt(rawSecret) : existingInteg.rows[0]?.config?.key_secret;
+
+      if (keyId && keySecret) {
+        if (existingInteg.rows.length) {
+          await query(
+            `UPDATE tenant.integrations SET config = $1, updated_at = NOW() WHERE id = $2`,
+            [JSON.stringify({ key_id: keyId, key_secret: keySecret }), existingInteg.rows[0].id]
+          );
+        } else {
+          await query(
+            `INSERT INTO tenant.integrations (tenant_id, provider, config, is_active)
+             VALUES ($1, 'razorpay', $2, true)`,
+            [tenantId, JSON.stringify({ key_id: keyId, key_secret: keySecret })]
+          );
+        }
+      }
+    }
+
+    res.json({ ok: true, restaurant: { id: tenantId, slug } });
   } catch (err) { next(err); }
+});
+
+/* ── POST /staff ─────────────────────────────────────────────────────────── */
+const CreateStaffSchema = z.object({
+  slug:     z.string().min(2).max(80),
+  name:     z.string().min(1).max(120),
+  email:    z.string().email().max(120),
+  password: z.string().min(8).max(200),
+  phone:    z.string().max(30).optional(),
+});
+
+router.post('/staff', async (req, res, next) => {
+  try {
+    const parsed = CreateStaffSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
+    }
+
+    const { slug, name, email, password, phone } = parsed.data;
+
+    const tenantResult = await query(
+      'SELECT id FROM tenant.restaurants WHERE slug = $1 AND deleted_at IS NULL LIMIT 1',
+      [slug]
+    );
+    if (!tenantResult.rows.length) {
+      return res.status(404).json({ error: 'Restaurant not found.' });
+    }
+    const tenantId = tenantResult.rows[0].id;
+
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    const result = await query(
+      `INSERT INTO tenant.staff (tenant_id, name, email, phone, password_hash, auth_provider, is_active)
+       VALUES ($1, $2, $3, $4, $5, 'email', true)
+       RETURNING id, name, email`,
+      [tenantId, name, email, phone ?? null, passwordHash]
+    );
+
+    res.status(201).json({ ok: true, staff: result.rows[0] });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'A staff member with this email already exists for this restaurant.' });
+    }
+    next(err);
+  }
 });
 
 module.exports = router;

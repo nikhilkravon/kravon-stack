@@ -33,15 +33,15 @@ const Checkout = (() => {
     container.innerHTML = opts.map((opt, i) => `
       <div class="delivery-opt${i === 0 ? ' selected' : ''}"
            data-action="select-delivery"
-           data-delivery-type="${_esc(opt.type)}"
+           data-delivery-type="${Kravon.esc(opt.type)}"
            role="radio"
            aria-checked="${i === 0 ? 'true' : 'false'}"
            tabindex="${i === 0 ? '0' : '-1'}">
         <div class="delivery-opt-left">
           <div class="radio-circle" aria-hidden="true"><div class="radio-fill"></div></div>
           <div>
-            <div class="delivery-opt-name">${_esc(opt.name)}</div>
-            <div class="delivery-opt-sub">${_esc(opt.sub)}</div>
+            <div class="delivery-opt-name">${Kravon.esc(opt.name)}</div>
+            <div class="delivery-opt-sub">${Kravon.esc(opt.sub)}</div>
           </div>
         </div>
         <span class="delivery-opt-price">${Cart.fmt(opt.price)}</span>
@@ -57,15 +57,15 @@ const Checkout = (() => {
     container.innerHTML = CONFIG.orders.paymentMethods.map((m, i) => `
       <div class="pay-opt${i === 0 ? ' selected' : ''}"
            data-action="select-payment"
-           data-payment-id="${_esc(m.id)}"
+           data-payment-id="${Kravon.esc(m.id)}"
            role="radio"
            aria-checked="${i === 0 ? 'true' : 'false'}"
            tabindex="${i === 0 ? '0' : '-1'}">
         <div class="radio-circle" aria-hidden="true"><div class="radio-fill"></div></div>
-        <div class="pay-opt-icon">${_esc(m.icon)}</div>
+        <div class="pay-opt-icon">${Kravon.esc(m.icon)}</div>
         <div>
-          <div class="pay-opt-name">${_esc(m.label)}</div>
-          <div class="pay-opt-sub">${_esc(m.sub)}</div>
+          <div class="pay-opt-name">${Kravon.esc(m.label)}</div>
+          <div class="pay-opt-sub">${Kravon.esc(m.sub)}</div>
         </div>
       </div>`
     ).join('');
@@ -77,8 +77,8 @@ const Checkout = (() => {
     if (noteEl && CONFIG.orders.gatewayNote) {
       noteEl.innerHTML = `
         <div>
-          <div class="razorpay-label">${_esc(CONFIG.orders.gatewayNote.label)}</div>
-          <div class="razorpay-sub">${_esc(CONFIG.orders.gatewayNote.body)}</div>
+          <div class="razorpay-label">${Kravon.esc(CONFIG.orders.gatewayNote.label)}</div>
+          <div class="razorpay-sub">${Kravon.esc(CONFIG.orders.gatewayNote.body)}</div>
         </div>`;
     }
 
@@ -157,8 +157,8 @@ const Checkout = (() => {
         <div class="summary-item">
           <div>
             <div class="summary-item-name">
-              ${_esc(i.name)}
-              ${i.note ? `<span style="color:rgba(255,255,255,0.25);font-size:11px;"> · ${_esc(i.note)}</span>` : ''}
+              ${Kravon.esc(i.name)}
+              ${i.note ? `<span style="color:rgba(255,255,255,0.25);font-size:11px;"> · ${Kravon.esc(i.note)}</span>` : ''}
             </div>
             <div class="summary-item-qty">×${i.qty}</div>
           </div>
@@ -296,10 +296,6 @@ const Checkout = (() => {
   /* ── Private helpers (identical to V7) ── */
   function _val(id)        { return (document.getElementById(id)?.value || '').trim(); }
   function _setText(id, t) { const el = document.getElementById(id); if (el) el.textContent = t; }
-  function _esc(str) {
-    if (str == null) return '';
-    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-  }
 
   function init() {
     buildDeliveryOptions();

@@ -37,12 +37,12 @@
     DOM.cartBarItems.textContent = `${count} item${count !== 1 ? 's' : ''}`;
     DOM.cartBar.classList.toggle('visible', count > 0);
 
-    // Disable the cart-bar checkout button when below min order; label by has_orders
     const barBtn = DOM.cartBar.querySelector('.cart-wa-btn');
     if (barBtn) {
+      const isOrders = C.capabilities && C.capabilities.checkoutStrategy === 'orders';
       barBtn.disabled = belowMin;
       barBtn.setAttribute('aria-disabled', String(belowMin));
-      barBtn.textContent = (C.products && C.products.orders) ? 'Proceed to Checkout' : 'Order on WhatsApp';
+      barBtn.textContent = isOrders ? 'Proceed to Checkout' : 'Order on WhatsApp';
     }
   }
 
@@ -91,9 +91,10 @@
 
     const drawerBtn = document.querySelector('.cart-checkout-btn');
     if (drawerBtn) {
+      const isOrders = C.capabilities && C.capabilities.checkoutStrategy === 'orders';
       drawerBtn.disabled = total < min;
       drawerBtn.setAttribute('aria-disabled', String(total < min));
-      drawerBtn.textContent = (C.products && C.products.orders) ? 'Proceed to Checkout' : 'Order on WhatsApp';
+      drawerBtn.textContent = isOrders ? 'Proceed to Checkout' : 'Order on WhatsApp';
     }
   }
 
@@ -114,31 +115,9 @@
     document.body.style.overflow = '';
   }
 
-  /* ── Checkout: redirect to checkout page or open WhatsApp ─ */
+  /* ── Checkout: dispatches via shared Checkout.start() ────── */
   function checkout() {
-    const items = EnhancedCart.items();
-    if (!items.length) return;
-
-    if (C.products && C.products.orders) {
-      sessionStorage.setItem('kravon_presence_cart', JSON.stringify(items));
-      const p = new URLSearchParams(window.location.search);
-      const qs = new URLSearchParams();
-      const slug = (window.CONFIG && window.CONFIG.slug) || p.get('slug');
-      if (slug) qs.set('slug', slug);
-      if (p.get('api')) qs.set('api', p.get('api'));
-      const q = qs.toString();
-      window.location.href = q ? `checkout.html?${q}` : 'checkout.html';
-    } else {
-      const cur = C.order.currency;
-      const lines = items.map(i =>
-        `• ${i.name} × ${i.quantity} — ${cur}${i.totalPrice}${i.specialNote ? ' (' + i.specialNote + ')' : ''}`
-      );
-      const total = EnhancedCart.total();
-      const greeting = (C.contact && C.contact.waGreeting) || 'Hi, I would like to order:';
-      const msg = `${greeting}\n\n${lines.join('\n')}\n\nTotal: ${cur}${total}`;
-      const waNum = (C.contact && C.contact.waNumber) || '';
-      window.open(`https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
-    }
+    Checkout.start(EnhancedCart);
   }
 
   /* ── Cart subscriber → refresh all cart UI ────────────── */
@@ -147,6 +126,9 @@
   function onCartChange() {
     updateCartBar();
     renderCartDrawer();
+    if (window.MENU && window.PresenceRenderer) {
+      window.MENU.forEach(item => PresenceRenderer.updateMenuCtrl(item.id));
+    }
   }
 
   EnhancedCart.subscribe(onCartChange);
@@ -170,6 +152,22 @@
         }
         break;
       }
+      case 'add-direct': {
+        const item = window.MENU.find(m => String(m.id) === id);
+        if (item) {
+          EnhancedCart.add({
+            menuItemId: item.id,
+            name: item.name,
+            quantity: 1,
+            variant: null,
+            customizations: [],
+            specialNote: '',
+            basePrice: item.price || 0
+          });
+          onCartChange();
+        }
+        break;
+      }
       case 'dec': {
         const cartItemId = btn.dataset.id;
         const item = EnhancedCart.getItem(cartItemId);
@@ -183,6 +181,22 @@
         const item = EnhancedCart.getItem(cartItemId);
         if (item) {
           EnhancedCart.updateQuantity(cartItemId, item.quantity + 1);
+        }
+        break;
+      }
+      case 'ticker-inc': {
+        const incMatches = EnhancedCart.items().filter(ci => String(ci.menuItemId) === id);
+        if (incMatches.length) {
+          const last = incMatches[incMatches.length - 1];
+          EnhancedCart.updateQuantity(last.cartItemId, last.quantity + 1);
+        }
+        break;
+      }
+      case 'ticker-dec': {
+        const decMatches = EnhancedCart.items().filter(ci => String(ci.menuItemId) === id);
+        if (decMatches.length) {
+          const last = decMatches[decMatches.length - 1];
+          EnhancedCart.updateQuantity(last.cartItemId, last.quantity - 1);
         }
         break;
       }

@@ -94,6 +94,8 @@
 
   <!-- Load order: shared → config → modules → renderer → behaviour -->
   <script src="../shared/js/kravon.js"></script>
+  <script src="../shared/js/cart.js"></script>
+  <script src="../shared/js/checkout.js"></script>
   <script>
     // Injected by Vercel at build time; falls back to URL query params for local dev
     const _q = new URLSearchParams(window.location.search);
@@ -101,7 +103,6 @@
     const RESTAURANT_SLUG_ENV = "__RESTAURANT_SLUG__"   !== "__RESTAURANT_SLUG__"   ? "__RESTAURANT_SLUG__"   : _q.get('slug');
   </script>
   <script src="../api-client/kravon-api.js"></script>
-  <script src="assets/js/cart.js"></script>
   <script src="assets/js/enhanced-cart.js"></script>
   <script src="assets/js/customization-modal.js"></script>
   <script src="assets/js/renderer.js"></script>

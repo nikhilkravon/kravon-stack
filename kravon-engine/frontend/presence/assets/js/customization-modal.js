@@ -27,16 +27,6 @@ const CustomizationModal = (function () {
   let _selectedSpiceLevel = null;
   let _selectedAddons = [];
 
-  function _esc(str) {
-    if (str == null) return '';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
-
   function _el(tag, cls, html) {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -51,8 +41,8 @@ const CustomizationModal = (function () {
 
     const variantHtml = item.variants.map(v => `
       <label class="cust-radio-label">
-        <input type="radio" name="variant" value="${v.id}" data-name="${_esc(v.name)}" data-price="${v.price}" />
-        <span class="cust-radio-text">${_esc(v.name)} — ${window.Kravon?.formatCurrency(v.price) || `₹${v.price}`}</span>
+        <input type="radio" name="variant" value="${v.id}" data-name="${Kravon.esc(v.name)}" data-price="${v.price}" />
+        <span class="cust-radio-text">${Kravon.esc(v.name)} — ${window.Kravon?.formatCurrency(v.price) || `₹${v.price}`}</span>
       </label>
     `).join('');
 
@@ -80,12 +70,12 @@ const CustomizationModal = (function () {
             type="${inputType}" 
             name="${inputName}" 
             value="${opt.id}" 
-            data-name="${_esc(opt.name)}"
+            data-name="${Kravon.esc(opt.name)}"
             data-price="${opt.price_modifier}"
             ${opt.is_default ? 'checked' : ''}
           />
           <span class="cust-option-text">
-            ${_esc(opt.name)}
+            ${Kravon.esc(opt.name)}
             ${opt.price_modifier !== 0 ? ` (+₹${opt.price_modifier})` : ''}
           </span>
         </label>
@@ -95,7 +85,7 @@ const CustomizationModal = (function () {
       return `
         <div class="cust-group">
           <label class="cust-group-label">
-            ${_esc(group.name)}
+            ${Kravon.esc(group.name)}
             ${group.is_required ? '<span class="cust-required">*</span>' : ''}
           </label>
           <div class="cust-options">
@@ -128,8 +118,8 @@ const CustomizationModal = (function () {
     if (!levels || levels.length === 0) return '';
     const optionsHtml = levels.map((level, i) => `
       <label class="cust-option-label">
-        <input type="radio" name="spice_level" value="${_esc(level)}" ${i === 0 ? 'checked' : ''} />
-        <span class="cust-option-text">${_esc(level)}</span>
+        <input type="radio" name="spice_level" value="${Kravon.esc(level)}" ${i === 0 ? 'checked' : ''} />
+        <span class="cust-option-text">${Kravon.esc(level)}</span>
       </label>`).join('');
     return `
       <div class="cust-group">
@@ -143,9 +133,9 @@ const CustomizationModal = (function () {
     if (!addons || addons.length === 0) return '';
     const optionsHtml = addons.map(addon => `
       <label class="cust-option-label">
-        <input type="checkbox" name="addon" value="${_esc(addon.label)}" data-price="${addon.price}" />
+        <input type="checkbox" name="addon" value="${Kravon.esc(addon.label)}" data-price="${addon.price}" />
         <span class="cust-option-text">
-          ${_esc(addon.label)}${addon.price > 0 ? ` <span class="cust-price-mod">+₹${addon.price}</span>` : ''}
+          ${Kravon.esc(addon.label)}${addon.price > 0 ? ` <span class="cust-price-mod">+₹${addon.price}</span>` : ''}
         </span>
       </label>`).join('');
     return `

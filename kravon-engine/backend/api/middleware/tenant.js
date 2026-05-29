@@ -4,136 +4,108 @@
  *
  * Resolution order (first match wins):
  *   1. :slug URL parameter   — /v1/restaurants/burgerhouse/...
- *   2. Custom domain         — Host: burgerhouse.in
- *   3. Kravon subdomain      — Host: burgerhouse.kravon.in
+ *   2. Kravon subdomain      — Host: burgerhouse.kravon.in
+ *   3. Custom domain         — Host: burgerhouse.in (stored in settings.domain)
  *
- * Attaches req.tenant with shape matching the V10 spec:
- *   {
- *     rest_id:      17,
- *     slug:         "burgerhouse",
- *     domain:       "burgerhouse.in",
- *     has_presence: true,
- *     has_tables:   true,
- *     has_orders:   false,
- *     has_catering: true,
- *     has_insights: false,
- *     ...full restaurant row
- *   }
- *
- * NOTE: V10 — the database now uses rest_id (renamed from restaurant_id via v10-column-rename migration).
- * All queries use rest_id directly.
- * 
+ * Uses v12 multi-schema: tenant.restaurants is primary source.
+ * Operational config (delivery_fee, hours_display, story, etc.) lives in settings JSONB.
+ * Contact details come from tenant.locations + brand.contact_links.
+ * Payment credentials come from tenant.integrations (provider='razorpay').
  *
  * Cache: 1-minute in-memory TTL keyed by slug.
- * Trade-off: a newly-added restaurant appears within 60s.
- * Acceptable for the current scale. Invalidate by restarting the process.
  */
 
 'use strict';
 
 const { query } = require('../../db/pool');
 
-// Simple in-process cache. Keyed by slug.
-const _cache  = new Map();
-const TTL_MS  = 60 * 1000; // 1 minute
+const _cache = new Map();
+const TTL_MS = 60 * 1000;
 
 /**
- * Build the req.tenant object from a DB restaurant row.
- * This is the single place where DB column names map to spec names.
- *
- * @param {object} publicRow - raw Postgres row from public.restaurants
- * @param {object} tenantRow - raw Postgres row from tenant.restaurants (optional)
- * @returns {object} tenant object per V10 spec + tenant_id
+ * buildTenant — assembles req.tenant from v12 schema rows.
  */
-function buildTenant(publicRow, tenantRow = null) {
+function buildTenant(tenantRow, locationRow, integrations, contactLinks, seoRow) {
+  const s    = tenantRow.settings || {};
+  const loc  = locationRow        || {};
+  const seo  = seoRow             || {};
+
+  const razorpay = integrations.find(r => r.provider === 'razorpay');
+  const webhook  = integrations.find(r => r.provider === 'webhook');
+  const waLink   = contactLinks.find(r => r.platform === 'whatsapp');
+
+  // https://wa.me/912267891234 → 912267891234
+  const wa_number = waLink?.url?.replace(/^https?:\/\/wa\.me\//, '') || s.wa_number || null;
+
   return {
-    // V10 spec name (rest_id) ← DB column (rest_id)
-    rest_id:      publicRow.rest_id,
+    tenant_id: tenantRow.id,
 
-    // New: tenant UUID from tenant.restaurants (null if not found)
-    tenant_id:    tenantRow?.id || null,
+    // Backward-compat alias — routes/config that still reference rest_id get the UUID
+    rest_id: tenantRow.id,
 
-    // Core identity
-    slug:         publicRow.slug,
-    domain:       publicRow.domain       || null,
-    name:         publicRow.name,
-    tagline:      publicRow.tagline,
+    slug:   tenantRow.slug,
+    name:   tenantRow.name,
+    domain: s.domain || null,
 
-    // Product flags — routes check these before executing
-    has_presence: publicRow.has_presence,
-    has_tables:   publicRow.has_tables,
-    has_orders:   publicRow.has_orders,
-    has_catering: publicRow.has_catering,
-    has_insights: publicRow.has_insights,
+    // Feature flags
+    has_presence: tenantRow.has_presence,
+    has_tables:   tenantRow.has_tables,
+    has_orders:   tenantRow.has_orders,
+    has_catering: tenantRow.has_catering,
+    has_insights: tenantRow.has_insights,
 
-    // Contact
-    phone:        publicRow.phone,
-    wa_number:    publicRow.wa_number,
-    email:        publicRow.email,
-    address:      publicRow.address,
-    city:         publicRow.city,
+    // Subscription plan — drives the capabilities block in config.js
+    plan: tenantRow.plan || 'starter',
 
-    // Payment
-    razorpay_key_id:     publicRow.razorpay_key_id,
-    razorpay_key_secret: publicRow.razorpay_key_secret,
+    // Contact — primary location row + contact_links
+    phone:    loc.phone   || s.phone   || null,
+    address:  loc.address || s.address || null,
+    city:     loc.city    || s.city    || null,
+    email:    s.email     || loc.metadata?.email || null,
+    wa_number,
 
-    // Tables config
-    review_threshold:  publicRow.review_threshold,
-    google_review_url: publicRow.google_review_url,
+    // SEO / brand
+    tagline: seo.meta_description || s.tagline || tenantRow.name,
+    year:    s.year || null,
 
-    // Delivery config
-    delivery_fee:        publicRow.delivery_fee,
-    free_delivery_above: publicRow.free_delivery_above,
+    // Payment — tenant.integrations provider='razorpay'
+    razorpay_key_id:     razorpay?.config?.key_id     || s.razorpay_key_id     || null,
+    razorpay_key_secret: razorpay?.config?.key_secret || s.razorpay_key_secret || null,
 
     // Webhook
-    webhook_url:  publicRow.webhook_url,
+    webhook_url: webhook?.config?.url || s.webhook_url || null,
 
-    // Hours
-    hours_display: publicRow.hours_display,
-    open_until:    publicRow.open_until,
+    // Operational config — all live in settings JSONB
+    delivery_fee:        s.delivery_fee        ?? null,
+    free_delivery_above: s.free_delivery_above ?? null,
+    review_threshold:    s.review_threshold    ?? 4,
+    google_review_url:   s.google_review_url   || null,
+    hours_display:       s.hours_display        || null,
+    open_until:          s.open_until           || null,
+    delivery_zone:       s.delivery_zone        || null,
+    map_url:             s.map_url              || null,
+    story_headline:      s.story_headline       || null,
+    story_body:          s.story_body           || [],
+    story_facts:         s.story_facts          || [],
 
-    // Story
-    story_headline: publicRow.story_headline,
-
-    // Raw row kept for any fields not explicitly mapped above
-    _row: publicRow,
+    // Keep settings ref for any caller that needs unlisted fields
+    _settings: s,
   };
-
 }
 
-/**
- * extractSlug(req)
- * Determines the restaurant slug from the request using three sources.
- * Returns null if no slug can be found.
- */
 function extractSlug(req) {
-  // Source 1: URL parameter (most explicit — always wins)
-  if (req.params && req.params.slug) {
-    return req.params.slug;
-  }
+  if (req.params && req.params.slug) return req.params.slug;
 
-  const host = (req.headers.host || '').toLowerCase().split(':')[0]; // strip port
-
-  // Source 2: Kravon subdomain — burgerhouse.kravon.in
+  const host = (req.headers.host || '').toLowerCase().split(':')[0];
   const KRAVON_DOMAIN = (process.env.KRAVON_DOMAIN || 'kravon.in').toLowerCase();
+
   if (host.endsWith(`.${KRAVON_DOMAIN}`)) {
-    return host.slice(0, -(KRAVON_DOMAIN.length + 1)); // strip .kravon.in
+    return host.slice(0, -(KRAVON_DOMAIN.length + 1));
   }
 
-  // Source 3: Custom domain — burgerhouse.in (looked up by domain column)
-  // Return the full host so the DB lookup can match against the domain column.
-  // We signal this with a special prefix so the caller knows it's a domain, not a slug.
   return `__domain__:${host}`;
 }
 
-/**
- * resolveRestaurant(req, res, next)
- * Main middleware. Resolves tenant and attaches req.tenant.
- *
- * Example: GET /v1/restaurants/burgerhouse/config
- *   → req.params.slug = "burgerhouse"
- *   → DB lookup → req.tenant = { rest_id: 17, slug: "burgerhouse", ... }
- */
 async function resolveRestaurant(req, res, next) {
   const raw = extractSlug(req);
 
@@ -141,7 +113,6 @@ async function resolveRestaurant(req, res, next) {
     return res.status(400).json({ error: 'Cannot resolve restaurant: no slug, domain, or subdomain found.' });
   }
 
-  // Check cache first
   const cached = _cache.get(raw);
   if (cached && (Date.now() - cached.ts) < TTL_MS) {
     req.tenant = cached.tenant;
@@ -149,39 +120,74 @@ async function resolveRestaurant(req, res, next) {
   }
 
   try {
-    let publicRow, tenantRow;
+    let tenantRow;
 
     if (raw.startsWith('__domain__:')) {
-      // Domain resolution — look up by domain column
       const domain = raw.slice('__domain__:'.length);
       const result = await query(
-        'SELECT * FROM restaurants WHERE domain = $1 LIMIT 1',
+        `SELECT id, slug, name, has_presence, has_orders, has_tables, has_catering, has_insights, plan, settings
+         FROM tenant.restaurants
+         WHERE settings->>'domain' = $1 AND deleted_at IS NULL
+         LIMIT 1`,
         [domain]
       );
-      publicRow = result.rows[0];
+      tenantRow = result.rows[0];
     } else {
-      // Slug resolution
       const result = await query(
-        'SELECT * FROM restaurants WHERE slug = $1 LIMIT 1',
+        `SELECT id, slug, name, has_presence, has_orders, has_tables, has_catering, has_insights, plan, settings
+         FROM tenant.restaurants
+         WHERE slug = $1 AND deleted_at IS NULL
+         LIMIT 1`,
         [raw]
       );
-      publicRow = result.rows[0];
+      tenantRow = result.rows[0];
     }
 
-    if (!publicRow) {
+    if (!tenantRow) {
       return res.status(404).json({ error: 'Restaurant not found.' });
     }
 
-    // Also fetch tenant data if available
-    if (publicRow.slug) {
-      const tenantResult = await query(
-        'SELECT id FROM tenant.restaurants WHERE slug = $1 LIMIT 1',
-        [publicRow.slug]
-      );
-      tenantRow = tenantResult.rows[0];
-    }
+    const tenantId = tenantRow.id;
 
-    const tenant = buildTenant(publicRow, tenantRow);
+    // Parallel secondary lookups
+    const [locRes, integRes, contactRes, seoRes] = await Promise.all([
+      query(
+        `SELECT phone, address, city, state, metadata
+         FROM tenant.locations
+         WHERE tenant_id = $1 AND is_active = TRUE AND deleted_at IS NULL
+         ORDER BY created_at LIMIT 1`,
+        [tenantId]
+      ),
+      query(
+        `SELECT provider, config
+         FROM tenant.integrations
+         WHERE tenant_id = $1 AND is_active = TRUE AND deleted_at IS NULL`,
+        [tenantId]
+      ),
+      query(
+        `SELECT platform, url
+         FROM brand.contact_links
+         WHERE tenant_id = $1 AND deleted_at IS NULL
+         ORDER BY position`,
+        [tenantId]
+      ),
+      query(
+        `SELECT meta_title, meta_description
+         FROM brand.seo
+         WHERE tenant_id = $1 AND deleted_at IS NULL
+         LIMIT 1`,
+        [tenantId]
+      ),
+    ]);
+
+    const tenant = buildTenant(
+      tenantRow,
+      locRes.rows[0] || null,
+      integRes.rows,
+      contactRes.rows,
+      seoRes.rows[0] || null
+    );
+
     _cache.set(raw, { tenant, ts: Date.now() });
     req.tenant = tenant;
     next();
@@ -191,5 +197,4 @@ async function resolveRestaurant(req, res, next) {
   }
 }
 
-// Keep backward-compat alias — old code referencing resolveRestaurant still works
 module.exports = { resolveRestaurant, buildTenant };

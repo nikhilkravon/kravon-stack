@@ -1,192 +1,117 @@
 /* ═══════════════════════════════════════════════════════════
    PRESENCE — ENHANCED-CART.JS
-   Enhanced cart state management with variants & customizations.
-   
-   Structure per cart item:
-   {
-     cartItemId: "unique-id-per-add",
-     menuItemId: "uuid",
-     name: "Biryani",
-     quantity: 2,
-     variant: { id, name, price },
-     customizations: [
-       { groupId, groupName, selections: [{ optionId, optionName, priceModifier }] }
-     ],
-     specialNote: "No onions",
-     basePrice: 250,           // variant.price or item.price
-     customizationTotal: 110,  // sum of price modifiers × quantity
-     totalPrice: 720          // (basePrice + customizationTotal) × quantity
-   }
+   Compatibility shim — wraps the shared KravonCart engine
+   behind the EnhancedCart API that presence/behaviour.js uses.
+
+   External API (unchanged from before):
+     EnhancedCart.subscribe(fn)
+     EnhancedCart.add({ menuItemId, name, quantity, variant?,
+                        customizations?, specialNote?, basePrice })
+     EnhancedCart.updateQuantity(cartItemId, newQty)
+     EnhancedCart.remove(cartItemId)
+     EnhancedCart.clear()
+     EnhancedCart.items()   → [{ cartItemId, menuItemId, name,
+                                  quantity, basePrice, totalPrice,
+                                  specialNote, variant, customizations }]
+     EnhancedCart.getItem(cartItemId)
+     EnhancedCart.count()
+     EnhancedCart.total()
+
+   Internal: delegates to KravonCart.create() (shared/js/cart.js).
+   Presence has no delivery fee or GST — it is pure item total.
    ═══════════════════════════════════════════════════════════ */
 
-const EnhancedCart = (function () {
+const EnhancedCart = (() => {
   'use strict';
 
-  let _items = [];      // Array of cart items with full details
-  const _subs = [];
+  const _cart = KravonCart.create();
+  _cart.configure({
+    minOrder:         0,
+    deliveryStandard: 0,
+    deliveryExpress:  0,
+    freeDeliveryAt:   Infinity,
+    gstRate:          0,
+  });
 
-  function _notify() {
-    _subs.forEach(fn => fn());
-  }
-
-  function _generateCartItemId() {
-    return `cart-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-  }
-
-  function _recalculatePrices(item) {
-    const basePrice = item.variant?.price || item.basePrice || 0;
-    const customizationModifier = item.customizations.reduce((sum, group) => {
-      return sum + group.selections.reduce((s, sel) => s + (sel.priceModifier || 0), 0);
-    }, 0);
-    
-    item.customizationTotal = customizationModifier * item.quantity;
-    item.totalPrice = (basePrice + customizationModifier) * item.quantity;
-    return item;
-  }
-
-  // ── Public API ──────────────────────────────────────────
-
-  function subscribe(fn) {
-    _subs.push(fn);
-  }
-
-  /**
-   * Add item with full customization data
-   * @param {Object} item - { menuItemId, name, quantity, variant?, customizations?, specialNote? }
-   * @returns cartItemId for reference
-   */
-  function add(item) {
-    const cartItem = {
-      cartItemId: _generateCartItemId(),
-      menuItemId: item.menuItemId,
-      name: item.name,
-      quantity: item.quantity || 1,
-      variant: item.variant || null,
-      customizations: item.customizations || [],
-      specialNote: item.specialNote || '',
-      basePrice: item.variant?.price || item.basePrice || 0,
-      customizationTotal: 0,
-      totalPrice: 0
-    };
-    
-    _recalculatePrices(cartItem);
-    _items.push(cartItem);
-    _notify();
-    return cartItem.cartItemId;
-  }
-
-  /**
-   * Update quantity of existing cart item
-   */
-  function updateQuantity(cartItemId, newQuantity) {
-    const item = _items.find(i => i.cartItemId === cartItemId);
-    if (!item) return;
-    
-    if (newQuantity <= 0) {
-      remove(cartItemId);
-      return;
-    }
-    
-    item.quantity = newQuantity;
-    _recalculatePrices(item);
-    _notify();
-  }
-
-  /**
-   * Remove item from cart
-   */
-  function remove(cartItemId) {
-    _items = _items.filter(i => i.cartItemId !== cartItemId);
-    _notify();
-  }
-
-  /**
-   * Clear entire cart
-   */
-  function clear() {
-    _items = [];
-    _notify();
-  }
-
-  /**
-   * Get all items
-   */
-  function items() {
-    return JSON.parse(JSON.stringify(_items));
-  }
-
-  /**
-   * Get single item
-   */
-  function getItem(cartItemId) {
-    return _items.find(i => i.cartItemId === cartItemId);
-  }
-
-  /**
-   * Calculate total count (sum of quantities)
-   */
-  function count() {
-    return _items.reduce((sum, item) => sum + item.quantity, 0);
-  }
-
-  /**
-   * Calculate grand total (sum of all totalPrice)
-   */
-  function total() {
-    return _items.reduce((sum, item) => sum + item.totalPrice, 0);
-  }
-
-  /**
-   * Get order payload for API submission
-   * Format: [{menuItemId, variant?, customizations?, quantity, specialNote}]
-   */
-  function getOrderPayload() {
-    return _items.map(item => ({
-      menuItemId: item.menuItemId,
-      quantity: item.quantity,
-      variant: item.variant ? { id: item.variant.id, name: item.variant.name } : null,
-      customizations: item.customizations.map(group => ({
-        groupId: group.groupId,
-        selections: group.selections.map(sel => ({
-          optionId: sel.optionId,
-          optionName: sel.optionName,
-          priceModifier: sel.priceModifier
-        }))
-      })),
-      specialNote: item.specialNote
-    }));
-  }
-
-  /**
-   * Get summary for display
-   */
-  function getSummary() {
+  /* ── Shape translation ────────────────────────────────── */
+  function _toEnhanced(item) {
     return {
-      itemCount: count(),
-      lineItems: _items.length,
-      subtotal: total(),
-      tax: 0,  // Will be calculated at checkout
-      total: total()
+      cartItemId:     item.cartItemId,
+      menuItemId:     item.id,
+      name:           item.name,
+      quantity:       item.qty,
+      basePrice:      item.price,
+      totalPrice:     item.price * item.qty,
+      specialNote:    item.note || '',
+      variant:        null,
+      customizations: [],
     };
   }
 
-  // ── Migration from old cart (for backwards compatibility) ──
-  function migrateFromSimpleCart(simpleItems) {
-    _items = Object.entries(simpleItems).map(([menuItemId, quantity]) => {
-      return {
-        cartItemId: _generateCartItemId(),
-        menuItemId: menuItemId,
-        name: `Item ${menuItemId}`,
-        quantity: quantity,
-        variant: null,
-        customizations: [],
-        specialNote: '',
-        basePrice: 0,
-        customizationTotal: 0,
-        totalPrice: 0
-      };
-    });
-    _notify();
+  /* ── Subscribe ────────────────────────────────────────── */
+  function subscribe(fn) {
+    _cart.subscribe(fn);
+  }
+
+  /* ── Add item ─────────────────────────────────────────── */
+  function add(item) {
+    const basePrice = (item.variant && item.variant.price != null)
+      ? item.variant.price
+      : (item.basePrice || 0);
+
+    const custMod = (item.customizations || []).reduce((sum, group) =>
+      sum + (group.selections || []).reduce((s, sel) => s + (sel.priceModifier || 0), 0), 0);
+
+    const unitPrice = basePrice + custMod;
+    const note      = item.specialNote || '';
+
+    _cart.addItem(item.menuItemId, item.name, unitPrice, note);
+  }
+
+  /* ── Update quantity by stable cartItemId ─────────────── */
+  function updateQuantity(cartItemId, newQty) {
+    _cart.setQtyByCartItemId(cartItemId, newQty);
+  }
+
+  /* ── Remove by cartItemId ─────────────────────────────── */
+  function remove(cartItemId) {
+    _cart.setQtyByCartItemId(cartItemId, 0);
+  }
+
+  /* ── Clear ────────────────────────────────────────────── */
+  function clear() {
+    _cart.clear();
+  }
+
+  /* ── Read: all items in EnhancedCart shape ────────────── */
+  function items() {
+    return _cart.getItems().map(_toEnhanced);
+  }
+
+  /* ── Read: single item by cartItemId ──────────────────── */
+  function getItem(cartItemId) {
+    const item = _cart.getItemByCartItemId(cartItemId);
+    return item ? _toEnhanced(item) : null;
+  }
+
+  /* ── Read: aggregates ─────────────────────────────────── */
+  function count() {
+    return _cart.getCount();
+  }
+
+  function total() {
+    return _cart.getTotals().sub;
+  }
+
+  /* ── Order payload for API / WhatsApp checkout ─────────── */
+  function getOrderPayload() {
+    return _cart.getItems().map(item => ({
+      menuItemId:     item.id,
+      quantity:       item.qty,
+      variant:        null,
+      customizations: [],
+      specialNote:    item.note || '',
+    }));
   }
 
   return {
@@ -200,8 +125,6 @@ const EnhancedCart = (function () {
     count,
     total,
     getOrderPayload,
-    getSummary,
-    migrateFromSimpleCart
   };
 
 })();

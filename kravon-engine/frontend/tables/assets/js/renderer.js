@@ -22,14 +22,6 @@
   let C, M, TC;
   const $  = id => document.getElementById(id);
 
-  /* ── Escape ──────────────────────────────────────────────── */
-  function esc(str) {
-    if (str == null) return '';
-    return String(str)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-  }
-
   /* ── Accent injection ────────────────────────────────────── */
   function applyAccent() {
     const hex = (C.brand?.accent || '#c2d62a').replace('#', '');
@@ -47,11 +39,11 @@
     return `
       <nav class="tables-nav" aria-label="Main navigation">
         <div class="tables-nav-brand">
-          <div class="tables-nav-logo">${esc(C.brand.name)}</div>
-          <div class="tables-nav-sub">${esc(C.brand.tagline)}</div>
+          <div class="tables-nav-logo">${Kravon.esc(C.brand.name)}</div>
+          <div class="tables-nav-sub">${Kravon.esc(C.brand.tagline)}</div>
         </div>
         <div class="tables-nav-right">
-          <span class="tables-nav-badge">${esc(label)}</span>
+          <span class="tables-nav-badge">${Kravon.esc(label)}</span>
           <button class="tables-cart-btn" id="navCartBtn"
                   data-action="open-cart" aria-label="View cart">
             <svg width="20" height="20" aria-hidden="true"><use href="#icon-cart"/></svg>
@@ -67,21 +59,21 @@
 
     const statsHtml = (C.hero.stats || []).map(s => `
       <div class="tables-hero-stat">
-        <span class="tables-hero-stat-num${s.className ? ' ' + s.className : ''}">${esc(s.num)}</span>
-        <span class="tables-hero-stat-label">${esc(s.label.replace('\n', ' '))}</span>
+        <span class="tables-hero-stat-num${s.className ? ' ' + s.className : ''}">${Kravon.esc(s.num)}</span>
+        <span class="tables-hero-stat-label">${Kravon.esc(s.label.replace('\n', ' '))}</span>
       </div>`).join('');
 
     return `
       <section class="tables-hero" aria-labelledby="hero-heading">
         <div class="tables-hero-grid">
           <div class="tables-hero-copy">
-            <span class="tables-eyebrow">${esc(C.hero.label || C.brand.tagline || 'Welcome')}</span>
-            <h1 class="tables-hero-headline" id="hero-heading">${esc(C.hero.headline)}</h1>
-            <p class="tables-hero-sub">${esc(C.hero.sub || '')}</p>
+            <span class="tables-eyebrow">${Kravon.esc(C.hero.label || C.brand.tagline || 'Welcome')}</span>
+            <h1 class="tables-hero-headline" id="hero-heading">${Kravon.esc(C.hero.headline)}</h1>
+            <p class="tables-hero-sub">${Kravon.esc(C.hero.sub || '')}</p>
             <div class="tables-hero-ctas">
               <a href="#menu" class="btn-primary">Browse Menu</a>
             </div>
-            ${C.hero.footnote ? `<p class="tables-hero-footnote">${esc(C.hero.footnote)}</p>` : ''}
+            ${C.hero.footnote ? `<p class="tables-hero-footnote">${Kravon.esc(C.hero.footnote)}</p>` : ''}
           </div>
           ${statsHtml ? `<div class="tables-hero-stats" aria-label="Highlights">${statsHtml}</div>` : ''}
         </div>
@@ -92,18 +84,18 @@
   function buildStory() {
     if (!C.story || !C.story.headline) return '';
 
-    const bodyHtml = (C.story.body || []).map(p => `<p>${esc(p)}</p>`).join('');
+    const bodyHtml = (C.story.body || []).map(p => `<p>${Kravon.esc(p)}</p>`).join('');
     const factsHtml = (C.story.facts || []).map(f => `
       <div class="tables-story-fact">
-        <strong>${esc(f.label)}</strong>
-        <span>${esc(f.value)}</span>
+        <strong>${Kravon.esc(f.label)}</strong>
+        <span>${Kravon.esc(f.value)}</span>
       </div>`).join('');
 
     return `
       <section class="tables-story" aria-labelledby="story-heading">
         <div class="tables-story-copy">
-          <span class="tables-eyebrow">${esc(C.story.label || 'Our story')}</span>
-          <h2 class="tables-story-headline" id="story-heading">${esc(C.story.headline)}</h2>
+          <span class="tables-eyebrow">${Kravon.esc(C.story.label || 'Our story')}</span>
+          <h2 class="tables-story-headline" id="story-heading">${Kravon.esc(C.story.headline)}</h2>
           <div class="tables-story-body">${bodyHtml}</div>
         </div>
         ${factsHtml ? `<div class="tables-story-facts">${factsHtml}</div>` : ''}
@@ -116,8 +108,8 @@
       <div id="screenChoice" class="tables-screen tables-screen--choice" role="main">
         <div class="choice-inner">
           <div class="choice-brand">
-            <div class="choice-logo">${esc(C.brand.name)}</div>
-            <div class="choice-tagline">${esc(C.brand.tagline)}</div>
+            <div class="choice-logo">${Kravon.esc(C.brand.name)}</div>
+            <div class="choice-tagline">${Kravon.esc(C.brand.tagline)}</div>
           </div>
           <div class="choice-prompt">How are you dining?</div>
           <div class="choice-btns" role="group" aria-label="Dining mode">
@@ -141,7 +133,7 @@
   /* ── Item card ───────────────────────────────────────────── */
   function buildItemCard(item) {
     const bg = item.imageBg
-      ? ` style="background:${esc(item.imageBg)}"`
+      ? ` style="background:${Kravon.esc(item.imageBg)}"`
       : '';
 
     const badge = item.badge ? (() => {
@@ -152,8 +144,8 @@
         save: 'background:var(--accent);color:#111;',
       };
       const css = presets[item.badgeStyle] ||
-        (item.badgeStyle ? `background:${esc(item.badgeStyle)};` : '');
-      return `<span class="item-badge" style="${css}">${esc(item.badge)}</span>`;
+        (item.badgeStyle ? `background:${Kravon.esc(item.badgeStyle)};` : '');
+      return `<span class="item-badge" style="${css}">${Kravon.esc(item.badge)}</span>`;
     })() : '';
 
     // Customisable items get a "Customise" button that opens the modal.
@@ -162,28 +154,28 @@
       ? `<button class="add-btn add-btn--customise" id="addBtn_${item.id}"
                  data-action="open-modal"
                  data-item-id="${item.id}"
-                 aria-label="Customise ${esc(item.name)}">Customise</button>`
+                 aria-label="Customise ${Kravon.esc(item.name)}">Customise</button>`
       : `<button class="add-btn" id="addBtn_${item.id}"
                  data-action="add-item"
                  data-id="${item.id}"
-                 data-name="${esc(item.name)}"
+                 data-name="${Kravon.esc(item.name)}"
                  data-price="${item.price}"
-                 aria-label="Add ${esc(item.name)}">+ Add</button>`;
+                 aria-label="Add ${Kravon.esc(item.name)}">+ Add</button>`;
 
     return `
       <div class="menu-card" data-item-id="${item.id}" role="article"
-           aria-label="${esc(item.name)}">
+           aria-label="${Kravon.esc(item.name)}">
         <div class="menu-card-img"${bg} aria-hidden="true">
-          ${item.image ? `<span class="menu-card-emoji">${esc(item.image)}</span>` : ''}
+          ${item.image ? `<span class="menu-card-emoji">${Kravon.esc(item.image)}</span>` : ''}
           ${badge}
         </div>
         <div class="menu-card-body">
-          <div class="menu-card-name">${esc(item.name)}</div>
-          ${item.desc ? `<div class="menu-card-desc">${esc(item.desc)}</div>` : ''}
+          <div class="menu-card-name">${Kravon.esc(item.name)}</div>
+          ${item.desc ? `<div class="menu-card-desc">${Kravon.esc(item.desc)}</div>` : ''}
           <div class="menu-card-footer">
-            <span class="menu-card-price">₹${esc(item.price)}</span>
+            <span class="menu-card-price">₹${Kravon.esc(item.price)}</span>
             <div class="item-qty-ctrl" id="qtyCtrl_${item.id}" style="display:none"
-                 role="group" aria-label="Quantity for ${esc(item.name)}">
+                 role="group" aria-label="Quantity for ${Kravon.esc(item.name)}">
               <button class="qty-btn" data-action="dec-item" data-id="${item.id}"
                       aria-label="Remove one">−</button>
               <span class="qty-num" id="qtyNum_${item.id}" aria-live="polite">0</span>
@@ -201,16 +193,16 @@
     const cats = M.map((cat, i) =>
       `<button class="cat-btn${i === 0 ? ' active' : ''}"
                data-action="scroll-to-cat"
-               data-cat-id="${esc(cat.id)}">${esc(cat.name)}</button>`
+               data-cat-id="${Kravon.esc(cat.id)}">${Kravon.esc(cat.name)}</button>`
     ).join('');
 
     const sections = M.map(cat => {
       const items = cat.items.map(buildItemCard).join('');
       return `
-        <section class="menu-section" id="cat_${esc(cat.id)}"
-                 aria-labelledby="cat_h_${esc(cat.id)}">
-          <h2 class="menu-section-title" id="cat_h_${esc(cat.id)}">${esc(cat.name)}</h2>
-          ${cat.subtitle ? `<p class="menu-section-sub">${esc(cat.subtitle)}</p>` : ''}
+        <section class="menu-section" id="cat_${Kravon.esc(cat.id)}"
+                 aria-labelledby="cat_h_${Kravon.esc(cat.id)}">
+          <h2 class="menu-section-title" id="cat_h_${Kravon.esc(cat.id)}">${Kravon.esc(cat.name)}</h2>
+          ${cat.subtitle ? `<p class="menu-section-sub">${Kravon.esc(cat.subtitle)}</p>` : ''}
           <div class="menu-grid">${items}</div>
         </section>`;
     }).join('');
@@ -545,14 +537,14 @@
       if (footerEl) footerEl.style.display = 'none';
     } else {
       listEl.innerHTML = items.map((item, idx) => `
-        <div class="cart-item" aria-label="${esc(item.name)}, ₹${item.price * item.qty}">
+        <div class="cart-item" aria-label="${Kravon.esc(item.name)}, ₹${item.price * item.qty}">
           <div class="cart-item-info">
-            <span class="cart-item-name">${esc(item.name)}</span>
-            ${item.note ? `<span class="cart-item-note">${esc(item.note)}</span>` : ''}
+            <span class="cart-item-name">${Kravon.esc(item.name)}</span>
+            ${item.note ? `<span class="cart-item-note">${Kravon.esc(item.note)}</span>` : ''}
           </div>
           <div class="cart-item-right">
             <div class="cart-item-qty" role="group"
-                 aria-label="Quantity for ${esc(item.name)}">
+                 aria-label="Quantity for ${Kravon.esc(item.name)}">
               <button class="qty-btn" data-action="cart-dec"
                       data-idx="${idx}" aria-label="Remove one">−</button>
               <span aria-live="polite">${item.qty}</span>
@@ -590,7 +582,7 @@
     if (listEl) {
       listEl.innerHTML = items.map(i => `
         <div class="summary-item">
-          <span>${i.qty}× ${esc(i.name)}${i.note ? ` <span class="summary-item-note">${esc(i.note)}</span>` : ''}</span>
+          <span>${i.qty}× ${Kravon.esc(i.name)}${i.note ? ` <span class="summary-item-note">${Kravon.esc(i.note)}</span>` : ''}</span>
           <span>₹${i.price * i.qty}</span>
         </div>`
       ).join('');

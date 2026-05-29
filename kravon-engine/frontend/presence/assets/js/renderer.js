@@ -17,16 +17,6 @@
   };
 
   /* ── Helpers ─────────────────────────────────────────── */
-  function esc(str) {
-    if (str == null) return '';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
-
   function waLink() {
     return Kravon.buildWaLink(C.contact.waNumber, C.contact.waGreeting);
   }
@@ -37,11 +27,12 @@
   }
 
   function orderCta(size, extraClass) {
-    const cls = `p-btn p-btn-wa${extraClass ? ' ' + extraClass : ''}`;
-    if (C.products && C.products.orders) {
+    const isOrders = C.capabilities && C.capabilities.checkoutStrategy === 'orders';
+    if (isOrders) {
       const primaryCls = `p-btn p-btn-primary${extraClass ? ' ' + extraClass : ''}`;
       return `<button class="${primaryCls}" data-action="checkout" aria-label="Proceed to checkout">Proceed to Checkout</button>`;
     }
+    const cls = `p-btn p-btn-wa${extraClass ? ' ' + extraClass : ''}`;
     return `<a href="${waLink()}" target="_blank" rel="noopener noreferrer"
                class="${cls}" data-wa-link aria-label="Order on WhatsApp">
               ${waIcon(size || 16)} Order on WhatsApp
@@ -60,7 +51,7 @@
 
   /* ── NAV ─────────────────────────────────────────────── */
   function renderNav() {
-    const reserveBtn = C.products?.tables
+    const reserveBtn = C.capabilities?.tables
       ? `<a href="reservation.html" class="p-btn p-btn-secondary" aria-label="Reserve a table">Reserve Table</a>`
       : '';
 
@@ -70,8 +61,8 @@
       <div class="p-container">
         <div class="p-nav-inner">
           <div class="p-nav-brand">
-            <div class="p-nav-name">${esc(C.brand.name)}</div>
-            <div class="p-nav-tagline">${esc(C.brand.tagline)}</div>
+            <div class="p-nav-name">${Kravon.esc(C.brand.name)}</div>
+            <div class="p-nav-tagline">${Kravon.esc(C.brand.tagline)}</div>
           </div>
           <div class="p-nav-center">
             <div class="p-nav-hours" aria-label="Opening hours">
@@ -103,7 +94,7 @@
         <span class="p-hero-stat-label">${s.label.replace('\n', ' ')}</span>
       </div>`).join('');
 
-    const reserveHeroCta = C.products?.tables
+    const reserveHeroCta = C.capabilities?.tables
       ? `<a href="reservation.html" class="p-btn p-btn-secondary p-btn-lg" aria-label="Reserve a table">Reserve Table</a>`
       : '';
 
@@ -116,9 +107,9 @@
       </div>
       <div class="p-hero-content p-container">
         <div class="p-hero-text">
-          <span class="p-eyebrow">${esc(C.brand.eyebrow)}</span>
-          <h1 class="p-hero-headline" id="hero-heading">${esc(C.hero.headline)}</h1>
-          <p class="p-hero-sub">${esc(C.hero.sub)}</p>
+          <span class="p-eyebrow">${Kravon.esc(C.brand.eyebrow)}</span>
+          <h1 class="p-hero-headline" id="hero-heading">${Kravon.esc(C.hero.headline)}</h1>
+          <p class="p-hero-sub">${Kravon.esc(C.hero.sub)}</p>
           <div class="p-hero-ctas">
             <a href="#menu" class="p-btn p-btn-primary p-btn-lg" aria-label="Browse the menu">
               Browse Menu
@@ -126,7 +117,7 @@
             ${reserveHeroCta}
             ${orderCta(18, 'p-btn-lg')}
           </div>
-          <span class="p-hero-note">${esc(C.hero.footnote)}</span>
+          <span class="p-hero-note">${Kravon.esc(C.hero.footnote)}</span>
         </div>
         <div class="p-hero-stats" aria-label="Key highlights">
           ${statsHtml}
@@ -142,12 +133,12 @@
 
   /* ── STORY ───────────────────────────────────────────── */
   function renderStory() {
-    const bodyHtml = C.story.body.map(p => `<p>${esc(p)}</p>`).join('');
+    const bodyHtml = C.story.body.map(p => `<p>${Kravon.esc(p)}</p>`).join('');
     const factsHtml = C.story.facts.map(f => `
       <div class="p-sfact">
-        <span class="p-sfact-icon" aria-hidden="true">${esc(f.icon)}</span>
-        <div class="p-sfact-title">${esc(f.title)}</div>
-        <div class="p-sfact-body">${esc(f.body)}</div>
+        <span class="p-sfact-icon" aria-hidden="true">${Kravon.esc(f.icon)}</span>
+        <div class="p-sfact-title">${Kravon.esc(f.title)}</div>
+        <div class="p-sfact-body">${Kravon.esc(f.body)}</div>
       </div>`).join('');
 
     const section = el('section', 'p-story p-section');
@@ -156,8 +147,8 @@
       <div class="p-container">
         <div class="p-story-grid">
           <div class="p-story-text">
-            <span class="p-eyebrow">${esc(C.story.label)}</span>
-            <h2 class="p-headline" id="story-heading">${esc(C.story.headline)}</h2>
+            <span class="p-eyebrow">${Kravon.esc(C.story.label)}</span>
+            <h2 class="p-headline" id="story-heading">${Kravon.esc(C.story.headline)}</h2>
             <div class="p-story-body">${bodyHtml}</div>
             <div class="p-story-facts">
               ${factsHtml}
@@ -175,20 +166,20 @@
   /* ── MENU ────────────────────────────────────────────── */
   function renderMenuCtrl(id) {
     const item = M.find(m => String(m.id) === String(id));
-    // Count qty from EnhancedCart
     const cartItems = EnhancedCart.items().filter(ci => String(ci.menuItemId) === String(id));
     const qty = cartItems.reduce((sum, ci) => sum + ci.quantity, 0);
-    
-    // All items can be customized via modal (show Customize button)
-    const customizeBtn = `<button class="customize-btn" data-action="customize" data-id="${id}" aria-label="Customize ${item.name}">Customize</button>`;
+
     if (qty === 0) {
-      return customizeBtn;
+      const action = item.customisable ? 'customize' : 'add-direct';
+      return `<button class="add-btn" data-action="${action}" data-id="${id}" aria-label="Add ${Kravon.esc(item.name)}">Add</button>`;
     }
-    // Show customize button + quantity indicator
+
+    const plusAction = item.customisable ? 'customize' : 'ticker-inc';
     return `
-      <div class="customize-with-qty">
-        ${customizeBtn}
-        <div class="qty-badge" aria-label="${qty} item(s) in cart">${qty}</div>
+      <div class="qty-ctrl" role="group" aria-label="Quantity for ${Kravon.esc(item.name)}">
+        <button class="qty-btn" data-action="ticker-dec" data-id="${id}" aria-label="Decrease quantity">−</button>
+        <div class="qty-num" aria-live="polite">${qty}</div>
+        <button class="qty-btn" data-action="${plusAction}" data-id="${id}" aria-label="${item.customisable ? 'Add more' : 'Increase quantity'}">+</button>
       </div>`;
   }
 
@@ -197,14 +188,14 @@
       const badgeHtml = item.badge
         ? `<span class="p-badge p-mcard-badge ${item.badgeClass}">${item.badge}</span>` : '';
       return `
-        <article class="p-mcard reveal" aria-label="${esc(item.name)}">
+        <article class="p-mcard reveal" aria-label="${Kravon.esc(item.name)}">
           <div class="p-mcard-image-wrap">
-            <img src="${foodImg(index)}" alt="${esc(item.name)}" loading="lazy">
+            <img src="${foodImg(index)}" alt="${Kravon.esc(item.name)}" loading="lazy">
             ${badgeHtml}
           </div>
           <div class="p-mcard-body">
-            <h3 class="p-mcard-name">${esc(item.name)}</h3>
-            <p class="p-mcard-desc">${esc(item.desc)}</p>
+            <h3 class="p-mcard-name">${Kravon.esc(item.name)}</h3>
+            <p class="p-mcard-desc">${Kravon.esc(item.desc)}</p>
             <div class="p-mcard-footer">
               <div class="p-mcard-price">${currency(item.price)}</div>
               <div id="ctrl-${item.id}">${renderMenuCtrl(item.id)}</div>
@@ -222,15 +213,15 @@
       <div class="p-container">
         <div class="p-menu-header">
           <div>
-            <span class="p-eyebrow">${esc(C.menu.label)}</span>
-            <h2 class="p-headline" id="menu-heading">${esc(C.menu.headline)}</h2>
+            <span class="p-eyebrow">${Kravon.esc(C.menu.label)}</span>
+            <h2 class="p-headline" id="menu-heading">${Kravon.esc(C.menu.headline)}</h2>
           </div>
-          <div class="p-menu-note" aria-hidden="true">${esc(C.menu.waNote)}</div>
+          <div class="p-menu-note" aria-hidden="true">${Kravon.esc(C.menu.waNote)}</div>
         </div>
         <div class="p-menu-grid" id="menuGrid" role="list" aria-label="Menu items">
           ${renderMenuGrid()}
         </div>
-        <p class="p-menu-footnote">${esc(C.order.footnote)}</p>
+        <p class="p-menu-footnote">${Kravon.esc(C.order.footnote)}</p>
       </div>
     `;
     return section;
@@ -242,13 +233,13 @@
       <li class="p-how-step">
         <div class="p-how-num" aria-hidden="true">${String(i + 1).padStart(2, '0')}</div>
         <div>
-          <div class="p-how-step-title">${esc(s.title)}</div>
-          <div class="p-how-step-body">${esc(s.body)}</div>
+          <div class="p-how-step-title">${Kravon.esc(s.title)}</div>
+          <div class="p-how-step-body">${Kravon.esc(s.body)}</div>
         </div>
       </li>`).join('');
 
     const benefitsHtml = C.how.benefits
-      .map(b => `<li class="p-how-benefit">${esc(b)}</li>`).join('');
+      .map(b => `<li class="p-how-benefit">${Kravon.esc(b)}</li>`).join('');
 
     const section = el('section', 'p-how p-section');
     section.setAttribute('aria-labelledby', 'how-heading');
@@ -256,15 +247,15 @@
       <div class="p-container">
         <div class="p-how-grid">
           <div>
-            <span class="p-eyebrow">${esc(C.how.label)}</span>
-            <h2 class="p-headline" id="how-heading">${esc(C.how.headline)}</h2>
+            <span class="p-eyebrow">${Kravon.esc(C.how.label)}</span>
+            <h2 class="p-headline" id="how-heading">${Kravon.esc(C.how.headline)}</h2>
             <ol class="p-how-steps" aria-label="Ordering steps">${stepsHtml}</ol>
           </div>
           <div>
             <div class="p-how-wa-card">
-              <span class="p-how-wa-icon" aria-hidden="true">${esc(C.how.waCard.icon)}</span>
-              <div class="p-how-wa-title">${esc(C.how.waCard.title)}</div>
-              <p class="p-how-wa-sub">${esc(C.hours.kitchenNote)}</p>
+              <span class="p-how-wa-icon" aria-hidden="true">${Kravon.esc(C.how.waCard.icon)}</span>
+              <div class="p-how-wa-title">${Kravon.esc(C.how.waCard.title)}</div>
+              <p class="p-how-wa-sub">${Kravon.esc(C.hours.kitchenNote)}</p>
               ${orderCta(18, 'p-btn-lg')}
             </div>
             <ul class="p-how-benefits" aria-label="Order benefits">${benefitsHtml}</ul>
@@ -282,12 +273,12 @@
       return `
         <article class="p-rcard reveal">
           <span class="p-rcard-stars" aria-label="${r.stars} out of 5 stars">${stars}</span>
-          <blockquote class="p-rcard-text">"${esc(r.text)}"</blockquote>
+          <blockquote class="p-rcard-text">"${Kravon.esc(r.text)}"</blockquote>
           <div class="p-rcard-author">
-            <div class="p-rcard-avatar" aria-hidden="true">${esc(r.avatar)}</div>
+            <div class="p-rcard-avatar" aria-hidden="true">${Kravon.esc(r.avatar)}</div>
             <div>
-              <div class="p-rcard-name">${esc(r.name)}</div>
-              <div class="p-rcard-source">${esc(r.source)}</div>
+              <div class="p-rcard-name">${Kravon.esc(r.name)}</div>
+              <div class="p-rcard-source">${Kravon.esc(r.source)}</div>
             </div>
           </div>
         </article>`;
@@ -298,8 +289,8 @@
     section.innerHTML = `
       <div class="p-container">
         <div class="p-reviews-header">
-          <span class="p-eyebrow">${esc(C.reviews.label)}</span>
-          <h2 class="p-headline" id="reviews-heading">${esc(C.reviews.headline)}</h2>
+          <span class="p-eyebrow">${Kravon.esc(C.reviews.label)}</span>
+          <h2 class="p-headline" id="reviews-heading">${Kravon.esc(C.reviews.headline)}</h2>
         </div>
         <div class="p-reviews-grid">${cardsHtml}</div>
       </div>
@@ -315,10 +306,10 @@
         : 'p-location-row-body';
       return `
         <div class="p-location-row">
-          <span class="p-location-row-icon" aria-hidden="true">${esc(row.icon)}</span>
+          <span class="p-location-row-icon" aria-hidden="true">${Kravon.esc(row.icon)}</span>
           <div>
-            <div class="p-location-row-title">${esc(row.title)}</div>
-            <div class="${bodyCls}">${esc(row.body)}</div>
+            <div class="p-location-row-title">${Kravon.esc(row.title)}</div>
+            <div class="${bodyCls}">${Kravon.esc(row.body)}</div>
           </div>
         </div>`;
     }).join('');
@@ -328,18 +319,18 @@
     section.innerHTML = `
       <div class="p-container">
         <div class="p-location-grid">
-          <div class="p-location-map reveal" role="img" aria-label="${esc(C.location.mapLabel)}">
+          <div class="p-location-map reveal" role="img" aria-label="${Kravon.esc(C.location.mapLabel)}">
             <div class="p-location-map-grid" aria-hidden="true"></div>
             <div class="p-location-pin">
               <div class="p-location-pin-pulse" aria-hidden="true">📍</div>
-              <div class="p-location-pin-name">${esc(C.location.pinName)}</div>
-              <div class="p-location-pin-sub">${esc(C.location.pinSub)}</div>
+              <div class="p-location-pin-name">${Kravon.esc(C.location.pinName)}</div>
+              <div class="p-location-pin-sub">${Kravon.esc(C.location.pinSub)}</div>
             </div>
           </div>
           <div class="p-location-info">
             <div>
               <span class="p-eyebrow">Find Us</span>
-              <h2 class="p-headline" id="location-heading">${esc(C.location.label)}</h2>
+              <h2 class="p-headline" id="location-heading">${Kravon.esc(C.location.label)}</h2>
             </div>
             <div class="p-location-rows">${rowsHtml}</div>
             ${orderCta()}

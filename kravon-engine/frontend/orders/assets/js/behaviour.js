@@ -172,10 +172,12 @@
   /* ── Resize ───────────────────────────────────────────── */
   window.addEventListener('resize', UI.onResize);
 
-  /* ── Init ─────────────────────────────────────────────── */
-  Modal.init();
-  Checkout.init();
-  UI.renderCart();
-  document.getElementById('screenOrdering')?.classList.add('active');
+  /* ── Init — called by boot.js after loadConfig() ─────── */
+  window.initBehaviour = function () {
+    Modal.init();
+    Checkout.init();
+    UI.renderCart();
+    document.getElementById('screenOrdering')?.classList.add('active');
+  };
 
 })();

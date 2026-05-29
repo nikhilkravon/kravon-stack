@@ -35,14 +35,14 @@ const router = express.Router();
 
 /* ── Shared cart item schema ────────────────────────────────────────────── */
 const CartItemSchema = z.object({
-  id:    z.number().int().positive(),
+  id:    z.string().uuid(),
   name:  z.string().min(1).max(150),
-  price: z.number().int().positive(),
+  price: z.number().min(0),
   qty:   z.number().int().min(1).max(20),
   note:  z.string().max(200).optional(),
   addons: z.array(z.object({
     label: z.string(),
-    price: z.number().int().min(0),
+    price: z.number().min(0),
   })).optional(),
 });
 
@@ -103,10 +103,10 @@ router.post('/', async (req, res, next) => {
 /* ── GET /orders/:id (admin only) ────────────────────────────────────────── */
 router.get('/:id', requireRestaurantAuth, async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = req.params.id;
     const result = await query(
-      'SELECT * FROM orders WHERE id=$1 AND rest_id=$2',
-      [id, req.tenant.rest_id]
+      'SELECT * FROM orders.orders WHERE id=$1::uuid AND tenant_id=$2',
+      [id, req.tenant.tenant_id]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Order not found' });
     res.json({ ok: true, order: result.rows[0] });

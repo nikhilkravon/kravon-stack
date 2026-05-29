@@ -31,6 +31,15 @@ const server = http.createServer((req, res) => {
     pathname = '/tables/index.html';
   }
 
+  if (pathname === '/orders') {
+    res.writeHead(301, { 'Location': '/orders/' });
+    res.end();
+    return;
+  }
+  if (pathname === '/orders/') {
+    pathname = '/orders/index.html';
+  }
+
   const filePath = path.join(__dirname, pathname);
 
   fs.readFile(filePath, (err, data) => {

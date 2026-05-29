@@ -10,17 +10,6 @@ const CheckoutPresence = (() => {
   let _config = null;
   let _selectedPaymentId = 'upi';
 
-  /* ── Escape helper ── */
-  function _esc(str) {
-    if (str == null) return '';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
-
   /* ── Get element value ── */
   function _val(id) {
     const el = document.getElementById(id);
@@ -63,16 +52,16 @@ const CheckoutPresence = (() => {
     container.innerHTML = methods.map((m, i) => `
       <div class="pay-opt${i === 0 ? ' selected' : ''}"
            data-action="select-payment"
-           data-payment-id="${_esc(m.id)}"
+           data-payment-id="${Kravon.esc(m.id)}"
            role="radio"
            aria-checked="${i === 0 ? 'true' : 'false'}"
            tabindex="${i === 0 ? '0' : '-1'}">
         <div class="radio-circle" aria-hidden="true"><div class="radio-fill"></div></div>
         <div class="pay-opt-content">
-          <div class="pay-opt-icon">${_esc(m.icon)}</div>
+          <div class="pay-opt-icon">${Kravon.esc(m.icon)}</div>
           <div class="pay-opt-text">
-            <div>${_esc(m.label)}</div>
-            <div>${_esc(m.sub)}</div>
+            <div>${Kravon.esc(m.label)}</div>
+            <div>${Kravon.esc(m.sub)}</div>
           </div>
         </div>
       </div>`
@@ -83,8 +72,8 @@ const CheckoutPresence = (() => {
     const noteEl = document.getElementById('gatewayNote');
     if (noteEl && _config?.orders?.gatewayNote) {
       noteEl.innerHTML = `
-        <div class="gateway-note-label">${_esc(_config.orders.gatewayNote.label)}</div>
-        <div>${_esc(_config.orders.gatewayNote.body)}</div>`;
+        <div class="gateway-note-label">${Kravon.esc(_config.orders.gatewayNote.label)}</div>
+        <div>${Kravon.esc(_config.orders.gatewayNote.body)}</div>`;
     }
   }
 
@@ -112,8 +101,8 @@ const CheckoutPresence = (() => {
         <div class="summary-item">
           <div>
             <div class="summary-item-name">
-              ${_esc(item.name)}
-              ${item.specialNote ? `<span style="color:rgba(255,255,255,0.25);font-size:11px;"> · ${_esc(item.specialNote)}</span>` : ''}
+              ${Kravon.esc(item.name)}
+              ${item.specialNote ? `<span style="color:rgba(255,255,255,0.25);font-size:11px;"> · ${Kravon.esc(item.specialNote)}</span>` : ''}
             </div>
           </div>
           <div class="summary-item-qty">×${item.quantity}</div>
@@ -305,7 +294,7 @@ const CheckoutPresence = (() => {
       <div class="confirmation-wrap">
         <div class="confirmation-icon">✅</div>
         <div class="confirmation-title">Order Confirmed!</div>
-        <div class="confirmation-id">Order #${_esc(orderId)}</div>
+        <div class="confirmation-id">Order #${Kravon.esc(orderId)}</div>
         <div class="confirmation-text">
           Your order has been placed successfully. You'll receive a confirmation message shortly.
         </div>

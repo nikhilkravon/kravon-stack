@@ -12,20 +12,20 @@ const UI = (function () {
   let _mobileCartOpen = false;
   let _toastTimer     = null;
 
-  const _customisableIds = new Set(
-    window.MENU.flatMap(c => c.items.filter(i => i.customise).map(i => String(i.id)))
-  );
+  let _customisableIds = null;
+  function _getCustomisableIds() {
+    if (!_customisableIds) {
+      const cats = window.CATEGORIES || (window.CONFIG && window.CONFIG.categories) || [];
+      _customisableIds = new Set(
+        cats.flatMap(c => (c.items || []).filter(i => i.customise || i.is_customizable).map(i => String(i.id)))
+      );
+    }
+    return _customisableIds;
+  }
 
   /* ── Helpers ──────────────────────────────────────────── */
   function _$(id) { return document.getElementById(id); }
   function _setText(id, text) { const el = _$(id); if (el) el.textContent = text; }
-
-  function esc(str) {
-    if (str == null) return '';
-    return String(str)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-  }
 
   /* ── Render cart panel ────────────────────────────────── */
   function renderCart() {
@@ -50,15 +50,15 @@ const UI = (function () {
     const cartItemsEl = _$('cartItems');
     if (cartItemsEl) {
       cartItemsEl.innerHTML = items.map((item, idx) => {
-        const editBtn = _customisableIds.has(item.id)
+        const editBtn = _getCustomisableIds().has(item.id)
           ? `<button class="edit-btn" data-action="edit-item"
-                     data-idx="${idx}" aria-label="Edit ${esc(item.name)}">Edit</button>` : '';
+                     data-idx="${idx}" aria-label="Edit ${Kravon.esc(item.name)}">Edit</button>` : '';
         const noteHtml = item.note
-          ? `<div class="cart-item-note">${esc(item.note)}</div>` : '';
+          ? `<div class="cart-item-note">${Kravon.esc(item.note)}</div>` : '';
         return `
           <div class="cart-item" role="listitem">
             <div class="cart-item-top">
-              <div class="cart-item-name">${esc(item.name)}</div>
+              <div class="cart-item-name">${Kravon.esc(item.name)}</div>
               <div class="cart-item-price">${Cart.fmt(item.price * item.qty)}</div>
             </div>
             <div class="cart-item-controls">
@@ -68,7 +68,7 @@ const UI = (function () {
               <button class="qty-btn" data-action="change-qty"
                       data-idx="${idx}" data-delta="1" aria-label="Increase">+</button>
               <button class="remove-btn" data-action="remove-item"
-                      data-idx="${idx}" aria-label="Remove ${esc(item.name)}">Remove</button>
+                      data-idx="${idx}" aria-label="Remove ${Kravon.esc(item.name)}">Remove</button>
               ${editBtn}
             </div>
             ${noteHtml}

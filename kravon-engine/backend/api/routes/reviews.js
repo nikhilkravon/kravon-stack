@@ -4,10 +4,7 @@
  *
  * Captures post-order star ratings from the Tables product.
  * Private below threshold, routes to Google above threshold.
- *
- * Returns:
- *   { ok, google_review_url } — URL present only when stars >= review_threshold
- *   Frontend uses this to decide whether to show the Google review prompt.
+ * Uses v12 schema: dining.reviews.
  */
 
 'use strict';
@@ -19,7 +16,8 @@ const { query } = require('../../db/pool');
 const router = express.Router();
 
 const CreateReviewSchema = z.object({
-  order_id:         z.number().int().positive().optional(),
+  order_id:         z.string().uuid().optional(),
+  session_id:       z.string().uuid().optional(),
   stars:            z.number().int().min(1).max(5),
   feedback:         z.string().max(1000).optional(),
   order_surface:    z.enum(['tables', 'orders']).optional(),
@@ -36,11 +34,11 @@ router.post('/', async (req, res, next) => {
     const data = parsed.data;
     const r    = req.tenant;
 
-    // If order_id supplied, verify it belongs to this restaurant
+    // Verify order belongs to this tenant if supplied
     if (data.order_id) {
       const check = await query(
-        'SELECT id FROM orders WHERE id=$1 AND rest_id=$2',
-        [data.order_id, r.rest_id]
+        'SELECT id FROM orders.orders WHERE id=$1::uuid AND tenant_id=$2',
+        [data.order_id, r.tenant_id]
       );
       if (!check.rows.length) {
         return res.status(400).json({ error: 'Order not found' });
@@ -48,24 +46,22 @@ router.post('/', async (req, res, next) => {
     }
 
     await query(`
-      INSERT INTO reviews (rest_id, order_id, stars, feedback, order_surface, table_identifier)
-      VALUES ($1,$2,$3,$4,$5,$6)
+      INSERT INTO dining.reviews (tenant_id, order_id, session_id, rating, comment, source)
+      VALUES ($1, $2, $3, $4, $5, 'web')
     `, [
-      r.rest_id,
-      data.order_id    || null,
+      r.tenant_id,
+      data.order_id   || null,
+      data.session_id || null,
       data.stars,
-      data.feedback    || null,
-      data.order_surface    || null,
-      data.table_identifier || null,
+      data.feedback   || null,
     ]);
 
-    const threshold = r.review_threshold ?? 4;
+    const threshold     = r.review_threshold ?? 4;
     const aboveThreshold = data.stars >= threshold;
 
     res.status(201).json({
       ok:                true,
       above_threshold:   aboveThreshold,
-      // Only expose the Google URL when the rating earns it
       google_review_url: aboveThreshold ? (r.google_review_url || null) : null,
     });
   } catch (err) {

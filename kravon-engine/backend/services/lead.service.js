@@ -65,33 +65,44 @@ async function createLead(tenant, data) {
   const tier  = scoreTier(score);
   const ref   = generateRef(tenant.name);
 
+  // v12: catering.leads uses contact_name/contact_phone/contact_email, no company/ref/score/tier
+  // Store extra fields (company, ref, score, tier) in custom_fields JSONB
   const result = await query(`
-    INSERT INTO catering_leads (
-      rest_id, ref, name, company, email, phone,
-      budget, headcount, event_type, date_start, date_end, notes,
-      score, tier, status
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'new')
-    RETURNING id, ref, tier
+    INSERT INTO catering.leads (
+      tenant_id,
+      contact_name, contact_phone, contact_email,
+      event_type,
+      preferred_date_from, preferred_date_to,
+      notes,
+      source,
+      status,
+      custom_fields
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'web','new',$9)
+    RETURNING id
   `, [
-    tenant.rest_id, ref,
-    data.name, data.company, data.email, data.phone,
-    data.budget      || null,
-    data.headcount   || null,
+    tenant.tenant_id,
+    data.name, data.phone, data.email,
     data.event_type  || null,
     data.date_start  || null,
     data.date_end    || null,
     data.notes       || null,
-    score, tier,
+    JSON.stringify({
+      company:   data.company   || null,
+      budget:    data.budget    || null,
+      headcount: data.headcount || null,
+      ref,
+      score,
+      tier,
+    }),
   ]);
 
   const lead = result.rows[0];
 
-  // Fire notifications async — never block the API response
   notifyService.leadReceived(tenant, { ...data, id: lead.id, ref, tier, score }).catch(err =>
     console.error('[lead.service] notify failed:', err.message)
   );
 
-  return { ref: lead.ref, tier: lead.tier };
+  return { ref, tier };
 }
 
 module.exports = { createLead };

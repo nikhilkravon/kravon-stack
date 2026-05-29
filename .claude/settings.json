@@ -31,7 +31,23 @@
       "PowerShell(Get-Process -Name \"node\" | Where-Object { $_.Id -ne 32296 } | Select-Object Id, CPU, StartTime | Sort-Object StartTime)",
       "Bash(tasklist)",
       "Bash(taskkill /PID 9272 /F)",
-      "PowerShell(Stop-Process -Id 9272 -Force)"
+      "PowerShell(Stop-Process -Id 9272 -Force)",
+      "PowerShell(Get-Process -Name \"node\" -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Force)",
+      "Bash(node --check server.js)",
+      "Bash(node --check api/routes/auth.js)",
+      "Bash(node --check api/routes/admin.js)",
+      "Bash(node --check db/migrations/v14-staff-password.js)",
+      "Bash(node db/migrations/v14-staff-password.js)",
+      "PowerShell(Stop-Process -Name \"node\" -Force -ErrorAction SilentlyContinue)",
+      "PowerShell(Start-Process \"http://localhost:8000/presence/?slug=spice-of-india&api=http://localhost:3000\")",
+      "PowerShell(Start-Process \"http://localhost:8000/tables/?slug=spice-of-india&api=http://localhost:3000\")",
+      "PowerShell(Start-Process \"http://localhost:8000/orders/?slug=spice-of-india&api=http://localhost:3000\")",
+      "Bash(node /c/Users/Nikhil/KravonSAAS/kravon-stack/kravon-engine/frontend/server.js)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:8000/orders/\")",
+      "Bash(Start-Sleep -Seconds 3)",
+      "Bash(npx kill-port *)",
+      "Bash(pkill -f \"node.*server.js\")"
     ]
   }
 }

@@ -32,7 +32,6 @@ const express       = require('express');
 const crypto        = require('crypto');
 const { query, getClient } = require('../../db/pool');
 const notifyService = require('../../services/notify.service');
-const { buildTenant } = require('../middleware/tenant');
 
 const router = express.Router();
 
@@ -92,49 +91,52 @@ router.post('/razorpay', async (req, res) => {
   try {
     await client.query('BEGIN');
 
+    // Look up order by razorpay_order_id stored in metadata JSONB
     const orderRes = await client.query(
-      `UPDATE orders
-       SET payment_status       = 'paid',
-           status               = 'confirmed',
-           razorpay_payment_id  = $1,
-           updated_at           = NOW()
-       WHERE razorpay_order_id = $2
-         AND status = 'pending_payment'
+      `UPDATE orders.orders
+       SET status     = 'confirmed',
+           metadata   = metadata || $1,
+           updated_at = NOW()
+       WHERE metadata->>'razorpay_order_id' = $2
+         AND status = 'pending'
        RETURNING *`,
-      [razorpayPayId, razorpayOrderId]
+      [JSON.stringify({ razorpay_payment_id: razorpayPayId }), razorpayOrderId]
     );
 
     if (!orderRes.rows.length) {
       await client.query('ROLLBACK');
-      // Idempotent — already processed or order not found
       return res.json({ ok: true, skipped: 'order not found or already confirmed' });
     }
 
     const order = orderRes.rows[0];
-
-    // Upsert customer record for Insights
-    await client.query(`
-      INSERT INTO customers (rest_id, phone, name, order_count, total_spent, first_order_at, last_order_at)
-      VALUES ($1,$2,$3,1,$4,NOW(),NOW())
-      ON CONFLICT (rest_id, phone) DO UPDATE
-        SET order_count   = customers.order_count + 1,
-            total_spent   = customers.total_spent + $4,
-            last_order_at = NOW(),
-            name          = EXCLUDED.name
-    `, [order.rest_id, order.customer_phone, order.customer_name, order.total_amount]);
+    const meta  = order.metadata || {};
 
     await client.query('COMMIT');
 
-    /* ── 4. Notifications + outbound webhook (async, never blocks response) ─ */
-    // Fetch restaurant row to build tenant object (no resolveRestaurant here)
+    /* ── 4. Notifications + outbound webhook ────────────────────────────── */
     const tenantRes = await query(
-      'SELECT * FROM restaurants WHERE rest_id = $1 LIMIT 1',
-      [order.rest_id]
+      `SELECT id, slug, name, has_presence, has_orders, has_tables, has_catering, has_insights, settings
+       FROM tenant.restaurants WHERE id = $1 AND deleted_at IS NULL LIMIT 1`,
+      [order.tenant_id]
     );
 
     if (tenantRes.rows[0]) {
-      const tenant = buildTenant(tenantRes.rows[0]);
-      notifyService.orderConfirmed(tenant, order).catch(err =>
+      const tr = tenantRes.rows[0];
+      // Minimal tenant object for notify
+      const tenant = {
+        tenant_id:   tr.id,
+        slug:        tr.slug,
+        name:        tr.name,
+        webhook_url: tr.settings?.webhook_url || null,
+        wa_number:   null,
+      };
+      const orderForNotify = {
+        ...order,
+        customer_name:  meta.customer_name,
+        customer_phone: meta.customer_phone,
+        order_surface:  order.fulfillment_type === 'delivery' ? 'orders' : 'tables',
+      };
+      notifyService.orderConfirmed(tenant, orderForNotify).catch(err =>
         console.error('[razorpay-webhook] notify failed:', err.message)
       );
     }

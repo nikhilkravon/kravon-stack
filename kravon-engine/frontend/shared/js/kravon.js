@@ -120,6 +120,17 @@ const Kravon = (function () {
     }
   }
 
+  /* ── HTML escape ─────────────────────────────────────── */
+  function esc(str) {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g,  '&lt;')
+      .replace(/>/g,  '&gt;')
+      .replace(/"/g,  '&quot;')
+      .replace(/'/g,  '&#39;');
+  }
+
   /* ── Toast notification ──────────────────────────────── */
   function toast(msg, duration) {
     const el = document.getElementById('toast');
@@ -138,6 +149,7 @@ const Kravon = (function () {
     renderUpgrade,
     renderFooter,
     toast,
+    esc,
   };
 
 })();

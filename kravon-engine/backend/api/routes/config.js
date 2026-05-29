@@ -4,10 +4,7 @@
  *
  * Returns the full CONFIG object for the frontend renderer.
  * Public — no authentication required.
- *
- * Shape is V7-compatible: includes all renderer-expected fields
- * (hero, story, how, reviews, location, order, menu section labels)
- * with sensible defaults so the renderer never crashes on missing data.
+ * Uses v12 multi-schema: menu.categories, menu.menu_items, etc.
  */
 
 'use strict';
@@ -22,40 +19,36 @@ router.get('/', async (req, res, next) => {
     const r  = req.tenant;
     const id = r.tenant_id;
 
-    // Fetch menu categories + items
+    // Fetch categories + items in one pass (v12 column names)
     const menuRes = await query(`
       SELECT
         c.id          AS cat_id,
         c.name        AS cat_name,
-        c.subtitle    AS cat_subtitle,
-        c.sort_order  AS cat_sort,
+        c.description AS cat_subtitle,
+        c.position    AS cat_sort,
         i.id          AS item_id,
         i.name        AS item_name,
-        i.price_paise AS item_price,
+        i.price       AS item_price,
         i.description AS item_desc,
-        i.image,
-        i.image_bg,
-        i.badge,
-        i.badge_style,
-        i.customisable AS is_customizable,
-        i.sort_order  AS item_sort
-      FROM menu_categories c
-      LEFT JOIN menu_items i ON i.category_id = c.id AND i.active = TRUE
-      WHERE c.tenant_id = $1 AND c.active = TRUE
-      ORDER BY c.sort_order, i.sort_order
+        i.image_url   AS image,
+        i.is_customizable,
+        i.has_variants,
+        i.sort_order  AS item_sort,
+        i.tags,
+        i.food_type
+      FROM menu.categories c
+      LEFT JOIN menu.menu_items i
+             ON i.category_id = c.id
+            AND i.is_available = TRUE
+            AND i.deleted_at IS NULL
+      WHERE c.tenant_id = $1
+        AND c.is_active = TRUE
+        AND c.deleted_at IS NULL
+      ORDER BY c.position, i.sort_order
     `, [id]);
 
-    const addonsRes = await query(
-      'SELECT label, price_paise FROM menu_addons WHERE tenant_id=$1 AND active=TRUE ORDER BY sort_order',
-      [id]
-    );
-    const spiceRes = await query(
-      'SELECT label FROM spice_levels WHERE tenant_id=$1 ORDER BY sort_order',
-      [id]
-    );
-
-    // Build categorised map AND flat item list (renderer needs flat)
-    const catMap   = new Map();
+    // Build categorised map + flat list
+    const catMap    = new Map();
     const flatItems = [];
 
     for (const row of menuRes.rows) {
@@ -69,38 +62,40 @@ router.get('/', async (req, res, next) => {
       }
       if (row.item_id) {
         const item = {
-          id:         row.item_id,
-          name:       row.item_name,
-          price:      Math.round(row.item_price / 100),
-          desc:       row.item_desc,
-          image:      row.image,
-          imageBg:    row.image_bg,
-          badge:      row.badge,
-          badgeStyle: row.badge_style,
-          badgeClass: row.badge_style || '',   // V7 renderer uses badgeClass
+          id:              row.item_id,
+          name:            row.item_name,
+          price:           Number(row.item_price),   // already in rupees
+          desc:            row.item_desc,
+          image:           row.image,
+          imageBg:         null,
+          badge:           null,
+          badgeStyle:      null,
+          badgeClass:      '',
           is_customizable: row.is_customizable,
-          has_variants: false,
+          customisable:    row.is_customizable,  // compat alias for presence + tables renderer
+          customise:       row.is_customizable,  // compat alias for orders ui.js
+          has_variants:    row.has_variants,
+          food_type:       row.food_type,
+          tags:            row.tags || [],
         };
         catMap.get(row.cat_id).items.push(item);
         flatItems.push(item);
       }
     }
 
-    const addons     = addonsRes.rows.map(a => ({ label: a.label, price: Math.round(a.price_paise / 100) }));
-    const spiceLevels = spiceRes.rows.map(s => s.label);
-
-    // Build location rows from available DB fields
+    // Build location rows for frontend
     const locationRows = [
-      r.address      ? { icon: '📍', title: 'Address',       body: r.address,        highlight: false } : null,
-      r.phone        ? { icon: '📞', title: 'Phone',          body: r.phone,          highlight: false } : null,
-      r.email        ? { icon: '✉️',  title: 'Email',          body: r.email,          highlight: false } : null,
-      r.hours_display? { icon: '🕐', title: 'Hours',          body: r.hours_display,  highlight: true  } : null,
-      r.delivery_zone? { icon: '🛵', title: 'Delivery Zone',  body: r.delivery_zone,  highlight: false } : null,
+      r.address      ? { icon: '📍', title: 'Address',      body: r.address,       highlight: false } : null,
+      r.phone        ? { icon: '📞', title: 'Phone',         body: r.phone,         highlight: false } : null,
+      r.email        ? { icon: '✉️',  title: 'Email',         body: r.email,         highlight: false } : null,
+      r.hours_display? { icon: '🕐', title: 'Hours',         body: r.hours_display, highlight: true  } : null,
+      r.delivery_zone? { icon: '🛵', title: 'Delivery Zone', body: r.delivery_zone, highlight: false } : null,
     ].filter(Boolean);
 
     const config = {
-      rest_id: r.rest_id,
-      slug:    r.slug,
+      tenant_id: id,
+      rest_id:   id,   // backward-compat alias
+      slug:      r.slug,
 
       meta: {
         title:       `${r.name} — Order Direct`,
@@ -139,6 +134,22 @@ router.get('/', async (req, res, next) => {
         insights: r.has_insights,
       },
 
+      // Capability model — replaces raw product booleans for frontend logic.
+      // Frontend reads CONFIG.capabilities.* instead of CONFIG.products.*.
+      // checkoutStrategy tells Presence which checkout path to use:
+      //   'whatsapp'  — Starter: cart + WhatsApp message (no payment gateway)
+      //   'orders'    — Growth/Pro: route to Orders product (Razorpay + DB)
+      capabilities: {
+        website:         true,
+        orderManagement: !!r.has_orders,
+        payments:        !!(r.has_orders && r.razorpay_key_id),
+        tables:          !!r.has_tables,
+        catering:        !!r.has_catering,
+        analytics:       !!r.has_insights,
+        checkoutStrategy: r.has_orders ? 'orders' : 'whatsapp',
+        plan:             r.plan || 'starter',
+      },
+
       tables: r.has_tables ? {
         paymentMode:     r.razorpay_key_id ? 'razorpay' : 'offline',
         razorpayKeyId:   r.razorpay_key_id  || null,
@@ -146,11 +157,60 @@ router.get('/', async (req, res, next) => {
         googleReviewUrl: r.google_review_url || null,
       } : null,
 
-      // ── V7 renderer-expected content fields ──────────────────────────────
       order: {
-        currency: '₹',
-        minOrder: 0,
-        footnote: '',
+        currency:           '₹',
+        minOrder:           0,
+        deliveryFee:        r.delivery_fee        ?? null,
+        freeDeliveryAbove:  r.free_delivery_above ?? null,
+        footnote:           '',
+      },
+
+      // orders — used by the Orders standalone product module
+      orders: {
+        // Dynamic: delivery pricing from tenant config
+        deliveryStandard:   r.delivery_fee        ?? 39,
+        deliveryExpress:    (r.delivery_fee ?? 39) * 2,
+        freeDeliveryAt:     r.free_delivery_above ?? 399,
+        gstRate:            0,   // inclusive pricing; set >0 if you add GST line
+
+        // Payment methods — offer Razorpay only when keys are configured
+        paymentMethods: r.razorpay_key_id
+          ? [
+              { id: 'upi',  icon: '📱', label: 'UPI / QR',    sub: 'Google Pay, PhonePe, Paytm' },
+              { id: 'card', icon: '💳', label: 'Card',         sub: 'Visa, Mastercard, RuPay'    },
+              { id: 'cod',  icon: '💵', label: 'Cash on Delivery', sub: 'Pay when delivered'    },
+            ]
+          : [{ id: 'cod', icon: '💵', label: 'Cash on Delivery', sub: 'Pay when delivered' }],
+
+        gatewayNote: r.razorpay_key_id
+          ? { label: 'Secured by Razorpay', body: 'PCI-DSS compliant payment gateway.' }
+          : null,
+
+        // Static UI strings — consistent across all restaurants
+        navDirectLabel:        'Order Direct',
+        deliveryEta:           '30–45 min',
+        deliveryStandardLabel: 'Standard Delivery',
+        deliveryStandardSub:   '30–45 min',
+        deliveryExpressLabel:  'Express Delivery',
+        deliveryExpressSub:    '15–20 min',
+        cartEmptyText:         'Your cart is empty',
+        termsNote:             'No cancellation once confirmed. Prices inclusive of taxes.',
+        confirmHeadline:       'Order Placed!',
+        confirmSub:            `We'll prepare your order and send you updates on WhatsApp.`,
+        confirmWaNote:         'Order updates will be sent to your WhatsApp.',
+        directAdvantages:      [],
+        form: {
+          namePlaceholder:     'Your name',
+          phonePlaceholder:    '10-digit mobile number',
+          addressPlaceholder:  'Delivery address',
+          localityPlaceholder: 'Area / Locality',
+          landmarkPlaceholder: 'Landmark (optional)',
+        },
+        footerDataNote:  '',
+        poweredByText:   'Powered by',
+        poweredByLabel:  'Kravon',
+        poweredByLink:   'https://kravon.in',
+        upgradeBridge:   null,
       },
 
       hero: {
@@ -165,17 +225,17 @@ router.get('/', async (req, res, next) => {
       story: {
         label:    'Our Story',
         headline: r.story_headline || `About ${r.name}`,
-        body:     r._row.story_body  || [],
-        facts:    r._row.story_facts || [],
+        body:     r.story_body     || [],
+        facts:    r.story_facts    || [],
       },
 
       how: {
         label:    'How It Works',
         headline: 'Order in minutes',
         steps: [
-          { title: 'Browse the menu',      body: 'Pick your favourites from our menu.' },
-          { title: 'Message on WhatsApp',  body: 'Send your order directly to us.' },
-          { title: 'Enjoy your food',      body: 'We handle the rest.' },
+          { title: 'Browse the menu',     body: 'Pick your favourites from our menu.' },
+          { title: 'Message on WhatsApp', body: 'Send your order directly to us.'     },
+          { title: 'Enjoy your food',     body: 'We handle the rest.'                 },
         ],
         benefits: [],
         waCard: {
@@ -196,11 +256,10 @@ router.get('/', async (req, res, next) => {
         mapLabel: `${r.name}${r.city ? ' — ' + r.city : ''}`,
         pinName:  r.name || '',
         pinSub:   r.city || '',
-        mapUrl:   r._row.map_url || null,
+        mapUrl:   r.map_url || null,
         rows:     locationRows,
       },
 
-      // menu: object with section labels + flat items array (V7 renderer shape)
       menu: {
         label:    'Menu',
         headline: 'What we serve',
@@ -208,7 +267,6 @@ router.get('/', async (req, res, next) => {
         items:    flatItems,
       },
 
-      // Categorised menu for Orders / Tables modules
       categories: Array.from(catMap.values()),
 
       footer: {
@@ -221,9 +279,9 @@ router.get('/', async (req, res, next) => {
       demo:    null,
       upgrade: null,
 
-      // Kept for backward compat
-      addons,
-      spiceLevels,
+      // v12 has no addons/spice_levels tables yet — return empty
+      addons:      [],
+      spiceLevels: [],
     };
 
     res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
@@ -235,17 +293,16 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-// GET /v1/restaurants/:slug/menu/items/:id — Item details with variants & customizations
+// GET /v1/restaurants/:slug/menu/items/:id
 router.get('/items/:id', async (req, res, next) => {
   try {
-    const itemId = req.params.id;
+    const itemId  = req.params.id;
     const tenantId = req.tenant.tenant_id;
 
-    // Fetch item
     const itemRes = await query(`
-      SELECT id, name, price_paise, description, customisable
-      FROM menu_items
-      WHERE id = $1 AND tenant_id = $2 AND active = TRUE
+      SELECT id, name, price, description, is_customizable, has_variants
+      FROM menu.menu_items
+      WHERE id = $1 AND tenant_id = $2 AND is_available = TRUE AND deleted_at IS NULL
     `, [itemId, tenantId]);
 
     if (!itemRes.rows.length) {
@@ -254,62 +311,62 @@ router.get('/items/:id', async (req, res, next) => {
 
     const item = itemRes.rows[0];
 
-    // Fetch variants
-    const variantsRes = await query(`
-      SELECT id, name, price
-      FROM item_variants
-      WHERE menu_item_id = $1 AND is_available = TRUE
-      ORDER BY sort_order
-    `, [itemId]);
+    const [variantsRes, groupsRes] = await Promise.all([
+      query(`
+        SELECT id, name, price
+        FROM menu.item_variants
+        WHERE menu_item_id = $1 AND is_available = TRUE AND deleted_at IS NULL
+        ORDER BY sort_order
+      `, [itemId]),
+      query(`
+        SELECT id, name, group_type, is_required, min_select, max_select
+        FROM menu.customization_groups
+        WHERE menu_item_id = $1 AND deleted_at IS NULL
+        ORDER BY position
+      `, [itemId]),
+    ]);
 
     const variants = variantsRes.rows.map(v => ({
-      id: v.id,
-      name: v.name,
-      price: Math.round(v.price / 100)
+      id:    v.id,
+      name:  v.name,
+      price: Number(v.price),
     }));
 
-    // Fetch customizations
-    const groupsRes = await query(`
-      SELECT id, name, group_type, is_required
-      FROM customization_groups
-      WHERE menu_item_id = $1
-      ORDER BY sort_order
-    `, [itemId]);
+    const customizations = await Promise.all(
+      groupsRes.rows.map(async (group) => {
+        const optRes = await query(`
+          SELECT id, name, price_modifier, is_default
+          FROM menu.customization_options
+          WHERE group_id = $1 AND is_available = TRUE AND deleted_at IS NULL
+          ORDER BY sort_order
+        `, [group.id]);
 
-    const customizations = [];
-    for (const group of groupsRes.rows) {
-      const optionsRes = await query(`
-        SELECT id, name, price_modifier, is_default
-        FROM customization_options
-        WHERE group_id = $1
-        ORDER BY sort_order
-      `, [group.id]);
-
-      const options = optionsRes.rows.map(o => ({
-        id: o.id,
-        name: o.name,
-        price_modifier: Math.round(o.price_modifier / 100),
-        is_default: o.is_default
-      }));
-
-      customizations.push({
-        id: group.id,
-        name: group.name,
-        group_type: group.group_type,
-        is_required: group.is_required,
-        options
-      });
-    }
+        return {
+          id:          group.id,
+          name:        group.name,
+          group_type:  group.group_type,
+          is_required: group.is_required,
+          min_select:  group.min_select,
+          max_select:  group.max_select,
+          options:     optRes.rows.map(o => ({
+            id:             o.id,
+            name:           o.name,
+            price_modifier: Number(o.price_modifier),
+            is_default:     o.is_default,
+          })),
+        };
+      })
+    );
 
     res.json({
-      id: item.id,
-      name: item.name,
-      price: Math.round(item.price_paise / 100),
-      description: item.description,
-      has_variants: variants.length > 0,
-      is_customizable: item.customisable,
+      id:              item.id,
+      name:            item.name,
+      price:           Number(item.price),
+      description:     item.description,
+      has_variants:    item.has_variants,
+      is_customizable: item.is_customizable,
       variants,
-      customizations
+      customizations,
     });
 
   } catch (err) {

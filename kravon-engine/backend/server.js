@@ -67,6 +67,7 @@ const insightRoutes = require('./api/routes/insights');
 const dineInRoutes  = require('./api/routes/dine-in');
 const webhookRoutes = require('./api/routes/webhooks');
 const adminRoutes   = require('./api/routes/admin');
+const authRoutes    = require('./api/routes/auth');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -98,6 +99,7 @@ app.get('/health', (_req, res) => res.json({ status: 'ok', ts: Date.now() }));
 /* ── Public routes (no restaurant context) ─────────────────────────────────── */
 app.use('/v1/webhooks', webhookRoutes);
 app.use('/v1/admin',    adminRoutes);
+app.use('/v1/auth',     authRoutes);
 
 /* ── Restaurant-scoped routes ──────────────────────────────────────────────── */
 // Step 1: resolveRestaurant resolves slug/domain/subdomain → req.tenant

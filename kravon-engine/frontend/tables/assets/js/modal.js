@@ -31,7 +31,7 @@ const TablesModal = (() => {
     container.innerHTML = addons.map(a => `
       <div class="option-row">
         <div>
-          <div class="option-label">${_esc(a.label)}</div>
+          <div class="option-label">${Kravon.esc(a.label)}</div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
           <span class="option-price"${a.price === 0 ? ' style="color:rgba(255,255,255,0.2);"' : ''}>
@@ -41,7 +41,7 @@ const TablesModal = (() => {
                   class="option-toggle"
                   data-action="tables-toggle-addon"
                   data-price="${a.price}"
-                  aria-label="Toggle ${_esc(a.label)}"></button>
+                  aria-label="Toggle ${Kravon.esc(a.label)}"></button>
         </div>
       </div>`
     ).join('');
@@ -65,7 +65,7 @@ const TablesModal = (() => {
       <button class="spice-btn${i === 0 ? ' active' : ''}"
               data-action="tables-set-spice"
               aria-pressed="${i === 0 ? 'true' : 'false'}">
-        ${_esc(s)}
+        ${Kravon.esc(s)}
       </button>`
     ).join('');
   }
@@ -204,13 +204,6 @@ const TablesModal = (() => {
       if (item) return item;
     }
     return null;
-  }
-
-  function _esc(str) {
-    if (str == null) return '';
-    return String(str)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
   /* ── Public init — called from boot after renderer runs ── */

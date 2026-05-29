@@ -14,18 +14,8 @@
 (function () {
   'use strict';
 
-  const C  = window.CONFIG;
-  const O  = C.orders;  // orders-specific block
-  const M  = window.MENU;
+  let C, O, M;
   const $  = id => document.getElementById(id);
-
-  /* ── Escape helper — used for all user-supplied config strings ── */
-  function esc(str) {
-    if (str == null) return '';
-    return String(str)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-  }
 
   /* ── Accent token injection (Orders supports per-client accent colour) ── */
   function applyAccent() {
@@ -45,11 +35,11 @@
       <nav class="nav" aria-label="Main navigation">
         <div class="nav-brand">
           <div>
-            <div class="nav-logo">${esc(C.brand.name)}</div>
-            <div class="nav-logo-sub">${esc(C.brand.tagline)}</div>
+            <div class="nav-logo">${Kravon.esc(C.brand.name)}</div>
+            <div class="nav-logo-sub">${Kravon.esc(C.brand.tagline)}</div>
           </div>
           <div class="nav-sep" aria-hidden="true"></div>
-          <span class="nav-badge">${esc(O.navDirectLabel)}</span>
+          <span class="nav-badge">${Kravon.esc(O.navDirectLabel)}</span>
         </div>
         <div class="nav-actions">
           <button class="nav-cart-btn" id="navCartBtn"
@@ -70,13 +60,13 @@
       console.warn('Kravon Orders: C.hero.stats has more than 3 entries. Only the first 3 are rendered.');
     }
     const stats = (C.hero.stats || []).slice(0, 3).map((s, i, arr) => {
-      const color = s.color ? ` style="color:${esc(s.color)}"` : '';
+      const color = s.color ? ` style="color:${Kravon.esc(s.color)}"` : '';
       const sep   = i < arr.length - 1
         ? '<div class="hero-stat-sep" aria-hidden="true"></div>' : '';
       return `
         <div class="hero-stat">
-          <span class="h-stat-num"${color}>${esc(s.num)}</span>
-          <span class="h-stat-label">${esc(s.label).replace(/\n/g, '<br>')}</span>
+          <span class="h-stat-num"${color}>${Kravon.esc(s.num)}</span>
+          <span class="h-stat-label">${Kravon.esc(s.label).replace(/\n/g, '<br>')}</span>
         </div>${sep}`;
     }).join('');
 
@@ -84,9 +74,9 @@
       <div class="orders-hero" aria-labelledby="hero-heading">
         <div class="orders-hero-inner">
           <div>
-            <span class="hero-eyebrow">${esc(C.hero.eyebrow)}</span>
+            <span class="hero-eyebrow">${Kravon.esc(C.hero.eyebrow)}</span>
             <h1 class="orders-headline" id="hero-heading">${C.hero.headline}</h1>
-            <p class="orders-sub">${esc(C.hero.sub)}</p>
+            <p class="orders-sub">${Kravon.esc(C.hero.sub)}</p>
           </div>
           <div class="hero-stats" id="heroStats" aria-label="Key facts">${stats}</div>
         </div>
@@ -98,9 +88,9 @@
     const cats = M.map((cat, i) => `
       <button class="cat-btn${i === 0 ? ' active' : ''}"
               data-action="scroll-to-section"
-              data-section-id="${esc(cat.id)}"
-              aria-label="Jump to ${esc(cat.name)}">
-        ${esc(cat.name)}
+              data-section-id="${Kravon.esc(cat.id)}"
+              aria-label="Jump to ${Kravon.esc(cat.name)}">
+        ${Kravon.esc(cat.name)}
         <span class="cat-btn-count">${cat.items.length}</span>
       </button>`).join('');
 
@@ -108,7 +98,7 @@
       <div class="sidebar-info">
         <div class="info-row">
           <span class="info-icon" aria-hidden="true">⏱</span>
-          <span class="info-text" id="infoEta">${esc(O.deliveryEta)}</span>
+          <span class="info-text" id="infoEta">${Kravon.esc(O.deliveryEta)}</span>
         </div>
         <div class="info-row">
           <span class="info-icon" aria-hidden="true">₹</span>
@@ -116,7 +106,7 @@
         </div>
         <div class="info-row">
           <span class="info-icon" aria-hidden="true">◎</span>
-          <span class="info-text">${esc(C.contact.deliveryZone)}</span>
+          <span class="info-text">${Kravon.esc(C.contact.deliveryZone)}</span>
         </div>
       </div>`;
 
@@ -137,30 +127,30 @@
         save: 'background:var(--accent);color:#111;',
       };
       const css = presets[item.badgeStyle] ||
-        (item.badgeStyle ? `background:${esc(item.badgeStyle)};` : '');
-      return `<span class="item-badge" style="${css}">${esc(item.badge)}</span>`;
+        (item.badgeStyle ? `background:${Kravon.esc(item.badgeStyle)};` : '');
+      return `<span class="item-badge" style="${css}">${Kravon.esc(item.badge)}</span>`;
     })() : '';
 
     const isFile = item.image && !(/\p{Emoji}/u).test(item.image) && item.image.length > 2;
     const imgHTML = isFile
       ? `<div class="item-img" style="padding:0;overflow:hidden;">
-           <img src="${esc(item.image)}" alt="${esc(item.name)}" loading="lazy"
+           <img src="${Kravon.esc(item.image)}" alt="${Kravon.esc(item.name)}" loading="lazy"
                 style="width:100%;height:100%;object-fit:cover;display:block;">${badge}
          </div>`
-      : `<div class="item-img" style="background:${esc(item.imageBg || '#1e1a12')};">
+      : `<div class="item-img" style="background:${Kravon.esc(item.imageBg || '#1e1a12')};">
            ${item.image || ''}${badge}
          </div>`;
 
     const action = item.customise ? 'open-modal' : 'add-item';
 
     return `
-      <div class="item-card" id="card-${esc(item.id)}">
+      <div class="item-card" id="card-${Kravon.esc(item.id)}">
         ${imgHTML}
-        <div class="item-name">${esc(item.name)}</div>
-        <div class="item-desc">${esc(item.desc)}</div>
+        <div class="item-name">${Kravon.esc(item.name)}</div>
+        <div class="item-desc">${Kravon.esc(item.desc)}</div>
         <div class="item-footer">
           <div class="item-price">₹${item.price}</div>
-          <div id="itembtn-${esc(item.id)}">${itemBtnHTML(item)}</div>
+          <div id="itembtn-${Kravon.esc(item.id)}">${itemBtnHTML(item)}</div>
         </div>
       </div>`;
   }
@@ -172,23 +162,23 @@
       return `
         <button class="add-btn"
                 data-action="${action}"
-                data-item-id="${esc(String(item.id))}"
-                aria-label="Add ${esc(item.name)} to order">
+                data-item-id="${Kravon.esc(String(item.id))}"
+                aria-label="Add ${Kravon.esc(item.name)} to order">
           <svg width="14" height="14" aria-hidden="true"><use href="#icon-plus"/></svg>
           Add
         </button>`;
     }
     return `
-      <div class="item-qty-ctrl" role="group" aria-label="${esc(item.name)} quantity">
+      <div class="item-qty-ctrl" role="group" aria-label="${Kravon.esc(item.name)} quantity">
         <button class="iqc-btn iqc-dec"
                 data-action="item-dec"
-                data-item-id="${esc(String(item.id))}"
-                aria-label="Remove one ${esc(item.name)}">−</button>
+                data-item-id="${Kravon.esc(String(item.id))}"
+                aria-label="Remove one ${Kravon.esc(item.name)}">−</button>
         <span class="iqc-count" aria-live="polite">${qty}</span>
         <button class="iqc-btn iqc-inc"
                 data-action="${action}"
-                data-item-id="${esc(String(item.id))}"
-                aria-label="Add another ${esc(item.name)}">+</button>
+                data-item-id="${Kravon.esc(String(item.id))}"
+                aria-label="Add another ${Kravon.esc(item.name)}">+</button>
       </div>`;
   }
 
@@ -210,11 +200,11 @@
   /* ── Menu grid ───────────────────────────────────────── */
   function buildMenu() {
     return M.map(cat => `
-      <div class="menu-cat-section" id="${esc(cat.id)}">
+      <div class="menu-cat-section" id="${Kravon.esc(cat.id)}">
         <div class="menu-cat-heading">
-          ${esc(cat.name)}
+          ${Kravon.esc(cat.name)}
           <span class="menu-cat-count-label">
-            ${cat.items.length} item${cat.items.length !== 1 ? 's' : ''}${cat.subtitle ? ' · ' + esc(cat.subtitle) : ''}
+            ${cat.items.length} item${cat.items.length !== 1 ? 's' : ''}${cat.subtitle ? ' · ' + Kravon.esc(cat.subtitle) : ''}
           </span>
         </div>
         <div class="menu-grid">
@@ -227,9 +217,9 @@
   function buildDirectStrip() {
     const items = O.directAdvantages.map(a => `
       <div class="direct-item">
-        <span class="direct-item-icon" aria-hidden="true">${esc(a.icon)}</span>
-        <div class="direct-item-title">${esc(a.title)}</div>
-        <div class="direct-item-body">${esc(a.body)}</div>
+        <span class="direct-item-icon" aria-hidden="true">${Kravon.esc(a.icon)}</span>
+        <div class="direct-item-title">${Kravon.esc(a.title)}</div>
+        <div class="direct-item-body">${Kravon.esc(a.body)}</div>
       </div>`).join('');
 
     return `
@@ -255,7 +245,7 @@
         <div class="cart-body" id="cartBody">
           <div class="cart-empty" id="cartEmpty" aria-label="Cart empty">
             <div class="cart-empty-icon" aria-hidden="true">🛒</div>
-            <div class="cart-empty-text" id="cartEmptyText">${esc(O.cartEmptyText)}</div>
+            <div class="cart-empty-text" id="cartEmptyText">${Kravon.esc(O.cartEmptyText)}</div>
           </div>
           <div id="cartItems" role="list" aria-label="Cart items" aria-live="polite"></div>
 
@@ -266,32 +256,32 @@
             <div class="form-row">
               <label class="form-label" for="fieldName">Name</label>
               <input class="form-input" id="fieldName" type="text"
-                     placeholder="${esc(O.form.namePlaceholder)}"
+                     placeholder="${Kravon.esc(O.form.namePlaceholder)}"
                      autocomplete="name" required>
             </div>
             <div class="form-row">
               <label class="form-label" for="fieldPhone">Phone</label>
               <input class="form-input" id="fieldPhone" type="tel"
-                     placeholder="${esc(O.form.phonePlaceholder)}"
+                     placeholder="${Kravon.esc(O.form.phonePlaceholder)}"
                      autocomplete="tel" inputmode="numeric" required>
             </div>
             <div class="form-row">
               <label class="form-label" for="fieldAddress">Address</label>
               <input class="form-input" id="fieldAddress" type="text"
-                     placeholder="${esc(O.form.addressPlaceholder)}"
+                     placeholder="${Kravon.esc(O.form.addressPlaceholder)}"
                      autocomplete="street-address" required>
             </div>
             <div class="form-grid-2">
               <div class="form-row">
                 <label class="form-label" for="fieldLocality">Locality</label>
                 <input class="form-input" id="fieldLocality" type="text"
-                       placeholder="${esc(O.form.localityPlaceholder)}"
+                       placeholder="${Kravon.esc(O.form.localityPlaceholder)}"
                        autocomplete="address-level2" required>
               </div>
               <div class="form-row">
                 <label class="form-label" for="fieldLandmark">Landmark <small>(optional)</small></label>
                 <input class="form-input" id="fieldLandmark" type="text"
-                       placeholder="${esc(O.form.landmarkPlaceholder)}"
+                       placeholder="${Kravon.esc(O.form.landmarkPlaceholder)}"
                        autocomplete="off">
               </div>
             </div>
@@ -308,10 +298,11 @@
                 <span>Delivery</span>
                 <span id="cartDelivery">₹49</span>
               </div>
+              ${O.gstRate > 0 ? `
               <div class="cart-totals-row">
-                <span id="cartGstLabel">GST (5%)</span>
+                <span id="cartGstLabel">GST (${Math.round(O.gstRate * 100)}%)</span>
                 <span id="cartTax">₹0</span>
-              </div>
+              </div>` : ''}
               <div class="cart-totals-row cart-total-line">
                 <span>Total</span>
                 <span id="cartTotal">₹0</span>
@@ -322,7 +313,7 @@
                     data-action="go-to-checkout" aria-label="Proceed to checkout">
               Proceed to Checkout →
             </button>
-            <p class="terms-note" id="termsNote">${esc(O.termsNote)}</p>
+            <p class="terms-note" id="termsNote">${Kravon.esc(O.termsNote)}</p>
           </div>
         </div>
       </aside>`;
@@ -356,13 +347,13 @@
     ].map((o, i) => `
       <div class="delivery-opt${i === 0 ? ' selected' : ''}"
            data-action="select-delivery"
-           data-delivery-type="${esc(o.type)}"
+           data-delivery-type="${Kravon.esc(o.type)}"
            role="radio" aria-checked="${i === 0 ? 'true' : 'false'}" tabindex="${i === 0 ? 0 : -1}">
         <div class="delivery-opt-left">
           <div class="radio-circle" aria-hidden="true"><div class="radio-fill"></div></div>
           <div>
-            <div class="delivery-opt-name">${esc(o.name)}</div>
-            <div class="delivery-opt-sub">${esc(o.sub)}</div>
+            <div class="delivery-opt-name">${Kravon.esc(o.name)}</div>
+            <div class="delivery-opt-sub">${Kravon.esc(o.sub)}</div>
           </div>
         </div>
         <span class="delivery-opt-price">₹${o.price}</span>
@@ -373,10 +364,10 @@
            data-action="select-payment"
            role="radio" aria-checked="${i === 0 ? 'true' : 'false'}" tabindex="${i === 0 ? 0 : -1}">
         <div class="radio-circle" aria-hidden="true"><div class="radio-fill"></div></div>
-        <div class="pay-opt-icon">${esc(m.icon)}</div>
+        <div class="pay-opt-icon">${Kravon.esc(m.icon)}</div>
         <div>
-          <div class="pay-opt-name">${esc(m.label)}</div>
-          <div class="pay-opt-sub">${esc(m.sub)}</div>
+          <div class="pay-opt-name">${Kravon.esc(m.label)}</div>
+          <div class="pay-opt-sub">${Kravon.esc(m.sub)}</div>
         </div>
       </div>`).join('');
 
@@ -399,10 +390,11 @@
               <div id="paymentOptions" role="radiogroup" aria-label="Payment method">
                 ${payOpts}
               </div>
+              ${O.gatewayNote ? `
               <div class="gateway-note" id="gatewayNote">
-                <div class="razorpay-label">${esc(O.gatewayNote.label)}</div>
-                <div class="razorpay-sub">${esc(O.gatewayNote.body)}</div>
-              </div>
+                <div class="razorpay-label">${Kravon.esc(O.gatewayNote.label)}</div>
+                <div class="razorpay-sub">${Kravon.esc(O.gatewayNote.body)}</div>
+              </div>` : ''}
             </div>
           </div>
 
@@ -416,10 +408,11 @@
               <div class="summary-row">
                 <span>Delivery</span><span id="summaryDelivery">₹49</span>
               </div>
+              ${gstPct > 0 ? `
               <div class="summary-row">
                 <span id="summaryGstLabel">GST (${gstPct}%)</span>
                 <span id="summaryTax">₹0</span>
-              </div>
+              </div>` : ''}
               <div class="summary-row summary-total-line">
                 <span>Total</span><span id="summaryTotal">₹0</span>
               </div>
@@ -428,7 +421,7 @@
                     data-action="place-order" aria-label="Place order">
               Place Order →
             </button>
-            <p class="terms-note">${esc(O.termsNote)}</p>
+            <p class="terms-note">${Kravon.esc(O.termsNote)}</p>
           </div>
         </div>
       </div>`;
@@ -447,7 +440,7 @@
               <svg width="32" height="32"><use href="#icon-check"/></svg>
             </div>
             <h2 class="confirm-headline" id="confirmHeadline">${O.confirmHeadline}</h2>
-            <p class="confirm-sub" id="confirmSub">${esc(O.confirmSub)}</p>
+            <p class="confirm-sub" id="confirmSub">${Kravon.esc(O.confirmSub)}</p>
             <div class="confirm-meta">
               <div class="confirm-meta-row">
                 <span class="confirm-meta-key">Order ID</span>
@@ -471,10 +464,10 @@
               </div>
               <div class="confirm-meta-row">
                 <span class="confirm-meta-key">Kitchen</span>
-                <span class="confirm-meta-val" id="confirmContactPhone">${esc(displayPhone)}</span>
+                <span class="confirm-meta-val" id="confirmContactPhone">${Kravon.esc(displayPhone)}</span>
               </div>
             </div>
-            <p class="confirm-wa-note" id="confirmWaNote">${esc(O.confirmWaNote)}</p>
+            <p class="confirm-wa-note" id="confirmWaNote">${Kravon.esc(O.confirmWaNote)}</p>
             <div class="confirm-actions">
               <button class="btn-primary" data-action="track-order" aria-label="Track order on WhatsApp">
                 <svg width="16" height="16" aria-hidden="true"><use href="#icon-wa"/></svg>
@@ -504,9 +497,9 @@
       buildScreenConfirm();
 
     Kravon.renderDemoBanner({
-      show:  C.demo.show,
-      text:  C.demo.text,
-      label: C.demo.label,
+      show:  C.demo?.show,
+      text:  C.demo?.text,
+      label: C.demo?.label,
     });
 
     Kravon.renderUpgrade({
@@ -532,17 +525,17 @@
     Kravon.scrollReveal();
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', mount);
-  } else {
+  /* ── Public: called by boot.js after loadConfig() ─────── */
+  window.initRenderer = function () {
+    C = window.CONFIG;
+    O = C.orders || {};
+    M = window.CATEGORIES || window.CONFIG.categories || [];
     mount();
-  }
+  };
 
-  /* ── Public: refresh a single item's Add button ───────── */
   window.OrdersRenderer = {
     itemBtnHTML,
     updateItemBtn,
-    esc,
   };
 
 })();

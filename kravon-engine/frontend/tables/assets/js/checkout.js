@@ -89,7 +89,7 @@ const TablesCheckout = (() => {
       customer_phone:   phone,
       table_identifier: 'takeaway',
       items: items.map(i => ({
-        id:    parseInt(i.id, 10),
+        id:    i.id,
         name:  i.name,
         price: i.price,
         qty:   i.qty,

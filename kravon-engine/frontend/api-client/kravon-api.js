@@ -112,7 +112,7 @@ const KravonAPI = (() => {
     return _post('/dine-in/order', {
       session_id:    sessionId,
       items:         cartItems.map(i => ({
-        menu_item_id:   parseInt(i.id, 10),
+        menu_item_id:   i.id,
         quantity:       i.qty,
         customizations: i.note || undefined,
       })),

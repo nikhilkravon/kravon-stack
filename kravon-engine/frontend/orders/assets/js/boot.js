@@ -12,13 +12,13 @@
   try {
     await KravonAPI.loadConfig();
 
-    if (typeof Cart !== 'undefined' && typeof Cart.init === 'function') {
-      Cart.init();
-    }
-    if (typeof window.initRenderer === 'function') window.initRenderer();
-    if (typeof Checkout !== 'undefined' && typeof Checkout.init === 'function') {
-      Checkout.init();
-    }
+    // Orders renderer and behaviour need categorised menu; override the flat array kravon-api set
+    window.CATEGORIES = window.CONFIG.categories || [];
+    window.MENU = window.CATEGORIES;
+
+    if (typeof Cart !== 'undefined' && typeof Cart.init === 'function') Cart.init();
+    if (typeof window.initRenderer  === 'function') window.initRenderer();
+    if (typeof Checkout !== 'undefined' && typeof Checkout.init === 'function') Checkout.init();
     if (typeof window.initBehaviour === 'function') window.initBehaviour();
 
     document.body.removeAttribute('data-loading');
