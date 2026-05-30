@@ -846,6 +846,13 @@ body { background: var(--black); color: var(--stone); }
   color: #111;
 }
 
+/* Wrapper when qty control and Customise button are shown together */
+.item-ctrl-both {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
 /* Note line in checkout summary for customised items */
 .summary-item-note {
   display: block;

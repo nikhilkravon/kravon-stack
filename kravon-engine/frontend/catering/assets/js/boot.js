@@ -11,6 +11,7 @@
   try {
     await KravonAPI.loadConfig();
 
+    if (typeof window.initRenderer  === 'function') window.initRenderer();
     if (typeof window.initBehaviour === 'function') window.initBehaviour();
 
     document.body.removeAttribute('data-loading');

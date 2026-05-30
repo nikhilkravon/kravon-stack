@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kravon Dashboard</title>
+  <link rel="stylesheet" href="assets/css/dashboard.css">
+</head>
+<body>
+
+  <!-- ── Auth gate ──────────────────────────────────────────────────────── -->
+  <div id="auth-gate" class="auth-gate" hidden>
+    <div class="auth-card">
+      <div class="auth-logo">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <rect width="28" height="28" rx="6" fill="#2563EB"/>
+          <path d="M8 20V8h5.5c3 0 5 1.5 5 4.2 0 2.8-2 4.3-5 4.3H11V20H8zm3-8.7v4h2.3c1.4 0 2.2-.7 2.2-2s-.8-2-2.2-2H11z" fill="white"/>
+        </svg>
+        Kravon
+      </div>
+      <h1 class="auth-title">Owner Dashboard</h1>
+      <form id="login-form" autocomplete="on" novalidate>
+        <div class="form-group">
+          <label for="login-slug">Restaurant slug</label>
+          <input id="login-slug" name="slug" type="text" placeholder="e.g. spice-garden" autocomplete="organization" required>
+        </div>
+        <div class="form-group">
+          <label for="login-email">Email</label>
+          <input id="login-email" name="email" type="email" placeholder="owner@example.com" autocomplete="email" required>
+        </div>
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+        </div>
+        <p id="login-error" class="form-error" hidden></p>
+        <button id="login-btn" type="submit" class="btn btn-primary btn-full">Sign in</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Dashboard shell ────────────────────────────────────────────────── -->
+  <div id="dashboard" class="dash-layout" hidden>
+
+    <aside class="dash-sidebar">
+      <div class="dash-brand">
+        <svg width="22" height="22" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <rect width="28" height="28" rx="6" fill="#2563EB"/>
+          <path d="M8 20V8h5.5c3 0 5 1.5 5 4.2 0 2.8-2 4.3-5 4.3H11V20H8zm3-8.7v4h2.3c1.4 0 2.2-.7 2.2-2s-.8-2-2.2-2H11z" fill="white"/>
+        </svg>
+        <span class="dash-brand-name">Kravon</span>
+      </div>
+
+      <div id="dash-restaurant" class="dash-restaurant">
+        <span id="dash-restaurant-name" class="dash-restaurant-name">—</span>
+        <span id="dash-plan-badge" class="plan-badge">starter</span>
+      </div>
+
+      <nav class="dash-nav">
+        <a href="#overview"  class="dash-nav-item" data-view="overview">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1" y="1" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="9" y="1" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="1" y="9" width="6" height="6" rx="1.5" fill="currentColor"/><rect x="9" y="9" width="6" height="6" rx="1.5" fill="currentColor"/></svg>
+          Overview
+        </a>
+        <a href="#orders"    class="dash-nav-item" data-view="orders">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2 3h12M2 8h12M2 13h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          Orders
+        </a>
+        <a href="#menu"      class="dash-nav-item" data-view="menu">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          Menu
+        </a>
+        <a href="#insights"  class="dash-nav-item" data-view="insights">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2 12l4-4 3 3 5-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Insights
+        </a>
+        <a href="#presence"  class="dash-nav-item" data-view="presence">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M5 7h6M5 10h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          Presence
+        </a>
+        <a href="#settings"  class="dash-nav-item" data-view="settings">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.5"/><path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.05 3.05l1.06 1.06M11.89 11.89l1.06 1.06M3.05 12.95l1.06-1.06M11.89 4.11l1.06-1.06" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          Settings
+        </a>
+      </nav>
+
+      <div class="dash-user">
+        <div class="dash-user-info">
+          <span id="dash-staff-name" class="dash-staff-name">—</span>
+          <span id="dash-staff-email" class="dash-staff-email">—</span>
+        </div>
+        <button id="dash-logout" class="dash-logout-btn" title="Log out">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3M10 11l3-3-3-3M13 8H6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </aside>
+
+    <div class="dash-body">
+      <header class="dash-header">
+        <h2 id="dash-view-title" class="dash-view-title">Overview</h2>
+      </header>
+      <main id="dash-content" class="dash-content"></main>
+    </div>
+
+  </div>
+
+  <script>window.KRAVON_API_BASE = 'http://localhost:3000';</script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/views/overview.js"></script>
+  <script src="assets/js/views/orders.js"></script>
+  <script src="assets/js/views/menu.js"></script>
+  <script src="assets/js/views/insights.js"></script>
+  <script src="assets/js/views/presence.js"></script>
+  <script src="assets/js/views/settings.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

@@ -22,18 +22,6 @@
   let C, M, TC;
   const $  = id => document.getElementById(id);
 
-  /* ── Accent injection ────────────────────────────────────── */
-  function applyAccent() {
-    const hex = (C.brand?.accent || '#c2d62a').replace('#', '');
-    const ri  = parseInt(hex.slice(0, 2), 16);
-    const gi  = parseInt(hex.slice(2, 4), 16);
-    const bi  = parseInt(hex.slice(4, 6), 16);
-    const r   = document.documentElement;
-    r.style.setProperty('--accent',        `#${hex}`);
-    r.style.setProperty('--accent-subtle', `rgba(${ri},${gi},${bi},0.07)`);
-    r.style.setProperty('--accent-border', `rgba(${ri},${gi},${bi},0.2)`);
-  }
-
   /* ── Nav ─────────────────────────────────────────────────── */
   function buildNav(label) {
     return `
@@ -131,58 +119,26 @@
   }
 
   /* ── Item card ───────────────────────────────────────────── */
+  let _tablesCtrl; /* set in initTablesRenderer via ItemControls.makeRenderer */
+
   function buildItemCard(item) {
     const bg = item.imageBg
       ? ` style="background:${Kravon.esc(item.imageBg)}"`
       : '';
-
-    const badge = item.badge ? (() => {
-      const presets = {
-        top:  'background:rgba(232,160,32,0.9);color:#111;',
-        veg:  'background:rgba(61,122,40,0.85);',
-        hot:  'background:rgba(217,58,43,0.9);',
-        save: 'background:var(--accent);color:#111;',
-      };
-      const css = presets[item.badgeStyle] ||
-        (item.badgeStyle ? `background:${Kravon.esc(item.badgeStyle)};` : '');
-      return `<span class="item-badge" style="${css}">${Kravon.esc(item.badge)}</span>`;
-    })() : '';
-
-    // Customisable items get a "Customise" button that opens the modal.
-    // Non-customisable items get a simple "+ Add" button.
-    const actionBtn = item.customisable
-      ? `<button class="add-btn add-btn--customise" id="addBtn_${item.id}"
-                 data-action="open-modal"
-                 data-item-id="${item.id}"
-                 aria-label="Customise ${Kravon.esc(item.name)}">Customise</button>`
-      : `<button class="add-btn" id="addBtn_${item.id}"
-                 data-action="add-item"
-                 data-id="${item.id}"
-                 data-name="${Kravon.esc(item.name)}"
-                 data-price="${item.price}"
-                 aria-label="Add ${Kravon.esc(item.name)}">+ Add</button>`;
 
     return `
       <div class="menu-card" data-item-id="${item.id}" role="article"
            aria-label="${Kravon.esc(item.name)}">
         <div class="menu-card-img"${bg} aria-hidden="true">
           ${item.image ? `<span class="menu-card-emoji">${Kravon.esc(item.image)}</span>` : ''}
-          ${badge}
+          ${ItemControls.badgeHTML(item)}
         </div>
         <div class="menu-card-body">
           <div class="menu-card-name">${Kravon.esc(item.name)}</div>
           ${item.desc ? `<div class="menu-card-desc">${Kravon.esc(item.desc)}</div>` : ''}
           <div class="menu-card-footer">
             <span class="menu-card-price">₹${Kravon.esc(item.price)}</span>
-            <div class="item-qty-ctrl" id="qtyCtrl_${item.id}" style="display:none"
-                 role="group" aria-label="Quantity for ${Kravon.esc(item.name)}">
-              <button class="qty-btn" data-action="dec-item" data-id="${item.id}"
-                      aria-label="Remove one">−</button>
-              <span class="qty-num" id="qtyNum_${item.id}" aria-live="polite">0</span>
-              <button class="qty-btn" data-action="inc-item" data-id="${item.id}"
-                      aria-label="Add one">+</button>
-            </div>
-            ${actionBtn}
+            <div id="itemctrl_${item.id}">${_tablesCtrl(item)}</div>
           </div>
         </div>
       </div>`;
@@ -458,7 +414,29 @@
     C  = window.CONFIG;
     M  = window.MENU;
     TC = window.TABLE_CONTEXT;
-    applyAccent();
+
+    _tablesCtrl = ItemControls.makeRenderer({
+      getQty:       id => TablesCart.getQtyById(id),
+      isCustomKey:  'customisable',
+      idAttr:       'item-id',
+      addBtnCls:    'add-btn',
+      ctrlCls:      'item-qty-ctrl',
+      decCls:       'qty-btn',
+      incCls:       'qty-btn',
+      countCls:     'qty-num',
+      countTag:     'span',
+      addAction:    'add-item',
+      customAction: 'open-modal',
+      decAction:    'dec-item',
+      incAction:    'inc-item',
+      addLabel:     '+ Add',
+      keepCustom:   true,
+      customBtnCls: 'add-btn add-btn--customise',
+      customLabel:  'Customise',
+      bothWrapCls:  'item-ctrl-both',
+    });
+
+    ItemControls.applyAccent(C.brand?.accent, 0.07, 0.2);
 
     document.title = `${C.brand.name} — Order Direct`;
     const descEl = document.getElementById('pageDesc');
@@ -501,23 +479,9 @@
 
   /* ── Item button state update ────────────────────────────── */
   function updateItemBtn(id) {
-    const qty     = TablesCart.getQtyById(id);
-    const addBtn  = document.getElementById(`addBtn_${id}`);
-    const qtyCtrl = document.getElementById(`qtyCtrl_${id}`);
-    const qtyNum  = document.getElementById(`qtyNum_${id}`);
-
-    // Customisable items: "Customise" button always stays visible
-    // (quantity stepper shows alongside it, never replaces it)
+    const el   = document.getElementById(`itemctrl_${id}`);
     const item = _findMenuItem(id);
-    if (item && item.customisable) {
-      if (qtyCtrl) qtyCtrl.style.display = qty > 0 ? '' : 'none';
-      if (qtyNum)  qtyNum.textContent    = qty;
-      // addBtn stays visible always so user can add another customised variant
-    } else {
-      if (addBtn)  addBtn.style.display  = qty > 0 ? 'none' : '';
-      if (qtyCtrl) qtyCtrl.style.display = qty > 0 ? ''     : 'none';
-      if (qtyNum)  qtyNum.textContent    = qty;
-    }
+    if (el && item) el.innerHTML = _tablesCtrl(item);
   }
 
   /* ── Cart drawer render ──────────────────────────────────── */

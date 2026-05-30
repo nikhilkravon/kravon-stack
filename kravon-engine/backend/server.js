@@ -59,7 +59,9 @@ const { resolveRestaurant } = require('./api/middleware/tenant');
 const { requireFeature }    = require('./api/middleware/feature');
 const { errorHandler }      = require('./api/middleware/error');
 
-const configRoutes  = require('./api/routes/config');
+const configRoutes   = require('./api/routes/config');
+const presenceRoutes = require('./api/routes/presence');
+const menuRoutes     = require('./api/routes/menu');
 const orderRoutes   = require('./api/routes/orders');
 const leadRoutes    = require('./api/routes/leads');
 const reviewRoutes  = require('./api/routes/reviews');
@@ -112,10 +114,16 @@ app.use('/v1/restaurants/:slug/config',
   configRoutes
 );
 
-// /menu — for item details, public
+// /presence — Presence content editor (admin GET + PATCH)
+app.use('/v1/restaurants/:slug/presence',
+  resolveRestaurant,
+  presenceRoutes
+);
+
+// /menu — public GET, admin-gated writes
 app.use('/v1/restaurants/:slug/menu',
   resolveRestaurant,
-  configRoutes
+  menuRoutes
 );
 
 // Tables: reviews only (orders shared with delivery via discriminated union)

@@ -1,60 +1,60 @@
 /* ═══════════════════════════════════════════════════════════
-   PRESENCE — RENDERER.JS  (Premium Redesign)
-   Builds the entire page DOM from CONFIG + MENU.
-   No content lives in index.html.
+   PRESENCE — RENDERER.JS
+   Pure marketing site. No cart, no checkout, no order state.
+   Sections: Hero → Story → Signature Dishes → Gallery →
+             Featured → Timeline → Contact → Footer
    ═══════════════════════════════════════════════════════════ */
 
 (function () {
   'use strict';
 
-  let C, M;
+  let C;
   const $  = id => document.getElementById(id);
   const el = (tag, cls, html) => {
     const e = document.createElement(tag);
-    if (cls)  e.className   = cls;
+    if (cls)             e.className = cls;
     if (html !== undefined) e.innerHTML = html;
     return e;
   };
 
-  /* ── Helpers ─────────────────────────────────────────── */
-  function waLink() {
-    return Kravon.buildWaLink(C.contact.waNumber, C.contact.waGreeting);
-  }
+  /* ── Feature-aware CTAs ──────────────────────────────────
+     Returns an array of CTA anchor/button strings based on
+     which products the tenant has enabled.
+  ────────────────────────────────────────────────────────── */
+  function buildCtAs(sizeCls) {
+    const p   = C.products || {};
+    const sc  = sizeCls ? ` ${sizeCls}` : '';
+    const slug = C.slug || '';
+    const ctas = [];
 
-  function waIcon(size) {
-    const s = size || 16;
-    return `<svg aria-hidden="true" focusable="false" width="${s}" height="${s}"><use href="#icon-wa"/></svg>`;
-  }
+    // Always: View Menu (anchor to #menu) + WhatsApp
+    ctas.push(`<a href="#menu" class="p-btn p-btn-primary${sc}">View Menu</a>`);
 
-  function orderCta(size, extraClass) {
-    const isOrders = C.capabilities && C.capabilities.checkoutStrategy === 'orders';
-    if (isOrders) {
-      const primaryCls = `p-btn p-btn-primary${extraClass ? ' ' + extraClass : ''}`;
-      return `<button class="${primaryCls}" data-action="checkout" aria-label="Proceed to checkout">Proceed to Checkout</button>`;
+    if (p.orders) {
+      ctas.push(`<a href="/orders/?slug=${encodeURIComponent(slug)}" class="p-btn p-btn-secondary${sc}">Order Online</a>`);
     }
-    const cls = `p-btn p-btn-wa${extraClass ? ' ' + extraClass : ''}`;
-    return `<a href="${waLink()}" target="_blank" rel="noopener noreferrer"
-               class="${cls}" data-wa-link aria-label="Order on WhatsApp">
-              ${waIcon(size || 16)} Order on WhatsApp
-            </a>`;
+
+    if (p.tables) {
+      ctas.push(`<a href="/tables/?slug=${encodeURIComponent(slug)}" class="p-btn p-btn-secondary${sc}">Dine In</a>`);
+    }
+
+    if (p.catering) {
+      ctas.push(`<a href="/catering/?slug=${encodeURIComponent(slug)}" class="p-btn p-btn-secondary${sc}">Plan Event</a>`);
+    }
+
+    if (C.contact?.waNumber) {
+      const waHref = Kravon.buildWaLink(C.contact.waNumber, C.contact.waGreeting);
+      const waIcon = `<svg aria-hidden="true" focusable="false" width="16" height="16"><use href="#icon-wa"/></svg>`;
+      ctas.push(`<a href="${waHref}" target="_blank" rel="noopener noreferrer" class="p-btn p-btn-wa${sc}">${waIcon} WhatsApp</a>`);
+    } else if (C.contact?.phone) {
+      ctas.push(`<a href="tel:${Kravon.esc(C.contact.phone)}" class="p-btn p-btn-secondary${sc}">Call Us</a>`);
+    }
+
+    return ctas.join('\n');
   }
 
-  function currency(n) {
-    return `${C.order.currency}${n}`;
-  }
-
-  /* Image cycling for menu items */
-  function foodImg(index) {
-    const n = String((index % 6) + 1).padStart(2, '0');
-    return `assets/images/food-${n}.svg`;
-  }
-
-  /* ── NAV ─────────────────────────────────────────────── */
+  /* ── NAV ──────────────────────────────────────────────── */
   function renderNav() {
-    const reserveBtn = C.capabilities?.tables
-      ? `<a href="reservation.html" class="p-btn p-btn-secondary" aria-label="Reserve a table">Reserve Table</a>`
-      : '';
-
     const nav = el('nav', 'p-nav');
     nav.setAttribute('aria-label', 'Main navigation');
     nav.innerHTML = `
@@ -67,18 +67,15 @@
           <div class="p-nav-center">
             <div class="p-nav-hours" aria-label="Opening hours">
               <div class="p-nav-hours-dot" aria-hidden="true"></div>
-              ${C.hours.navBadge}
+              ${Kravon.esc(C.hours.navBadge || 'Open Now')}
             </div>
           </div>
           <div class="p-nav-right">
-            ${reserveBtn}
-            ${orderCta()}
+            ${buildCtAs()}
           </div>
         </div>
-      </div>
-    `;
+      </div>`;
 
-    /* Scroll behaviour — add class when page is scrolled */
     window.addEventListener('scroll', () => {
       nav.classList.toggle('p-nav--scrolled', window.scrollY > 20);
     }, { passive: true });
@@ -88,53 +85,50 @@
 
   /* ── HERO ─────────────────────────────────────────────── */
   function renderHero() {
-    const statsHtml = C.hero.stats.map(s => `
+    const headline = C.hero?.headline || C.brand.name  || '';
+    const sub      = C.hero?.sub      || C.brand.tagline || '';
+    const heroImg  = C.hero?.image    || 'assets/images/hero-bg.svg';
+    const statsHtml = (C.hero?.stats || []).map(s => `
       <div class="p-hero-stat">
         <span class="p-hero-stat-num${s.className ? ' ' + s.className : ''}">${s.num}</span>
-        <span class="p-hero-stat-label">${s.label.replace('\n', ' ')}</span>
+        <span class="p-hero-stat-label">${s.label}</span>
       </div>`).join('');
-
-    const reserveHeroCta = C.capabilities?.tables
-      ? `<a href="reservation.html" class="p-btn p-btn-secondary p-btn-lg" aria-label="Reserve a table">Reserve Table</a>`
-      : '';
 
     const section = el('section', 'p-hero');
     section.setAttribute('aria-labelledby', 'hero-heading');
     section.innerHTML = `
       <div class="p-hero-bg" aria-hidden="true">
-        <img src="assets/images/hero-bg.svg" alt="" loading="eager">
+        <img src="${Kravon.esc(heroImg)}" alt="" loading="eager">
         <div class="p-hero-overlay"></div>
       </div>
       <div class="p-hero-content p-container">
         <div class="p-hero-text">
-          <span class="p-eyebrow">${Kravon.esc(C.brand.eyebrow)}</span>
-          <h1 class="p-hero-headline" id="hero-heading">${Kravon.esc(C.hero.headline)}</h1>
-          <p class="p-hero-sub">${Kravon.esc(C.hero.sub)}</p>
+          <span class="p-eyebrow">${Kravon.esc(C.brand.eyebrow || '')}</span>
+          <h1 class="p-hero-headline" id="hero-heading">${Kravon.esc(headline)}</h1>
+          <p class="p-hero-sub">${Kravon.esc(sub)}</p>
           <div class="p-hero-ctas">
-            <a href="#menu" class="p-btn p-btn-primary p-btn-lg" aria-label="Browse the menu">
-              Browse Menu
-            </a>
-            ${reserveHeroCta}
-            ${orderCta(18, 'p-btn-lg')}
+            ${buildCtAs('p-btn-lg')}
           </div>
-          <span class="p-hero-note">${Kravon.esc(C.hero.footnote)}</span>
         </div>
-        <div class="p-hero-stats" aria-label="Key highlights">
-          ${statsHtml}
-        </div>
+        ${statsHtml ? `<div class="p-hero-stats" aria-label="Key highlights">${statsHtml}</div>` : ''}
       </div>
       <div class="p-hero-scroll" aria-hidden="true">
         <span class="p-hero-scroll-label">Scroll</span>
         <div class="p-hero-scroll-line"></div>
-      </div>
-    `;
+      </div>`;
     return section;
   }
 
   /* ── STORY ───────────────────────────────────────────── */
   function renderStory() {
-    const bodyHtml = C.story.body.map(p => `<p>${Kravon.esc(p)}</p>`).join('');
-    const factsHtml = C.story.facts.map(f => `
+    const title = C.story?.headline || `About ${C.brand.name}`;
+    const body  = Array.isArray(C.story?.body) ? C.story.body.join('\n\n') : (C.story?.body || '');
+    if (!body && !title) return null;
+
+    const bodyHtml = body
+      ? body.split('\n\n').filter(Boolean).map(p => `<p>${Kravon.esc(p)}</p>`).join('')
+      : '';
+    const factsHtml = (C.story?.facts || []).map(f => `
       <div class="p-sfact">
         <span class="p-sfact-icon" aria-hidden="true">${Kravon.esc(f.icon)}</span>
         <div class="p-sfact-title">${Kravon.esc(f.title)}</div>
@@ -147,65 +141,37 @@
       <div class="p-container">
         <div class="p-story-grid">
           <div class="p-story-text">
-            <span class="p-eyebrow">${Kravon.esc(C.story.label)}</span>
-            <h2 class="p-headline" id="story-heading">${Kravon.esc(C.story.headline)}</h2>
+            <span class="p-eyebrow">Our Story</span>
+            <h2 class="p-headline" id="story-heading">${Kravon.esc(title)}</h2>
             <div class="p-story-body">${bodyHtml}</div>
-            <div class="p-story-facts">
-              ${factsHtml}
-            </div>
+            ${factsHtml ? `<div class="p-story-facts">${factsHtml}</div>` : ''}
           </div>
           <div class="p-story-image reveal">
-            <img src="assets/images/about.svg" alt="Restaurant interior — ${C.brand.name}" loading="lazy">
+            <img src="assets/images/about.svg" alt="Restaurant interior — ${Kravon.esc(C.brand.name)}" loading="lazy">
           </div>
         </div>
-      </div>
-    `;
+      </div>`;
     return section;
   }
 
-  /* ── MENU ────────────────────────────────────────────── */
-  function renderMenuCtrl(id) {
-    const item = M.find(m => String(m.id) === String(id));
-    const cartItems = EnhancedCart.items().filter(ci => String(ci.menuItemId) === String(id));
-    const qty = cartItems.reduce((sum, ci) => sum + ci.quantity, 0);
+  /* ── SIGNATURE DISHES ────────────────────────────────── */
+  function renderSignatureDishes() {
+    const dishes = C.signatureDishes || [];
+    if (!dishes.length) return null;
 
-    if (qty === 0) {
-      const action = item.customisable ? 'customize' : 'add-direct';
-      return `<button class="add-btn" data-action="${action}" data-id="${id}" aria-label="Add ${Kravon.esc(item.name)}">Add</button>`;
-    }
+    const cardsHtml = dishes.map(d => `
+      <article class="p-mcard reveal" aria-label="${Kravon.esc(d.name || '')}">
+        <div class="p-mcard-image-wrap">
+          ${d.image
+            ? `<img src="${Kravon.esc(d.image)}" alt="${Kravon.esc(d.name || '')}" loading="lazy">`
+            : `<img src="assets/images/food-01.svg" alt="${Kravon.esc(d.name || '')}" loading="lazy">`}
+        </div>
+        <div class="p-mcard-body">
+          <h3 class="p-mcard-name">${Kravon.esc(d.name || '')}</h3>
+          <p class="p-mcard-desc">${Kravon.esc(d.description || '')}</p>
+        </div>
+      </article>`).join('');
 
-    const plusAction = item.customisable ? 'customize' : 'ticker-inc';
-    return `
-      <div class="qty-ctrl" role="group" aria-label="Quantity for ${Kravon.esc(item.name)}">
-        <button class="qty-btn" data-action="ticker-dec" data-id="${id}" aria-label="Decrease quantity">−</button>
-        <div class="qty-num" aria-live="polite">${qty}</div>
-        <button class="qty-btn" data-action="${plusAction}" data-id="${id}" aria-label="${item.customisable ? 'Add more' : 'Increase quantity'}">+</button>
-      </div>`;
-  }
-
-  function renderMenuGrid() {
-    return M.map((item, index) => {
-      const badgeHtml = item.badge
-        ? `<span class="p-badge p-mcard-badge ${item.badgeClass}">${item.badge}</span>` : '';
-      return `
-        <article class="p-mcard reveal" aria-label="${Kravon.esc(item.name)}">
-          <div class="p-mcard-image-wrap">
-            <img src="${foodImg(index)}" alt="${Kravon.esc(item.name)}" loading="lazy">
-            ${badgeHtml}
-          </div>
-          <div class="p-mcard-body">
-            <h3 class="p-mcard-name">${Kravon.esc(item.name)}</h3>
-            <p class="p-mcard-desc">${Kravon.esc(item.desc)}</p>
-            <div class="p-mcard-footer">
-              <div class="p-mcard-price">${currency(item.price)}</div>
-              <div id="ctrl-${item.id}">${renderMenuCtrl(item.id)}</div>
-            </div>
-          </div>
-        </article>`;
-    }).join('');
-  }
-
-  function renderMenu() {
     const section = el('section', 'p-menu p-section');
     section.id = 'menu';
     section.setAttribute('aria-labelledby', 'menu-heading');
@@ -213,166 +179,186 @@
       <div class="p-container">
         <div class="p-menu-header">
           <div>
-            <span class="p-eyebrow">${Kravon.esc(C.menu.label)}</span>
-            <h2 class="p-headline" id="menu-heading">${Kravon.esc(C.menu.headline)}</h2>
+            <span class="p-eyebrow">Menu</span>
+            <h2 class="p-headline" id="menu-heading">What we serve</h2>
           </div>
-          <div class="p-menu-note" aria-hidden="true">${Kravon.esc(C.menu.waNote)}</div>
         </div>
-        <div class="p-menu-grid" id="menuGrid" role="list" aria-label="Menu items">
-          ${renderMenuGrid()}
+        <div class="p-menu-grid" role="list" aria-label="Signature dishes">
+          ${cardsHtml}
         </div>
-        <p class="p-menu-footnote">${Kravon.esc(C.order.footnote)}</p>
-      </div>
-    `;
+      </div>`;
     return section;
   }
 
-  /* ── HOW IT WORKS ────────────────────────────────────── */
-  function renderHow() {
-    const stepsHtml = C.how.steps.map((s, i) => `
-      <li class="p-how-step">
-        <div class="p-how-num" aria-hidden="true">${String(i + 1).padStart(2, '0')}</div>
-        <div>
-          <div class="p-how-step-title">${Kravon.esc(s.title)}</div>
-          <div class="p-how-step-body">${Kravon.esc(s.body)}</div>
-        </div>
-      </li>`).join('');
+  /* ── GALLERY ─────────────────────────────────────────── */
+  function renderGallery() {
+    const gallery = C.gallery || {};
+    const all = [
+      ...(gallery.food     || []),
+      ...(gallery.ambience || []),
+      ...(gallery.people   || []),
+    ].filter(Boolean);
+    if (!all.length) return null;
 
-    const benefitsHtml = C.how.benefits
-      .map(b => `<li class="p-how-benefit">${Kravon.esc(b)}</li>`).join('');
+    const imgsHtml = all.map((url, i) => `
+      <div class="p-gallery-item reveal">
+        <img src="${Kravon.esc(url)}" alt="Gallery photo ${i + 1}" loading="lazy">
+      </div>`).join('');
 
-    const section = el('section', 'p-how p-section');
-    section.setAttribute('aria-labelledby', 'how-heading');
+    const section = el('section', 'p-gallery p-section');
+    section.setAttribute('aria-labelledby', 'gallery-heading');
     section.innerHTML = `
       <div class="p-container">
-        <div class="p-how-grid">
-          <div>
-            <span class="p-eyebrow">${Kravon.esc(C.how.label)}</span>
-            <h2 class="p-headline" id="how-heading">${Kravon.esc(C.how.headline)}</h2>
-            <ol class="p-how-steps" aria-label="Ordering steps">${stepsHtml}</ol>
-          </div>
-          <div>
-            <div class="p-how-wa-card">
-              <span class="p-how-wa-icon" aria-hidden="true">${Kravon.esc(C.how.waCard.icon)}</span>
-              <div class="p-how-wa-title">${Kravon.esc(C.how.waCard.title)}</div>
-              <p class="p-how-wa-sub">${Kravon.esc(C.hours.kitchenNote)}</p>
-              ${orderCta(18, 'p-btn-lg')}
-            </div>
-            <ul class="p-how-benefits" aria-label="Order benefits">${benefitsHtml}</ul>
-          </div>
-        </div>
-      </div>
-    `;
+        <span class="p-eyebrow">Gallery</span>
+        <h2 class="p-headline" id="gallery-heading" style="margin-bottom:var(--sp-8)">See for yourself</h2>
+        <div class="p-gallery-grid">${imgsHtml}</div>
+      </div>`;
     return section;
   }
 
-  /* ── REVIEWS ─────────────────────────────────────────── */
-  function renderReviews() {
-    const cardsHtml = C.reviews.items.map(r => {
-      const stars = '★'.repeat(r.stars) + '☆'.repeat(5 - r.stars);
-      return `
-        <article class="p-rcard reveal">
-          <span class="p-rcard-stars" aria-label="${r.stars} out of 5 stars">${stars}</span>
-          <blockquote class="p-rcard-text">"${Kravon.esc(r.text)}"</blockquote>
-          <div class="p-rcard-author">
-            <div class="p-rcard-avatar" aria-hidden="true">${Kravon.esc(r.avatar)}</div>
-            <div>
-              <div class="p-rcard-name">${Kravon.esc(r.name)}</div>
-              <div class="p-rcard-source">${Kravon.esc(r.source)}</div>
-            </div>
-          </div>
-        </article>`;
-    }).join('');
+  /* ── FEATURED ────────────────────────────────────────── */
+  function renderFeatured() {
+    const items = (C.featured || []).filter(f => f.active !== false);
+    if (!items.length) return null;
+
+    const cardsHtml = items.map(f => `
+      <article class="p-rcard reveal">
+        ${f.image ? `<img src="${Kravon.esc(f.image)}" alt="${Kravon.esc(f.title || '')}" loading="lazy" style="width:100%;border-radius:8px;margin-bottom:var(--sp-3)">` : ''}
+        <div class="p-rcard-name" style="font-size:15px;font-weight:600">${Kravon.esc(f.title || '')}</div>
+        <blockquote class="p-rcard-text">${Kravon.esc(f.description || '')}</blockquote>
+        ${f.ctaLabel && f.ctaUrl ? `<a href="${Kravon.esc(f.ctaUrl)}" class="p-btn p-btn-secondary" style="margin-top:var(--sp-3)">${Kravon.esc(f.ctaLabel)}</a>` : ''}
+      </article>`).join('');
 
     const section = el('section', 'p-reviews p-section');
-    section.setAttribute('aria-labelledby', 'reviews-heading');
+    section.setAttribute('aria-labelledby', 'featured-heading');
     section.innerHTML = `
       <div class="p-container">
         <div class="p-reviews-header">
-          <span class="p-eyebrow">${Kravon.esc(C.reviews.label)}</span>
-          <h2 class="p-headline" id="reviews-heading">${Kravon.esc(C.reviews.headline)}</h2>
+          <span class="p-eyebrow">Featured</span>
+          <h2 class="p-headline" id="featured-heading">What's on</h2>
         </div>
         <div class="p-reviews-grid">${cardsHtml}</div>
-      </div>
-    `;
+      </div>`;
     return section;
   }
 
-  /* ── LOCATION ────────────────────────────────────────── */
-  function renderLocation() {
-    const rowsHtml = C.location.rows.map(row => {
-      const bodyCls = row.highlight
-        ? 'p-location-row-body p-location-row-body--hl'
-        : 'p-location-row-body';
-      return `
-        <div class="p-location-row">
-          <span class="p-location-row-icon" aria-hidden="true">${Kravon.esc(row.icon)}</span>
-          <div>
-            <div class="p-location-row-title">${Kravon.esc(row.title)}</div>
-            <div class="${bodyCls}">${Kravon.esc(row.body)}</div>
+  /* ── TIMELINE ────────────────────────────────────────── */
+  function renderTimeline() {
+    const items = C.timeline || [];
+    if (!items.length) return null;
+
+    const rowsHtml = items.map(t => `
+      <div class="p-how-step">
+        <div class="p-how-num" aria-hidden="true">${Kravon.esc(String(t.year || ''))}</div>
+        <div>
+          <div class="p-how-step-title">${Kravon.esc(t.event || '')}</div>
+        </div>
+      </div>`).join('');
+
+    const section = el('section', 'p-how p-section');
+    section.setAttribute('aria-labelledby', 'timeline-heading');
+    section.innerHTML = `
+      <div class="p-container">
+        <span class="p-eyebrow">Our Journey</span>
+        <h2 class="p-headline" id="timeline-heading" style="margin-bottom:var(--sp-8)">The story so far</h2>
+        <div class="p-how-steps" style="max-width:560px">${rowsHtml}</div>
+      </div>`;
+    return section;
+  }
+
+  /* ── CONTACT ─────────────────────────────────────────── */
+  function renderContact() {
+    const pc  = {};
+    const loc = C.location || {};
+
+    const phone    = pc.phone    || C.contact?.phone    || '';
+    const whatsapp = pc.whatsapp || C.contact?.waNumber || '';
+    const email    = pc.email    || C.contact?.email    || '';
+    const address  = pc.address  || C.contact?.address  || '';
+    const mapUrl   = pc.googleMapsUrl || loc.mapUrl     || null;
+
+    const rows = [
+      address  ? { icon: '📍', label: 'Address',   val: address,                        href: mapUrl || null         } : null,
+      phone    ? { icon: '📞', label: 'Phone',      val: phone,                          href: `tel:${phone}`         } : null,
+      whatsapp ? { icon: '💬', label: 'WhatsApp',   val: whatsapp,                       href: Kravon.buildWaLink(whatsapp, C.contact?.waGreeting || '') } : null,
+      email    ? { icon: '✉️',  label: 'Email',      val: email,                          href: `mailto:${email}`      } : null,
+      C.hours?.display ? { icon: '🕐', label: 'Hours', val: C.hours.display, href: null } : null,
+    ].filter(Boolean);
+
+    if (!rows.length) return null;
+
+    const rowsHtml = rows.map(r => `
+      <div class="p-location-row">
+        <span class="p-location-row-icon" aria-hidden="true">${r.icon}</span>
+        <div>
+          <div class="p-location-row-title">${Kravon.esc(r.label)}</div>
+          <div class="p-location-row-body">
+            ${r.href
+              ? `<a href="${Kravon.esc(r.href)}" target="${r.href.startsWith('http') ? '_blank' : '_self'}" rel="noopener noreferrer">${Kravon.esc(r.val)}</a>`
+              : Kravon.esc(r.val)}
           </div>
-        </div>`;
-    }).join('');
+        </div>
+      </div>`).join('');
 
     const section = el('section', 'p-location p-section');
-    section.setAttribute('aria-labelledby', 'location-heading');
+    section.setAttribute('aria-labelledby', 'contact-heading');
     section.innerHTML = `
       <div class="p-container">
         <div class="p-location-grid">
-          <div class="p-location-map reveal" role="img" aria-label="${Kravon.esc(C.location.mapLabel)}">
+          <div class="p-location-map reveal" role="img" aria-label="${Kravon.esc(C.brand.name)} location">
             <div class="p-location-map-grid" aria-hidden="true"></div>
             <div class="p-location-pin">
               <div class="p-location-pin-pulse" aria-hidden="true">📍</div>
-              <div class="p-location-pin-name">${Kravon.esc(C.location.pinName)}</div>
-              <div class="p-location-pin-sub">${Kravon.esc(C.location.pinSub)}</div>
+              <div class="p-location-pin-name">${Kravon.esc(C.brand.name)}</div>
+              <div class="p-location-pin-sub">${Kravon.esc(C.contact?.city || '')}</div>
             </div>
           </div>
           <div class="p-location-info">
             <div>
               <span class="p-eyebrow">Find Us</span>
-              <h2 class="p-headline" id="location-heading">${Kravon.esc(C.location.label)}</h2>
+              <h2 class="p-headline" id="contact-heading">Visit ${Kravon.esc(C.brand.name)}</h2>
             </div>
             <div class="p-location-rows">${rowsHtml}</div>
-            ${orderCta()}
+            <div style="margin-top:var(--sp-5);display:flex;gap:var(--sp-3);flex-wrap:wrap">
+              ${buildCtAs()}
+            </div>
           </div>
         </div>
-      </div>
-    `;
+      </div>`;
     return section;
   }
 
   /* ── MOUNT ───────────────────────────────────────────── */
   function mount() {
-    document.title = C.meta.title;
-    document.getElementById('pageDescription').setAttribute('content', C.meta.description);
+    document.title = C.meta?.title || C.brand.name;
+    $('pageDescription')?.setAttribute('content', C.meta?.description || '');
 
     const app = $('app');
-    app.appendChild(renderNav());
-    app.appendChild(renderHero());
-    app.appendChild(renderStory());
-    app.appendChild(renderMenu());
-    app.appendChild(renderHow());
-    app.appendChild(renderReviews());
-    app.appendChild(renderLocation());
+    const sections = [
+      renderNav(),
+      renderHero(),
+      renderStory(),
+      renderSignatureDishes(),
+      renderGallery(),
+      renderFeatured(),
+      renderTimeline(),
+      renderContact(),
+    ];
+
+    sections.filter(Boolean).forEach(s => app.appendChild(s));
 
     Kravon.renderDemoBanner(C.demo);
     Kravon.renderUpgrade(C.upgrade);
     Kravon.renderFooter(C.brand, C.contact, C.footer);
-    Kravon.setWaLinks(Kravon.buildWaLink(C.contact.waNumber, C.contact.waGreeting));
+    if (C.contact?.waNumber) {
+      Kravon.setWaLinks(Kravon.buildWaLink(C.contact.waNumber, C.contact.waGreeting));
+    }
     Kravon.scrollReveal();
   }
 
   window.initRenderer = function () {
     C = window.CONFIG;
-    M = window.MENU;
     mount();
-  };
-
-  window.PresenceRenderer = {
-    updateMenuCtrl: function (id) {
-      const ctrl = document.getElementById(`ctrl-${id}`);
-      if (ctrl) ctrl.innerHTML = renderMenuCtrl(id);
-    }
   };
 
 })();

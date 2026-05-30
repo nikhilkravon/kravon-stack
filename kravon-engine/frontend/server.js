@@ -40,6 +40,24 @@ const server = http.createServer((req, res) => {
     pathname = '/orders/index.html';
   }
 
+  if (pathname === '/catering') {
+    res.writeHead(301, { 'Location': '/catering/' });
+    res.end();
+    return;
+  }
+  if (pathname === '/catering/') {
+    pathname = '/catering/index.html';
+  }
+
+  if (pathname === '/dashboard') {
+    res.writeHead(301, { 'Location': '/dashboard/' });
+    res.end();
+    return;
+  }
+  if (pathname === '/dashboard/') {
+    pathname = '/dashboard/index.html';
+  }
+
   const filePath = path.join(__dirname, pathname);
 
   fs.readFile(filePath, (err, data) => {

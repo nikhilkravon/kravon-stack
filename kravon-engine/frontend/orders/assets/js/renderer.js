@@ -17,18 +17,6 @@
   let C, O, M;
   const $  = id => document.getElementById(id);
 
-  /* ── Accent token injection (Orders supports per-client accent colour) ── */
-  function applyAccent() {
-    const hex = (C.brand?.accent || '#c2d62a').replace('#', '');
-    const ri  = parseInt(hex.slice(0, 2), 16);
-    const gi  = parseInt(hex.slice(2, 4), 16);
-    const bi  = parseInt(hex.slice(4, 6), 16);
-    const r   = document.documentElement;
-    r.style.setProperty('--accent',        `#${hex}`);
-    r.style.setProperty('--accent-subtle', `rgba(${ri},${gi},${bi},0.06)`);
-    r.style.setProperty('--accent-border', `rgba(${ri},${gi},${bi},0.15)`);
-  }
-
   /* ── Nav ─────────────────────────────────────────────── */
   function buildNav() {
     return `
@@ -119,17 +107,7 @@
 
   /* ── Item card ───────────────────────────────────────── */
   function itemCardHTML(item) {
-    const badge = item.badge ? (() => {
-      const presets = {
-        top:  'background:rgba(232,160,32,0.9);color:#111;',
-        veg:  'background:rgba(61,122,40,0.85);',
-        hot:  'background:rgba(217,58,43,0.9);',
-        save: 'background:var(--accent);color:#111;',
-      };
-      const css = presets[item.badgeStyle] ||
-        (item.badgeStyle ? `background:${Kravon.esc(item.badgeStyle)};` : '');
-      return `<span class="item-badge" style="${css}">${Kravon.esc(item.badge)}</span>`;
-    })() : '';
+    const badge = ItemControls.badgeHTML(item);
 
     const isFile = item.image && !(/\p{Emoji}/u).test(item.image) && item.image.length > 2;
     const imgHTML = isFile
@@ -155,32 +133,7 @@
       </div>`;
   }
 
-  function itemBtnHTML(item) {
-    const qty    = Cart.getQtyById(item.id);
-    const action = item.customise ? 'open-modal' : 'add-item';
-    if (qty === 0) {
-      return `
-        <button class="add-btn"
-                data-action="${action}"
-                data-item-id="${Kravon.esc(String(item.id))}"
-                aria-label="Add ${Kravon.esc(item.name)} to order">
-          <svg width="14" height="14" aria-hidden="true"><use href="#icon-plus"/></svg>
-          Add
-        </button>`;
-    }
-    return `
-      <div class="item-qty-ctrl" role="group" aria-label="${Kravon.esc(item.name)} quantity">
-        <button class="iqc-btn iqc-dec"
-                data-action="item-dec"
-                data-item-id="${Kravon.esc(String(item.id))}"
-                aria-label="Remove one ${Kravon.esc(item.name)}">−</button>
-        <span class="iqc-count" aria-live="polite">${qty}</span>
-        <button class="iqc-btn iqc-inc"
-                data-action="${action}"
-                data-item-id="${Kravon.esc(String(item.id))}"
-                aria-label="Add another ${Kravon.esc(item.name)}">+</button>
-      </div>`;
-  }
+  let itemBtnHTML; /* set in initRenderer via ItemControls.makeRenderer */
 
   /* ── Public: re-render a single item's button in place ── */
   function updateItemBtn(id) {
@@ -487,7 +440,7 @@
     document.title = C.meta.title;
     $('pageDesc')?.setAttribute('content', C.hero.sub);
 
-    applyAccent();
+    ItemControls.applyAccent(C.brand?.accent);
 
     const app = $('app');
     app.innerHTML =
@@ -530,11 +483,28 @@
     C = window.CONFIG;
     O = C.orders || {};
     M = window.CATEGORIES || window.CONFIG.categories || [];
+
+    itemBtnHTML = ItemControls.makeRenderer({
+      getQty:       id => Cart.getQtyById(id),
+      isCustomKey:  'customise',
+      idAttr:       'item-id',
+      addBtnCls:    'add-btn',
+      ctrlCls:      'item-qty-ctrl',
+      decCls:       'iqc-btn iqc-dec',
+      incCls:       'iqc-btn iqc-inc',
+      countCls:     'iqc-count',
+      countTag:     'span',
+      addAction:    'add-item',
+      customAction: 'open-modal',
+      decAction:    'item-dec',
+      incAction:    'add-item',
+      addLabel:     '<svg width="14" height="14" aria-hidden="true"><use href="#icon-plus"/></svg> Add',
+    });
+
     mount();
   };
 
   window.OrdersRenderer = {
-    itemBtnHTML,
     updateItemBtn,
   };
 

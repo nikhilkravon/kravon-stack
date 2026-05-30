@@ -10,7 +10,9 @@
 'use strict';
 
 const express = require('express');
+const { z }   = require('zod');
 const { query } = require('../../db/pool');
+const { requireRestaurantAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -217,7 +219,7 @@ router.get('/', async (req, res, next) => {
         eyebrow:  r.tagline || '',
         headline: r.name    || '',
         sub:      r.tagline || '',
-        ctaLabel: 'Order on WhatsApp',
+        image:    r.hero_image || null,
         footnote: r.hours_display || '',
         stats:    [],
       },
@@ -276,6 +278,15 @@ router.get('/', async (req, res, next) => {
         privacyNote:  '',
       },
 
+      // Presence marketing — assembled from brand.assets, brand.announcements, settings
+      gallery:         r.gallery          || { food: [], ambience: [], people: [] },
+      featured:        r.featured         || [],
+      signatureDishes: r.signature_dishes || [],
+      timeline:        r.timeline         || [],
+
+      // Catering — content stored in settings.catering (only when has_catering)
+      ...(r.has_catering ? (r._settings?.catering || {}) : {}),
+
       demo:    null,
       upgrade: null,
 
@@ -289,6 +300,66 @@ router.get('/', async (req, res, next) => {
 
   } catch (err) {
     console.error('Config route error:', err);
+    next(err);
+  }
+});
+
+/* ── PATCH /config — update restaurant settings (admin) ──────────────────── */
+const SettingsUpdateSchema = z.object({
+  name:              z.string().min(1).max(150).optional(),
+  tagline:           z.string().max(300).optional(),
+  hours_display:     z.string().max(100).optional(),
+  email:             z.string().email().max(150).optional(),
+  delivery_fee:      z.number().min(0).optional(),
+  free_delivery_above: z.number().min(0).optional(),
+});
+
+router.patch('/', requireRestaurantAuth, async (req, res, next) => {
+  const parsed = SettingsUpdateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(422).json({
+      error:  'Validation failed',
+      issues: parsed.error.issues.map(i => ({ path: i.path.join('.'), message: i.message })),
+    });
+  }
+  if (Object.keys(parsed.data).length === 0) {
+    return res.status(422).json({ error: 'No fields provided' });
+  }
+
+  try {
+    const tenantId = req.tenant.tenant_id;
+    const d        = parsed.data;
+
+    // Split: name goes to the column directly; rest merge into settings JSONB
+    const { name, ...settingsFields } = d;
+    const setClauses = [];
+    const values     = [];
+    let idx          = 1;
+
+    if (name !== undefined) {
+      setClauses.push(`name = $${idx++}`);
+      values.push(name);
+    }
+    if (Object.keys(settingsFields).length) {
+      setClauses.push(`settings = settings || $${idx++}::jsonb`);
+      values.push(JSON.stringify(settingsFields));
+    }
+    setClauses.push('updated_at = NOW()');
+    values.push(tenantId);
+
+    const result = await query(
+      `UPDATE tenant.restaurants
+       SET ${setClauses.join(', ')}
+       WHERE id = $${idx} AND deleted_at IS NULL
+       RETURNING id, name, settings`,
+      values
+    );
+
+    if (!result.rows.length) {
+      return res.status(404).json({ error: 'Restaurant not found' });
+    }
+    res.json({ ok: true, name: result.rows[0].name });
+  } catch (err) {
     next(err);
   }
 });

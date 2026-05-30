@@ -627,10 +627,82 @@
     }
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', mount);
-  } else {
-    mount();
+  function normalizeConfig() {
+    var C = window.CONFIG;
+    if (!C) return;
+
+    // meta — already in API
+    C.meta = C.meta || { title: C.brand && C.brand.name || '', description: '' };
+
+    // brand shape fixes
+    C.brand = C.brand || {};
+    C.brand.division    = C.brand.division    || 'Catering & Events';
+    C.brand.redirectUrl = C.brand.redirectUrl || ('/presence/?slug=' + (C.slug || ''));
+
+    // hero shape fixes — API hero.headline is a string; renderer expects array
+    C.hero = C.hero || {};
+    if (typeof C.hero.headline === 'string') C.hero.headline = [C.hero.headline];
+    C.hero.headline    = C.hero.headline    || [C.brand.name || ''];
+    C.hero.eyebrow     = C.hero.eyebrow     || '';
+    C.hero.sub         = C.hero.sub         || '';
+    C.hero.ctaPrimary  = C.hero.ctaPrimary  || 'Get a Proposal';
+    C.hero.ctaSecondary= C.hero.ctaSecondary|| 'View Packages';
+    C.hero.panelNote   = C.hero.panelNote   || '';
+    C.hero.stats       = C.hero.stats       || [];
+
+    // contact — already in API
+    C.contact = C.contact || {};
+
+    // sections not yet in the API — safe empty defaults
+    C.credBar    = C.credBar    || { items: [] };
+    C.trustedBy  = C.trustedBy  || [];
+
+    C.position = C.position || { label: '', body: '' };
+
+    C.packages = C.packages || {
+      label: '', title: [''], annotation: '', tiers: []
+    };
+
+    C.process = C.process || {
+      label: '', title: [''], lede: '', steps: []
+    };
+
+    C.capacity = C.capacity || {
+      label: '', title: [''], annotation: '', cells: [], compliance: []
+    };
+
+    // menu shape fix — API menu has .items flat list; renderer expects .tabs
+    C.menu = C.menu || {};
+    if (!C.menu.tabs) {
+      var cats = C.categories || [];
+      C.menu.tabs = cats.map(function (cat) {
+        return {
+          name:  cat.name,
+          items: (cat.items || []).map(function (it) {
+            return { name: it.name, desc: it.desc || '', price: it.price, note: '' };
+          }),
+        };
+      });
+    }
+    C.menu.title      = C.menu.title      || [''];
+    C.menu.annotation = C.menu.annotation || '';
+    C.menu.footNotes  = C.menu.footNotes  || [];
+
+    C.testimonials = C.testimonials || { label: '', title: [''], items: [] };
+
+    C.form = C.form || {
+      label: '', title: [''], intro: '',
+      steps: [], engagementTypes: [], paxOptions: [],
+      budgetOptions: [], submitNote: '', submitLabel: 'Submit',
+      confirmTitle: [''], confirmBody: '', confirmSteps: [],
+      redirectTitle: '', redirectBody: '', redirectLabel: 'Back to Home',
+    };
+
+    C.faq = C.faq || { label: '', title: [''], ledeBody: '', items: [] };
+
+    C.demo = C.demo || null;
   }
+
+  window.initRenderer = function () { normalizeConfig(); mount(); };
 
 })();

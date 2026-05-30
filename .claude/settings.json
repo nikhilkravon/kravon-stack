@@ -47,7 +47,36 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:8000/orders/\")",
       "Bash(Start-Sleep -Seconds 3)",
       "Bash(npx kill-port *)",
-      "Bash(pkill -f \"node.*server.js\")"
+      "Bash(pkill -f \"node.*server.js\")",
+      "Bash(echo \"Backend PID: $!\")",
+      "Bash(echo \"Frontend PID: $!\")",
+      "Read(//tmp/**)",
+      "Bash(curl -s \"http://localhost:3000/v1/restaurants\")",
+      "Bash(curl -s \"http://localhost:3000/v1/restaurants/biryani-house/config\")",
+      "Bash(curl -s \"http://localhost:3000/v1/restaurants/demo/config\")",
+      "Bash(python3 -m json.tool)",
+      "PowerShell(Start-Process \"http://localhost:8000/presence/?slug=spice-of-india\")",
+      "Bash(node db/migrations/v16-presence-content.js)",
+      "Bash(pkill -f \"node server.js\" 2>/dev/null; sleep 1 *)",
+      "PowerShell($pid = \\(netstat -ano | Select-String \":3000 \"\\).ToString\\(\\).Trim\\(\\).Split\\(\\)[-1]; if \\($pid -match '^\\\\d+$'\\) { Stop-Process -Id $pid -Force; Write-Host \"Killed PID $pid\" } else { Write-Host \"Not found\" })",
+      "PowerShell($portPid = \\(netstat -ano | Select-String \":3000 \"\\).ToString\\(\\).Trim\\(\\).Split\\(\\)[-1]; if \\($portPid -match '^\\\\d+$'\\) { Stop-Process -Id $portPid -Force; Write-Host \"Killed $portPid\" } else { Write-Host \"Nothing on 3000\" })",
+      "PowerShell(Stop-Process -Id 28196 -Force)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); pc=d['config'].get\\('presenceContent',{}\\); print\\('presenceContent keys:', list\\(pc.keys\\(\\)\\)\\)\")",
+      "PowerShell($portPid = \\(netstat -ano | Select-String \":3000 \"\\).ToString\\(\\).Trim\\(\\).Split\\(\\)[-1]; Stop-Process -Id $portPid -Force; Write-Host \"Killed $portPid\")",
+      "PowerShell($portPid = \\(netstat -ano | Select-String \":3000 \" | Select-Object -First 1\\).ToString\\(\\).Trim\\(\\) -split '\\\\s+' | Select-Object -Last 1; Stop-Process -Id \\([int]$portPid\\) -Force; Write-Host \"Killed $portPid\")",
+      "Bash(python3 -c ' *)",
+      "Bash(start \"\" \"http://localhost:8000/presence/?slug=spice-of-india\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{url_effective}\\\\n\" http://localhost:8000/shared/css/base.css)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{url_effective}\\\\n\" http://localhost:8000/shared/css/layout.css)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{url_effective}\\\\n\" http://localhost:8000/shared/css/components.css)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{url_effective}\\\\n\" http://localhost:8000/api-client/kravon-api.js)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{url_effective}\\\\n\" http://localhost:8000/shared/js/kravon.js)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:8000/favicon.ico)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:8000/catering/)",
+      "Bash(node kravon-engine/backend/db/seeds/seed-catering-spice-of-india.js)"
+    ],
+    "additionalDirectories": [
+      "\\tmp"
     ]
   }
 }

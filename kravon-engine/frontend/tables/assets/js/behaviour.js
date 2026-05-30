@@ -8,6 +8,14 @@
 function initTablesBehaviour() {
   'use strict';
 
+  function _findMenuItem(id) {
+    for (const cat of (window.MENU || [])) {
+      const item = cat.items.find(i => String(i.id) === String(id));
+      if (item) return item;
+    }
+    return null;
+  }
+
   /* ── Cart open/close ──────────────────────────────────────── */
   function openCart() {
     const drawer  = document.getElementById('cartDrawer');
@@ -65,13 +73,13 @@ function initTablesBehaviour() {
 
       /* ── Simple add (non-customisable items) ── */
       case 'add-item': {
-        const id    = target.dataset.id;
-        const name  = target.dataset.name;
-        const price = parseInt(target.dataset.price, 10);
-        TablesCart.addItem(id, name, price);
+        const id   = target.dataset.itemId;
+        const item = _findMenuItem(id);
+        if (!item) return;
+        TablesCart.addItem(id, item.name, item.price);
         TablesRenderer.updateItemBtn(id);
         TablesRenderer.renderCartDrawer();
-        Kravon.toast(`${name} added`);
+        Kravon.toast(`${item.name} added`);
         break;
       }
 
@@ -118,14 +126,15 @@ function initTablesBehaviour() {
 
       /* ── Inc/dec from menu grid (non-customisable) ── */
       case 'inc-item': {
-        const id    = target.dataset.id;
+        const id    = target.dataset.itemId;
         const items = TablesCart.getItems();
         const idx   = [...items].reverse().findIndex(i => i.id === String(id));
         const realIdx = idx === -1 ? -1 : items.length - 1 - idx;
-        if (realIdx !== -1) TablesCart.changeQty(realIdx, 1);
-        else {
-          const addBtn = document.getElementById(`addBtn_${id}`);
-          if (addBtn) TablesCart.addItem(id, addBtn.dataset.name, parseInt(addBtn.dataset.price, 10));
+        if (realIdx !== -1) {
+          TablesCart.changeQty(realIdx, 1);
+        } else {
+          const item = _findMenuItem(id);
+          if (item) TablesCart.addItem(id, item.name, item.price);
         }
         TablesRenderer.updateItemBtn(id);
         TablesRenderer.renderCartDrawer();
@@ -133,7 +142,7 @@ function initTablesBehaviour() {
       }
 
       case 'dec-item': {
-        const id    = target.dataset.id;
+        const id    = target.dataset.itemId;
         const items = TablesCart.getItems();
         let idxToRemove = -1;
         for (let i = items.length - 1; i >= 0; i--) {

@@ -100,6 +100,64 @@ router.post('/', async (req, res, next) => {
   }
 });
 
+/* ── GET /orders (admin — paginated list) ────────────────────────────────── */
+router.get('/', requireRestaurantAuth, async (req, res, next) => {
+  try {
+    const tenantId = req.tenant.tenant_id;
+    const page     = Math.max(1, parseInt(req.query.page,  10) || 1);
+    const limit    = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 25));
+    const offset   = (page - 1) * limit;
+    const status   = req.query.status  || null;
+    const channel  = req.query.channel || null;  // 'qr'|'web'|'whatsapp'|'pos'
+
+    const params  = [tenantId];
+    const filters = ['o.tenant_id = $1', 'o.deleted_at IS NULL'];
+
+    if (status) {
+      params.push(status);
+      filters.push(`o.status = $${params.length}`);
+    }
+    if (channel) {
+      params.push(channel);
+      filters.push(`o.channel = $${params.length}`);
+    }
+
+    const where = `WHERE ${filters.join(' AND ')}`;
+
+    const [listRes, countRes] = await Promise.all([
+      query(
+        `SELECT o.id, o.channel, o.fulfillment_type, o.status,
+                o.total_amount, o.created_at,
+                c.name  AS customer_name,
+                c.phone AS customer_phone
+         FROM orders.orders o
+         LEFT JOIN customer.customers c
+                ON c.id = o.customer_id AND c.deleted_at IS NULL
+         ${where}
+         ORDER BY o.created_at DESC
+         LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        [...params, limit, offset]
+      ),
+      query(
+        `SELECT COUNT(*) AS total FROM orders.orders o ${where}`,
+        params
+      ),
+    ]);
+
+    const total = parseInt(countRes.rows[0].total, 10);
+    res.json({
+      ok:     true,
+      orders: listRes.rows.map(o => ({ ...o, total_amount: Number(o.total_amount) })),
+      total,
+      page,
+      limit,
+      pages:  Math.ceil(total / limit),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 /* ── GET /orders/:id (admin only) ────────────────────────────────────────── */
 router.get('/:id', requireRestaurantAuth, async (req, res, next) => {
   try {

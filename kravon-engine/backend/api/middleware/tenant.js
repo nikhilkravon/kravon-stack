@@ -11,6 +11,7 @@
  * Operational config (delivery_fee, hours_display, story, etc.) lives in settings JSONB.
  * Contact details come from tenant.locations + brand.contact_links.
  * Payment credentials come from tenant.integrations (provider='razorpay').
+ * Presence marketing content comes from brand.assets + brand.announcements + settings.
  *
  * Cache: 1-minute in-memory TTL keyed by slug.
  */
@@ -25,7 +26,7 @@ const TTL_MS = 60 * 1000;
 /**
  * buildTenant — assembles req.tenant from v12 schema rows.
  */
-function buildTenant(tenantRow, locationRow, integrations, contactLinks, seoRow) {
+function buildTenant(tenantRow, locationRow, integrations, contactLinks, seoRow, assets, announcements) {
   const s    = tenantRow.settings || {};
   const loc  = locationRow        || {};
   const seo  = seoRow             || {};
@@ -37,11 +38,13 @@ function buildTenant(tenantRow, locationRow, integrations, contactLinks, seoRow)
   // https://wa.me/912267891234 → 912267891234
   const wa_number = waLink?.url?.replace(/^https?:\/\/wa\.me\//, '') || s.wa_number || null;
 
+  // Presence — hero image (first active banner asset)
+  const bannerAsset  = assets.find(a => a.type === 'banner');
+  const galleryAssets = assets.filter(a => a.type === 'gallery');
+
   return {
     tenant_id: tenantRow.id,
-
-    // Backward-compat alias — routes/config that still reference rest_id get the UUID
-    rest_id: tenantRow.id,
+    rest_id:   tenantRow.id,  // backward-compat alias
 
     slug:   tenantRow.slug,
     name:   tenantRow.name,
@@ -54,7 +57,6 @@ function buildTenant(tenantRow, locationRow, integrations, contactLinks, seoRow)
     has_catering: tenantRow.has_catering,
     has_insights: tenantRow.has_insights,
 
-    // Subscription plan — drives the capabilities block in config.js
     plan: tenantRow.plan || 'starter',
 
     // Contact — primary location row + contact_links
@@ -68,14 +70,12 @@ function buildTenant(tenantRow, locationRow, integrations, contactLinks, seoRow)
     tagline: seo.meta_description || s.tagline || tenantRow.name,
     year:    s.year || null,
 
-    // Payment — tenant.integrations provider='razorpay'
+    // Payment
     razorpay_key_id:     razorpay?.config?.key_id     || s.razorpay_key_id     || null,
     razorpay_key_secret: razorpay?.config?.key_secret || s.razorpay_key_secret || null,
-
-    // Webhook
     webhook_url: webhook?.config?.url || s.webhook_url || null,
 
-    // Operational config — all live in settings JSONB
+    // Operational config — settings JSONB
     delivery_fee:        s.delivery_fee        ?? null,
     free_delivery_above: s.free_delivery_above ?? null,
     review_threshold:    s.review_threshold    ?? 4,
@@ -88,7 +88,29 @@ function buildTenant(tenantRow, locationRow, integrations, contactLinks, seoRow)
     story_body:          s.story_body           || [],
     story_facts:         s.story_facts          || [],
 
-    // Keep settings ref for any caller that needs unlisted fields
+    // Presence marketing — brand.assets
+    hero_image: bannerAsset?.url || null,
+    gallery: {
+      food:     galleryAssets.filter(a => a.metadata?.category === 'food')    .map(a => a.url),
+      ambience: galleryAssets.filter(a => a.metadata?.category === 'ambience').map(a => a.url),
+      people:   galleryAssets.filter(a => a.metadata?.category === 'people')  .map(a => a.url),
+    },
+
+    // Presence marketing — brand.announcements
+    featured: announcements.map(a => ({
+      id:          a.id,
+      title:       a.title,
+      description: a.body,
+      image:       a.image_url   || null,
+      ctaLabel:    a.cta_label   || null,
+      ctaUrl:      a.cta_url     || null,
+      active:      a.is_active,
+    })),
+
+    // Presence marketing — settings JSONB
+    timeline:         s.timeline          || [],
+    signature_dishes: s.signature_dishes  || [],
+
     _settings: s,
   };
 }
@@ -149,8 +171,7 @@ async function resolveRestaurant(req, res, next) {
 
     const tenantId = tenantRow.id;
 
-    // Parallel secondary lookups
-    const [locRes, integRes, contactRes, seoRes] = await Promise.all([
+    const [locRes, integRes, contactRes, seoRes, assetRes, annRes] = await Promise.all([
       query(
         `SELECT phone, address, city, state, metadata
          FROM tenant.locations
@@ -178,14 +199,30 @@ async function resolveRestaurant(req, res, next) {
          LIMIT 1`,
         [tenantId]
       ),
+      query(
+        `SELECT type, url, alt_text, metadata
+         FROM brand.assets
+         WHERE tenant_id = $1 AND type IN ('banner', 'gallery') AND deleted_at IS NULL
+         ORDER BY created_at`,
+        [tenantId]
+      ),
+      query(
+        `SELECT id, title, body, image_url, cta_label, cta_url, is_active
+         FROM brand.announcements
+         WHERE tenant_id = $1 AND deleted_at IS NULL
+         ORDER BY created_at`,
+        [tenantId]
+      ),
     ]);
 
     const tenant = buildTenant(
       tenantRow,
-      locRes.rows[0] || null,
+      locRes.rows[0]  || null,
       integRes.rows,
       contactRes.rows,
-      seoRes.rows[0] || null
+      seoRes.rows[0]  || null,
+      assetRes.rows,
+      annRes.rows,
     );
 
     _cache.set(raw, { tenant, ts: Date.now() });

@@ -21,7 +21,22 @@
       "Read(//c/Users/Nikhil/AppData/Roaming/**)",
       "Read(//c//**)",
       "Bash(curl -s \"http://localhost:3000/v1/restaurants/spice-of-india/config\")",
-      "Bash(python -m json.tool)"
+      "Bash(python -m json.tool)",
+      "Bash(node -e ' *)",
+      "Bash(node db/migrations/v15-plan.js)",
+      "Bash(curl -s http://localhost:3000/health)",
+      "Bash(curl -s \"http://localhost:3000/v1/restaurants/spice-of-india/menu/categories\")",
+      "Bash(node -e \"const d=require\\('fs'\\).readFileSync\\('/dev/stdin','utf8'\\); const p=JSON.parse\\(d\\); console.log\\('ok:', p.ok, '| cats:', p.categories?.length, '| first cat:', p.categories?.[0]?.name, '| items in first:', p.categories?.[0]?.items?.length\\)\")",
+      "Bash(taskkill /F /PID 33608)",
+      "PowerShell(Stop-Process -Id 33608 -Force)",
+      "Bash(node backend/server.js)",
+      "Bash(curl -s -X POST http://localhost:3000/v1/auth/login -H 'Content-Type: application/json' -d '{\"slug\":\"spice-of-india\",\"email\":\"nikhil@spiceofindia.in\",\"password\":\"Test1234!\"}')",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('accessToken:', d.get\\('accessToken','ERR'\\)[:40]+'...'\\); print\\('staff:', d.get\\('staff',{}\\).get\\('name'\\)\\)\")",
+      "Bash(curl -s -X PATCH http://localhost:3000/v1/restaurants/spice-of-india/config -H 'Content-Type: application/json' -d '{\"tagline\":\"test\"}')",
+      "Bash(lsof -ti:3000)",
+      "Bash(xargs kill -9)",
+      "Bash(fuser -k 3000/tcp)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/dashboard/)"
     ],
     "additionalDirectories": [
       "d:\\KRAVON\\Dev_act\\kravon-db\\.git"
