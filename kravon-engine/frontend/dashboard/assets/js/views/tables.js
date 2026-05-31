@@ -19,9 +19,9 @@ const TablesView = (() => {
   }
 
   function _qrUrl(table) {
-    const base = window.KRAVON_API_BASE || 'http://localhost:3000';
+    const base = window.KRAVON_FRONTEND_BASE || 'http://localhost:8000';
     const slug = Auth.state().slug;
-    return `http://localhost:8000/tables/?slug=${slug}&table_id=${table.id}`;
+    return `${base}/tables/?slug=${encodeURIComponent(slug)}&table_id=${table.id}`;
   }
 
   // ── Floor grid ────────────────────────────────────────────────────────────
