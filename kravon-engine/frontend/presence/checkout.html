@@ -39,8 +39,8 @@
   <script src="../shared/js/kravon.js"></script>
   <script>
     const _q = new URLSearchParams(window.location.search);
-    const KRAVON_API_URL = "__KRAVON_API_URL__" !== "__KRAVON_API_URL__" ? "__KRAVON_API_URL__" : (_q.get('api') || 'http://localhost:3000');
-    const RESTAURANT_SLUG_ENV = "__RESTAURANT_SLUG__" !== "__RESTAURANT_SLUG__" ? "__RESTAURANT_SLUG__" : _q.get('slug');
+    const KRAVON_API_URL      = '%%KRAVON_API_URL%%'  || _q.get('api')  || 'http://localhost:3000';
+    const RESTAURANT_SLUG_ENV = '%%RESTAURANT_SLUG%%' || _q.get('slug');
   </script>
   <script src="../api-client/kravon-api.js"></script>
   <script src="../shared/js/cart.js"></script>

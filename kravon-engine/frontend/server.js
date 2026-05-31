@@ -59,9 +59,9 @@ const server = http.createServer((req, res) => {
     }
 
     if (isHtml) {
-      data = data.replace(/__KRAVON_API_URL__/g,      BACKEND_URL);
-      data = data.replace(/__KRAVON_FRONTEND_URL__/g, FRONTEND_URL);
-      data = data.replace(/__RESTAURANT_SLUG__/g,     RESTAURANT_SLUG);
+      data = data.replace(/%%KRAVON_API_URL%%/g,      BACKEND_URL);
+      data = data.replace(/%%KRAVON_FRONTEND_URL%%/g, FRONTEND_URL);
+      data = data.replace(/%%RESTAURANT_SLUG%%/g,     RESTAURANT_SLUG);
     }
 
     res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });

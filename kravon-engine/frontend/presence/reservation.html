@@ -86,12 +86,8 @@
 
   <script>
     const _q = new URLSearchParams(window.location.search);
-    const KRAVON_API_URL = "__KRAVON_API_URL__" !== "__KRAVON_API_URL__"
-      ? "__KRAVON_API_URL__"
-      : (_q.get('api') || 'http://localhost:3000');
-    const RESTAURANT_SLUG_ENV = "__RESTAURANT_SLUG__" !== "__RESTAURANT_SLUG__"
-      ? "__RESTAURANT_SLUG__"
-      : _q.get('slug');
+    const KRAVON_API_URL      = '%%KRAVON_API_URL%%'  || _q.get('api')  || 'http://localhost:3000';
+    const RESTAURANT_SLUG_ENV = '%%RESTAURANT_SLUG%%' || _q.get('slug');
     // Wire back/home links to preserve slug
     (function () {
       const slug = RESTAURANT_SLUG_ENV;
