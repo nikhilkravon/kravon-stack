@@ -3,8 +3,9 @@ const fs   = require('fs');
 const path = require('path');
 const url  = require('url');
 
-const BACKEND_URL  = process.env.BACKEND_URL  || 'http://localhost:3000';
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:8000';
+const BACKEND_URL      = process.env.BACKEND_URL      || 'http://localhost:3000';
+const FRONTEND_URL     = process.env.FRONTEND_URL     || 'http://localhost:8000';
+const RESTAURANT_SLUG  = process.env.RESTAURANT_SLUG  || '';
 
 const MIME = {
   '.html': 'text/html',
@@ -60,6 +61,7 @@ const server = http.createServer((req, res) => {
     if (isHtml) {
       data = data.replace(/__KRAVON_API_URL__/g,      BACKEND_URL);
       data = data.replace(/__KRAVON_FRONTEND_URL__/g, FRONTEND_URL);
+      data = data.replace(/__RESTAURANT_SLUG__/g,     RESTAURANT_SLUG);
     }
 
     res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
