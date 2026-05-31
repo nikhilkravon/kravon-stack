@@ -35,6 +35,58 @@
 </head>
 <body>
   <div id="demoBanner" class="demo-banner" aria-label="Demo notice"></div>
+  <div id="staticShell" class="static-shell" aria-hidden="false">
+    <nav class="p-nav" role="navigation" aria-label="Primary">
+      <div class="p-nav-inner p-container">
+        <div class="p-nav-brand">
+          <img src="assets/images/logo.svg" alt="" class="p-nav-logo" onerror="this.style.display='none'">
+          <div>
+            <div class="p-nav-name">Restaurant</div>
+            <div class="p-nav-tagline">Local · Seasonal</div>
+          </div>
+        </div>
+        <div class="p-nav-center" aria-hidden="true">
+          <div class="p-nav-hours">Open</div>
+        </div>
+        <div class="p-nav-right">
+          <a class="p-btn p-btn-primary" href="#">View menu</a>
+          <a class="p-btn p-btn-secondary" href="#">Reserve</a>
+        </div>
+        <button class="p-nav-toggle" id="pNavToggle" aria-label="Open menu" aria-expanded="false">
+          <svg width="22" height="16" viewBox="0 0 22 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect y="1" width="22" height="2" rx="1" fill="currentColor" />
+            <rect y="7" width="22" height="2" rx="1" fill="currentColor" />
+            <rect y="13" width="22" height="2" rx="1" fill="currentColor" />
+          </svg>
+        </button>
+      </div>
+    </nav>
+
+    <header class="p-hero p-hero-skeleton">
+      <div class="p-container p-hero-content">
+        <div class="p-hero-text">
+          <div class="static-skeleton title"></div>
+          <div class="static-skeleton" style="width:50%"></div>
+          <div class="p-hero-ctas">
+            <div class="static-skeleton" style="width:120px;height:44px;border-radius:8px"></div>
+            <div class="static-skeleton" style="width:120px;height:44px;border-radius:8px"></div>
+          </div>
+        </div>
+        <div aria-hidden="true">
+          <div class="static-skeleton" style="height:320px;border-radius:12px"></div>
+        </div>
+      </div>
+    </header>
+
+    <div id="errorFallback" role="alert" aria-live="polite">
+      <strong>Unable to load this page.</strong><br>
+      We couldn't fetch the restaurant configuration. Check your connection or try again later.
+    </div>
+  </div>
+
+  <div id="pNavBackdrop" class="p-nav-backdrop" tabindex="-1" aria-hidden="true"></div>
+  <aside id="pNavDrawer" class="p-nav-drawer" aria-hidden="true"></aside>
+
   <div id="app"></div>
   <div id="upgradeSection" class="upgrade"></div>
   <footer>

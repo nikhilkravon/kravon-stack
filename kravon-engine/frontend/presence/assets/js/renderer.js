@@ -148,7 +148,7 @@
             ${factsHtml ? `<div class="p-story-facts">${factsHtml}</div>` : ''}
           </div>
           <div class="p-story-image reveal">
-            <img src="assets/images/about.svg" alt="Restaurant interior — ${Kravon.esc(C.brand.name)}" loading="lazy">
+            <img src="${Kravon.esc(C.story?.image || C.hero?.image || 'assets/images/about.svg')}" alt="Restaurant interior — ${Kravon.esc(C.brand.name)}" loading="lazy">
           </div>
         </div>
       </div>`;
