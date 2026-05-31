@@ -1,91 +1,72 @@
 const http = require('http');
-const fs = require('fs');
+const fs   = require('fs');
 const path = require('path');
-const url = require('url');
+const url  = require('url');
+
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3000';
+
+const MIME = {
+  '.html': 'text/html',
+  '.css':  'text/css',
+  '.js':   'text/javascript',
+  '.json': 'application/json',
+  '.png':  'image/png',
+  '.jpg':  'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.svg':  'image/svg+xml',
+  '.ico':  'image/x-icon',
+  '.woff2':'font/woff2',
+  '.woff': 'font/woff',
+};
+
+const REDIRECTS = {
+  '/presence':  '/presence/',
+  '/tables':    '/tables/',
+  '/orders':    '/orders/',
+  '/catering':  '/catering/',
+  '/dashboard': '/dashboard/',
+};
+
+const INDEX_MAP = {
+  '/':           '/index.html',
+  '/presence/':  '/presence/index.html',
+  '/tables/':    '/tables/index.html',
+  '/orders/':    '/orders/index.html',
+  '/catering/':  '/catering/index.html',
+  '/dashboard/': '/dashboard/index.html',
+};
 
 const server = http.createServer((req, res) => {
-  const parsedUrl = url.parse(req.url);
-  let pathname = parsedUrl.pathname;
+  let pathname = url.parse(req.url).pathname;
 
-  // Default to index.html for root requests
-  if (pathname === '/') {
-    pathname = '/index.html';
-  }
-
-  // Redirect bare slug routes to trailing-slash so relative asset paths resolve correctly
-  if (pathname === '/presence') {
-    res.writeHead(301, { 'Location': '/presence/' });
+  if (REDIRECTS[pathname]) {
+    res.writeHead(301, { 'Location': REDIRECTS[pathname] });
     res.end();
     return;
   }
-  if (pathname === '/presence/') {
-    pathname = '/presence/index.html';
-  }
 
-  if (pathname === '/tables') {
-    res.writeHead(301, { 'Location': '/tables/' });
-    res.end();
-    return;
-  }
-  if (pathname === '/tables/') {
-    pathname = '/tables/index.html';
-  }
+  const filePath = path.join(__dirname, INDEX_MAP[pathname] || pathname);
+  const ext      = path.extname(filePath);
+  const isHtml   = ext === '.html';
 
-  if (pathname === '/orders') {
-    res.writeHead(301, { 'Location': '/orders/' });
-    res.end();
-    return;
-  }
-  if (pathname === '/orders/') {
-    pathname = '/orders/index.html';
-  }
-
-  if (pathname === '/catering') {
-    res.writeHead(301, { 'Location': '/catering/' });
-    res.end();
-    return;
-  }
-  if (pathname === '/catering/') {
-    pathname = '/catering/index.html';
-  }
-
-  if (pathname === '/dashboard') {
-    res.writeHead(301, { 'Location': '/dashboard/' });
-    res.end();
-    return;
-  }
-  if (pathname === '/dashboard/') {
-    pathname = '/dashboard/index.html';
-  }
-
-  const filePath = path.join(__dirname, pathname);
-
-  fs.readFile(filePath, (err, data) => {
+  fs.readFile(filePath, isHtml ? 'utf8' : null, (err, data) => {
     if (err) {
-      res.writeHead(404);
-      res.end('File not found');
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not found');
       return;
     }
 
-    // Set content type based on file extension
-    const ext = path.extname(filePath);
-    let contentType = 'text/html';
-    switch (ext) {
-      case '.css': contentType = 'text/css'; break;
-      case '.js': contentType = 'text/javascript'; break;
-      case '.json': contentType = 'application/json'; break;
-      case '.png': contentType = 'image/png'; break;
-      case '.jpg': contentType = 'image/jpeg'; break;
+    if (isHtml) {
+      data = data.replace(/__KRAVON_API_URL__/g, BACKEND_URL);
     }
 
-    res.writeHead(200, { 'Content-Type': contentType });
+    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
     res.end(data);
   });
 });
 
 const PORT = process.env.PORT || 8000;
 server.listen(PORT, () => {
-  console.log(`Frontend server running at http://localhost:${PORT}`);
-  console.log(`Tables page: http://localhost:${PORT}/tables/index.html`);
-  console.log(`QR codes point to: http://localhost:${PORT}/tables?table=T1`);
+  console.log(`Frontend listening on :${PORT}`);
+  console.log(`Backend API: ${BACKEND_URL}`);
 });

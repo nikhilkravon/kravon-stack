@@ -130,8 +130,7 @@
 
   </div>
 
-  <!-- KRAVON_API_BASE must be set to your production API URL at deploy time -->
-  <script>window.KRAVON_API_BASE = 'http://localhost:3000';</script>
+  <script>window.KRAVON_API_BASE = '__KRAVON_API_URL__' !== '__KRAVON_API_URL__' ? '__KRAVON_API_URL__' : 'http://localhost:3000';</script>
   <script src="assets/js/auth.js"></script>
   <script src="assets/js/api.js"></script>
   <script src="assets/js/ui.js"></script>
