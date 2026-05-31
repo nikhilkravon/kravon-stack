@@ -48,8 +48,28 @@
   <!-- Demo banner -->
   <div class="demo-banner" id="demoBanner" aria-label="Demo notice"></div>
 
+  <!-- Loading skeleton — visible only while data-loading="true" -->
+  <div id="tables-shell" aria-hidden="true">
+    <div class="tshell-nav">
+      <div class="t-skeleton tshell-brand"></div>
+      <div class="t-skeleton tshell-badge"></div>
+    </div>
+    <div class="tshell-choice">
+      <div class="t-skeleton tshell-choice-card"></div>
+      <div class="t-skeleton tshell-choice-card"></div>
+    </div>
+  </div>
+
   <!-- Main app shell: renderer populates #app (includes modal) -->
-  <div id="app"></div>
+  <div id="app">
+    <!-- Error fallback -->
+    <div class="tables-error" role="alert">
+      <div class="tables-error-icon">⚠️</div>
+      <div class="tables-error-title">Menu unavailable</div>
+      <div class="tables-error-body">We couldn't connect right now. Please refresh or scan the QR code again.</div>
+      <button class="btn-primary" style="margin-top:8px" onclick="location.reload()">Try again</button>
+    </div>
+  </div>
 
   <!-- Footer -->
   <footer>

@@ -129,6 +129,7 @@ router.get('/', async (req, res, next) => {
         tagline: r.tagline,
         year:    r.year || String(new Date().getFullYear()),
         eyebrow: r.tagline || '',
+        logoUrl: r.logo_url || null,
       },
 
       contact: {
@@ -316,12 +317,23 @@ router.get('/', async (req, res, next) => {
 
 /* ── PATCH /config — update restaurant settings (admin) ──────────────────── */
 const SettingsUpdateSchema = z.object({
-  name:              z.string().min(1).max(150).optional(),
-  tagline:           z.string().max(300).optional(),
-  hours_display:     z.string().max(100).optional(),
-  email:             z.string().email().max(150).optional(),
-  delivery_fee:      z.number().min(0).optional(),
+  name:                z.string().min(1).max(150).optional(),
+  tagline:             z.string().max(300).optional(),
+  hours_display:       z.string().max(100).optional(),
+  open_until:          z.string().max(40).optional(),
+  email:               z.string().email().max(150).optional(),
+  phone:               z.string().max(30).optional(),
+  wa_number:           z.string().regex(/^\d{10,15}$/, 'wa_number must be digits only, 10–15 chars').optional(),
+  address:             z.string().max(500).optional(),
+  city:                z.string().max(100).optional(),
+  delivery_fee:        z.number().min(0).optional(),
   free_delivery_above: z.number().min(0).optional(),
+  delivery_zone:       z.string().max(200).optional(),
+  google_review_url:   z.string().url().max(300).optional(),
+  review_threshold:    z.number().int().min(1).max(5).optional(),
+  map_url:             z.string().url().max(500).optional(),
+  razorpay_key_id:     z.string().max(40).optional(),
+  razorpay_key_secret: z.string().max(200).optional(),
 });
 
 router.patch('/', requireRestaurantAuth, async (req, res, next) => {
@@ -341,50 +353,103 @@ router.patch('/', requireRestaurantAuth, async (req, res, next) => {
     const tenantId = req.tenant.tenant_id;
     const d        = parsed.data;
 
-    // Split: name goes to the column directly; rest merge into settings JSONB
-    const { name, ...settingsFields } = d;
+    // Fields that go to tenant.restaurants.name column
+    const { name, phone, address, city, wa_number, razorpay_key_id, razorpay_key_secret, ...settingsFields } = d;
+
+    // ── 1. Update tenant.restaurants ────────────────────────────────────────
     const setClauses = [];
     const values     = [];
-    let idx          = 1;
+    let   idx        = 1;
 
     if (name !== undefined) {
       setClauses.push(`name = $${idx++}`);
       values.push(name);
     }
     if (Object.keys(settingsFields).length) {
-      const unknown = validateSettingsPatch(settingsFields);
-      if (unknown.length) {
-        return res.status(422).json({ error: `Unknown settings keys: ${unknown.join(', ')}`, code: 'validation_error' });
-      }
       setClauses.push(`settings = settings || $${idx++}::jsonb`);
       values.push(JSON.stringify(settingsFields));
     }
-    setClauses.push('updated_at = NOW()');
-    values.push(tenantId);
-
-    const result = await query(
-      `UPDATE tenant.restaurants
-       SET ${setClauses.join(', ')}
-       WHERE id = $${idx} AND deleted_at IS NULL
-       RETURNING id, name, settings`,
-      values
-    );
-
-    if (!result.rows.length) {
-      return res.status(404).json({ error: 'Restaurant not found' });
+    if (setClauses.length) {
+      setClauses.push('updated_at = NOW()');
+      values.push(tenantId);
+      await query(
+        `UPDATE tenant.restaurants SET ${setClauses.join(', ')} WHERE id = $${idx} AND deleted_at IS NULL`,
+        values
+      );
     }
 
-    // Bust the GET /config cache so the next request re-fetches the updated settings.
-    _configCache.delete(tenantId);
+    // ── 2. Update tenant.locations (phone / address / city) ─────────────────
+    if (phone !== undefined || address !== undefined || city !== undefined) {
+      const locRes = await query(
+        'SELECT id FROM tenant.locations WHERE tenant_id = $1 AND is_active = TRUE LIMIT 1',
+        [tenantId]
+      );
+      const locSets = []; const locVals = []; let li = 1;
+      if (phone   !== undefined) { locSets.push(`phone = $${li++}`);   locVals.push(phone); }
+      if (address !== undefined) { locSets.push(`address = $${li++}`); locVals.push(address); }
+      if (city    !== undefined) { locSets.push(`city = $${li++}`);    locVals.push(city); }
+      if (locRes.rows.length) {
+        locVals.push(locRes.rows[0].id);
+        await query(`UPDATE tenant.locations SET ${locSets.join(', ')}, updated_at = NOW() WHERE id = $${li}`, locVals);
+      } else {
+        await query(
+          `INSERT INTO tenant.locations (tenant_id, name, address, city, phone, is_active) VALUES ($1,'Main',$2,$3,$4,true)`,
+          [tenantId, address ?? null, city ?? null, phone ?? null]
+        );
+      }
+    }
 
-    // Fire-and-forget audit log — non-critical, must not block the response.
+    // ── 3. Update WhatsApp contact link ──────────────────────────────────────
+    if (wa_number !== undefined) {
+      const waUrl = `https://wa.me/${wa_number}`;
+      const existing = await query(
+        `SELECT id FROM brand.contact_links WHERE tenant_id = $1 AND platform = 'whatsapp' AND deleted_at IS NULL LIMIT 1`,
+        [tenantId]
+      );
+      if (existing.rows.length) {
+        await query(`UPDATE brand.contact_links SET url = $1, updated_at = NOW() WHERE id = $2`, [waUrl, existing.rows[0].id]);
+      } else {
+        await query(
+          `INSERT INTO brand.contact_links (tenant_id, platform, url, display_label, position) VALUES ($1,'whatsapp',$2,'WhatsApp',1)`,
+          [tenantId, waUrl]
+        );
+      }
+    }
+
+    // ── 4. Update Razorpay integration ───────────────────────────────────────
+    if (razorpay_key_id !== undefined || razorpay_key_secret !== undefined) {
+      const { encrypt } = require('../../utils/crypto');
+      const existingInteg = await query(
+        `SELECT id, config FROM tenant.integrations WHERE tenant_id = $1 AND provider = 'razorpay' AND deleted_at IS NULL LIMIT 1`,
+        [tenantId]
+      );
+      const keyId     = razorpay_key_id     ?? existingInteg.rows[0]?.config?.key_id;
+      const rawSecret = razorpay_key_secret ?? null;
+      const keySecret = rawSecret ? encrypt(rawSecret) : existingInteg.rows[0]?.config?.key_secret;
+      if (keyId && keySecret) {
+        if (existingInteg.rows.length) {
+          await query(
+            `UPDATE tenant.integrations SET config = $1, updated_at = NOW() WHERE id = $2`,
+            [JSON.stringify({ key_id: keyId, key_secret: keySecret }), existingInteg.rows[0].id]
+          );
+        } else {
+          await query(
+            `INSERT INTO tenant.integrations (tenant_id, provider, config, is_active) VALUES ($1,'razorpay',$2,true)`,
+            [tenantId, JSON.stringify({ key_id: keyId, key_secret: keySecret })]
+          );
+        }
+      }
+    }
+
+    // ── Bust cache + audit ───────────────────────────────────────────────────
+    _configCache.delete(tenantId);
     audit.log(null, {
-      tenantId: tenantId, actorId: req.auth?.staffId, actorType: 'staff',
+      tenantId, actorId: req.auth?.staffId, actorType: 'staff',
       action: 'config.update', entityType: 'tenant.restaurant', entityId: tenantId,
       newValue: d, req,
     });
 
-    res.json({ ok: true, name: result.rows[0].name });
+    res.json({ ok: true });
   } catch (err) {
     next(err);
   }
@@ -471,4 +536,9 @@ router.get('/items/:id', async (req, res, next) => {
   }
 });
 
+function bustConfigCache(tenantId) {
+  _configCache.delete(tenantId);
+}
+
 module.exports = router;
+module.exports.bustConfigCache = bustConfigCache;

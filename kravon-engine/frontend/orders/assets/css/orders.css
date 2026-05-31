@@ -5,6 +5,67 @@
    all live in shared/. No hex values here — token refs only.
    ═══════════════════════════════════════════════════════════ */
 
+/* ─── LOADING & ERROR STATES ─── */
+@keyframes o-shimmer {
+  from { background-position: -600px 0; }
+  to   { background-position:  600px 0; }
+}
+.o-skeleton {
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0.04) 25%,
+    rgba(255,255,255,0.08) 50%,
+    rgba(255,255,255,0.04) 75%);
+  background-size: 1200px 100%;
+  animation: o-shimmer 1.6s infinite;
+  border-radius: var(--r-md);
+}
+
+body[data-loading="true"] #app { display: none; }
+body[data-loading="true"] #orders-shell { display: flex; }
+
+#orders-shell {
+  display: none;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--black);
+}
+.shell-nav {
+  height: 60px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--sp-8);
+  gap: var(--sp-5);
+}
+.shell-nav-brand { width: 120px; height: 16px; }
+.shell-body {
+  display: grid;
+  grid-template-columns: 200px 1fr 340px;
+  gap: var(--sp-6);
+  padding: var(--sp-6) var(--sp-8);
+  align-items: start;
+}
+.shell-sidebar { display: flex; flex-direction: column; gap: var(--sp-2); }
+.shell-cat { height: 36px; border-radius: var(--r-md); }
+.shell-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
+.shell-card { height: 220px; border-radius: var(--r-lg); }
+.shell-cart { height: 400px; border-radius: var(--r-lg); }
+
+body[data-error="true"] #app { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+.orders-error {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--sp-4);
+  padding: var(--sp-8);
+  max-width: 380px;
+}
+body[data-error="true"] .orders-error { display: flex; }
+.orders-error-icon { font-size: 36px; opacity: .5; }
+.orders-error-title { font-family: var(--font-head); font-size: 20px; font-weight: 800; color: var(--white); }
+.orders-error-body  { font-size: 14px; color: rgba(255,255,255,0.35); line-height: 1.7; }
+
 /* ─── CSS CUSTOM PROPERTIES (orders-specific) ─── */
 :root {
   --nav-height:  60px;
@@ -102,6 +163,10 @@
   color: var(--accent);
   display: block;
   margin-bottom: var(--sp-4);
+  max-width: 560px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .orders-headline {
@@ -266,19 +331,24 @@
 .menu-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 2px;
+  gap: var(--sp-4);
 }
 
 /* ─── ITEM CARDS ─── */
 .item-card {
   background: var(--card);
   border: 1px solid var(--border);
+  border-radius: var(--r-lg);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: border-color var(--t-fast);
+  transition: border-color var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
 }
-.item-card:hover { border-color: var(--border-2); }
+.item-card:hover {
+  border-color: var(--border-2);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+}
 
 .item-img {
   aspect-ratio: 16 / 10;
@@ -287,6 +357,14 @@
   justify-content: center;
   font-size: 32px;
   position: relative;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  overflow: hidden;
+}
+.item-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
 }
 
 .item-badge {
@@ -488,10 +566,10 @@
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border);
   padding: var(--sp-4) var(--sp-5);
-  margin-bottom: 2px;
+  margin-bottom: var(--sp-2);
   cursor: pointer;
-  transition: border-color var(--t-fast);
-  border-radius: var(--r-sm);
+  transition: border-color var(--t-fast), background var(--t-fast);
+  border-radius: var(--r-lg);
 }
 .delivery-opt:hover    { border-color: var(--border-2); }
 .delivery-opt.selected {
@@ -559,10 +637,10 @@
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border);
   padding: var(--sp-4) var(--sp-5);
-  margin-bottom: 2px;
+  margin-bottom: var(--sp-2);
   cursor: pointer;
-  transition: border-color var(--t-fast);
-  border-radius: var(--r-sm);
+  transition: border-color var(--t-fast), background var(--t-fast);
+  border-radius: var(--r-lg);
 }
 .pay-opt:hover    { border-color: var(--border-2); }
 .pay-opt.selected {
@@ -624,7 +702,7 @@
   background: var(--card);
   border: 1px solid var(--border);
   padding: var(--sp-5);
-  border-radius: var(--r-sm);
+  border-radius: var(--r-lg);
 }
 
 .summary-header {
@@ -712,7 +790,7 @@
   background: var(--card);
   border: 1px solid var(--border);
   padding: var(--sp-8) var(--sp-8);
-  border-radius: var(--r-sm);
+  border-radius: var(--r-lg);
 }
 
 .confirm-check {
@@ -754,6 +832,7 @@
   padding: var(--sp-3) var(--sp-4);
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border);
+  border-radius: var(--r-md);
 }
 
 .confirm-meta-key {

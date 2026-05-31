@@ -129,7 +129,13 @@
       "Bash(curl -s \"http://localhost:3000/v1/admin/restaurants\" -H \"X-Kravon-Admin-Key: $\\(cd c:/Users/Nikhil/KravonSAAS/kravon-stack/kravon-engine/backend && node -e \"require\\('dotenv'\\).config\\(\\); console.log\\(process.env.ADMIN_API_KEY\\)\"\\)\")",
       "Bash(node -e \"const d=require\\('fs'\\).readFileSync\\('/dev/stdin','utf8'\\); const j=JSON.parse\\(d\\); j.restaurants.forEach\\(r=>console.log\\(r.slug, '|', r.name, '|', r.status\\)\\)\")",
       "PowerShell(Start-Process \"http://localhost:8000/presence/?slug=avartana\")",
-      "PowerShell(Invoke-WebRequest -Uri \"http://localhost:8000/dashboard/\" -UseBasicParsing)"
+      "PowerShell(Invoke-WebRequest -Uri \"http://localhost:8000/dashboard/\" -UseBasicParsing)",
+      "Bash(curl -s \"http://localhost:3000/v1/restaurants/avartana/config\")",
+      "Bash(node -e \"const d=require\\('fs'\\).readFileSync\\(0,'utf8'\\); const j=JSON.parse\\(d\\); console.log\\('top keys:', Object.keys\\(j\\)\\); console.log\\('config keys:', Object.keys\\(j.config||{}\\).slice\\(0,15\\)\\);\")",
+      "Bash(node -e \"const d=require\\('fs'\\).readFileSync\\(0,'utf8'\\); const j=JSON.parse\\(d\\); const c=j.config; console.log\\('menu:', JSON.stringify\\(c.menu\\).slice\\(0,200\\)\\); console.log\\('hero:', JSON.stringify\\(c.hero\\).slice\\(0,200\\)\\);\")",
+      "Bash(sed -n '569,640p' \"c:/Users/Nikhil/KravonSAAS/kravon-stack/kravon-engine/backend/db/schema/kravon_schema_v12.sql\")",
+      "Bash(sed -n '941,1010p' \"c:/Users/Nikhil/KravonSAAS/kravon-stack/kravon-engine/backend/db/schema/kravon_schema_v12.sql\")",
+      "Bash(sed -n '1128,1165p' \"c:/Users/Nikhil/KravonSAAS/kravon-stack/kravon-engine/backend/db/schema/kravon_schema_v12.sql\")"
     ],
     "additionalDirectories": [
       "\\tmp",

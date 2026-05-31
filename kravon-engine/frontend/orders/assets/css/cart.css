@@ -158,7 +158,7 @@
 .qty-btn {
   width: 26px;
   height: 26px;
-  border-radius: 2px;
+  border-radius: 50%;
   background: var(--card-2);
   border: 1px solid var(--border-2);
   color: var(--white);
@@ -283,14 +283,16 @@
   font-size: 15px;
   font-weight: 800;
   border: none;
+  border-radius: var(--r-lg);
   cursor: pointer;
   letter-spacing: -0.2px;
-  transition: background 0.18s;
+  transition: background 0.18s, transform 0.15s;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
 }
+.checkout-btn:hover:not(:disabled) { transform: translateY(-1px); }
 
 .checkout-btn:hover   { background: var(--lime-dk); }
 .checkout-btn:disabled {
@@ -377,6 +379,7 @@
     transform: translateY(100%);
     transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
     border-top: 1px solid var(--border-2);
+    border-radius: 20px 20px 0 0;
     border-left: none;
   }
 

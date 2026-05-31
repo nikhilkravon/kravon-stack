@@ -156,15 +156,15 @@ const ReservationsView = (() => {
   }
 
   function init(el) {
-    _state = { tab: 'upcoming', page: 1 };
+    _state = { tab: 'all', page: 1 };
 
     el.innerHTML = `
       <div class="tab-bar">
-        <button class="tab active" data-tab="upcoming">Upcoming</button>
+        <button class="tab active" data-tab="all">All</button>
+        <button class="tab" data-tab="upcoming">Upcoming</button>
         <button class="tab" data-tab="confirmed">Confirmed</button>
         <button class="tab" data-tab="pending">Pending</button>
         <button class="tab" data-tab="cancelled">Cancelled</button>
-        <button class="tab" data-tab="all">All</button>
       </div>
       <div class="card">
         <div class="card-header">

@@ -18,6 +18,7 @@
 const express  = require('express');
 const { query, getClient } = require('../../db/pool');
 const { requireRestaurantAuth } = require('../middleware/auth');
+const { bustConfigCache } = require('./config');
 
 const router = express.Router();
 
@@ -62,6 +63,10 @@ router.get('/', requireRestaurantAuth, async (req, res, next) => {
           googleMapsUrl: s.map_url   || '',
         },
         social: socialLinks,
+        branding: {
+          logoUrl:  r.logo_url   || '',
+          heroImage: r.hero_image || '',
+        },
         hero: {
           headline:    r.name       || '',
           subheadline: r.tagline    || '',
@@ -198,6 +203,39 @@ router.patch('/', requireRestaurantAuth, async (req, res, next) => {
       }
     }
 
+    // ── Branding (logo + hero image) ──────────────────────────────────────
+    if (body.branding) {
+      const b = body.branding;
+
+      if (b.logoUrl !== undefined) {
+        parallelOps.push(
+          query(`DELETE FROM brand.assets WHERE tenant_id = $1 AND type = 'logo'`, [tenantId])
+            .then(() => {
+              if (!b.logoUrl) return;
+              return query(
+                `INSERT INTO brand.assets (id, tenant_id, type, url, alt_text, metadata)
+                 VALUES (gen_random_uuid(), $1, 'logo', $2, $3, '{}')`,
+                [tenantId, b.logoUrl, `${req.tenant.name} logo`]
+              );
+            })
+        );
+      }
+
+      if (b.heroImage !== undefined) {
+        parallelOps.push(
+          query(`DELETE FROM brand.assets WHERE tenant_id = $1 AND type = 'banner'`, [tenantId])
+            .then(() => {
+              if (!b.heroImage) return;
+              return query(
+                `INSERT INTO brand.assets (id, tenant_id, type, url, alt_text, metadata)
+                 VALUES (gen_random_uuid(), $1, 'banner', $2, $3, '{}')`,
+                [tenantId, b.heroImage, `${req.tenant.name} hero image`]
+              );
+            })
+        );
+      }
+    }
+
     // ── Hero ──────────────────────────────────────────────────────────────
     if (body.hero) {
       const h = body.hero;
@@ -295,6 +333,7 @@ router.patch('/', requireRestaurantAuth, async (req, res, next) => {
     }
 
     await Promise.all(parallelOps);
+    bustConfigCache(tenantId);
     res.json({ ok: true });
 
   } catch (err) {

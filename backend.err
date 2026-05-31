@@ -1,1 +1,0 @@
-[startup] RAZORPAY_WEBHOOK_SECRET is not set — Razorpay webhooks will be rejected at runtime.

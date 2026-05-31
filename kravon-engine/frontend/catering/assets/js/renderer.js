@@ -61,9 +61,10 @@
 
   /* ── CREDENTIAL BAR ── */
   function renderCredBar() {
-    var bar  = h('div', 'cred-bar');
-    var left = h('div', 'cred-left');
-    CONFIG.credBar.items.forEach(function (txt) {
+    var bar   = h('div', 'cred-bar');
+    var left  = h('div', 'cred-left');
+    var items = (CONFIG.credBar && CONFIG.credBar.items) || [];
+    items.forEach(function (txt) {
       left.appendChild(h('div', 'cred-item', txt));
     });
     var right = h('div', 'cred-right',
@@ -304,9 +305,9 @@
 
     var tabs = h('div', 'menu-tabs', '', { role: 'tablist' });
     CONFIG.menu.tabs.forEach(function (tab, i) {
-      var btn = h('button', 'menu-tab' + (i === 0 ? ' active' : ''), tab.label,
-        { role: 'tab' });
-      btn.dataset.menuId = tab.id;
+      var btn = h('button', 'menu-tab' + (i === 0 ? ' active' : ''),
+        tab.label || tab.name || ('Tab ' + (i + 1)), { role: 'tab' });
+      btn.dataset.menuId = tab.id || String(i);
       btn.dataset.action = 'switch-menu';
       tabs.appendChild(btn);
     });
@@ -314,20 +315,34 @@
 
     CONFIG.menu.tabs.forEach(function (tab, i) {
       var panel = h('div', 'menu-panel' + (i === 0 ? ' active' : ''));
-      panel.id = 'menu-' + tab.id;
-      tab.cols.forEach(function (col) {
+      panel.id = 'menu-' + (tab.id || i);
+      var cols = tab.cols || [];
+      cols.forEach(function (col) {
         var mc = h('div', 'menu-col');
-        mc.appendChild(h('span', 'menu-col-lbl', col.heading));
+        mc.appendChild(h('span', 'menu-col-lbl', col.heading || ''));
         var items = h('div', 'menu-items');
-        col.items.forEach(function (it) {
+        (col.items || []).forEach(function (it) {
           items.appendChild(h('div', 'menu-row',
             '<span class="menu-pip"></span>' +
-            '<div><span class="menu-dish">' + it.dish + '</span>' +
-            '<span class="menu-note">'      + it.note + '</span></div>'));
+            '<div><span class="menu-dish">' + (it.dish || it.name || '') + '</span>' +
+            '<span class="menu-note">'      + (it.note || it.desc || '') + '</span></div>'));
         });
         mc.appendChild(items);
         panel.appendChild(mc);
       });
+      // If no cols, render items directly in a single column
+      if (!cols.length && tab.items && tab.items.length) {
+        var mc = h('div', 'menu-col');
+        var items = h('div', 'menu-items');
+        tab.items.forEach(function (it) {
+          items.appendChild(h('div', 'menu-row',
+            '<span class="menu-pip"></span>' +
+            '<div><span class="menu-dish">' + (it.name || '') + '</span>' +
+            '<span class="menu-note">'      + (it.desc || '') + '</span></div>'));
+        });
+        mc.appendChild(items);
+        panel.appendChild(mc);
+      }
       wrap.appendChild(panel);
     });
 

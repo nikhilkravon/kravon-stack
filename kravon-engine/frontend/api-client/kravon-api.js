@@ -46,9 +46,10 @@ const KravonAPI = (() => {
     _config = data.config;
 
     window.CONFIG       = _config;
-    window.MENU         = _config.menu.items || _config.menu;  // flat item array for renderer
-    window.ADDONS       = _config.addons;
-    window.SPICE_LEVELS = _config.spiceLevels;
+    // Config shape: categories[] (v12). menu.items is legacy — support both.
+    window.MENU         = _config.categories || _config.menu?.items || _config.menu || [];
+    window.ADDONS       = _config.addons       || [];
+    window.SPICE_LEVELS = _config.spiceLevels  || [];
 
     return _config;
   }

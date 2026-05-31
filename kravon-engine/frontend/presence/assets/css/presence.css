@@ -143,6 +143,17 @@ body {
   box-shadow: none;
 }
 
+.p-btn-secondary {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--p-text);
+  border: 1px solid var(--p-border-2);
+}
+.p-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.22);
+  transform: translateY(-1px);
+}
+
 .p-btn-outline {
   background: transparent;
   color: var(--p-text);
@@ -407,6 +418,10 @@ body[data-error] #errorFallback { display: block; }
   letter-spacing: 2.5px;
   text-transform: uppercase;
   color: var(--p-text-3);
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .p-nav-center {
@@ -1236,7 +1251,94 @@ body[data-error] #errorFallback { display: block; }
   transform: translateY(0);
 }
 
-/* ── 16. Responsive ── */
+/* ── 16. Loading & Error states ── */
+
+/* Skeleton shimmer */
+@keyframes p-shimmer {
+  from { background-position: -600px 0; }
+  to   { background-position:  600px 0; }
+}
+.p-skeleton {
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0.04) 25%,
+    rgba(255,255,255,0.08) 50%,
+    rgba(255,255,255,0.04) 75%);
+  background-size: 1200px 100%;
+  animation: p-shimmer 1.6s infinite;
+  border-radius: var(--p-r-sm);
+}
+
+/* Hide app content while loading; show skeleton nav shell */
+body[data-loading="true"] #app { visibility: hidden; }
+
+body[data-loading="true"] .p-load-shell { display: flex; }
+.p-load-shell {
+  display: none;
+  position: fixed;
+  inset: 0;
+  flex-direction: column;
+  background: var(--p-bg);
+  z-index: 10;
+}
+.p-load-nav {
+  height: var(--p-nav-h);
+  border-bottom: 1px solid var(--p-border);
+  display: flex;
+  align-items: center;
+  padding: 0 40px;
+  gap: 16px;
+}
+.p-load-brand {
+  width: 140px;
+  height: 18px;
+}
+.p-load-hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 40px;
+  gap: 20px;
+  max-width: 560px;
+}
+.p-load-h1 { height: 64px; width: 80%; }
+.p-load-sub { height: 16px; width: 60%; }
+.p-load-ctas { display: flex; gap: 12px; }
+.p-load-btn { height: 46px; width: 140px; border-radius: var(--p-r-sm); }
+
+/* Error state */
+body[data-error="true"] #app {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+.p-error-state {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+  padding: 48px 24px;
+  max-width: 400px;
+  margin: 0 auto;
+}
+body[data-error="true"] .p-error-state { display: flex; }
+.p-error-icon { font-size: 40px; opacity: .5; }
+.p-error-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--p-text);
+  letter-spacing: -0.5px;
+}
+.p-error-body {
+  font-size: 14px;
+  color: var(--p-text-3);
+  line-height: 1.7;
+}
+
+/* ── 17. Responsive ── */
 @media (max-width: 1024px) {
   .p-hero-content {
     grid-template-columns: 1fr;

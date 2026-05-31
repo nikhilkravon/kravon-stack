@@ -4,13 +4,33 @@ const OrdersView = (() => {
 
   let _state = { tab: 'all', page: 1, search: '' };
 
-  const STATUS_NEXT = {
+  // State machines per fulfillment type — delivery is the only one with out_for_delivery.
+  const STATUS_NEXT_DELIVERY = {
     pending:          ['confirmed', 'cancelled'],
     confirmed:        ['preparing', 'cancelled'],
     preparing:        ['ready'],
-    ready:            ['out_for_delivery', 'completed'],
+    ready:            ['out_for_delivery'],
     out_for_delivery: ['completed'],
   };
+
+  const STATUS_NEXT_DINE_IN = {
+    pending:          ['confirmed', 'cancelled'],
+    confirmed:        ['preparing', 'cancelled'],
+    preparing:        ['ready'],
+    ready:            ['completed'],
+  };
+
+  const STATUS_NEXT_CATERING = {
+    pending:          ['confirmed', 'cancelled'],
+    confirmed:        ['completed', 'cancelled'],
+  };
+
+  function _statusNext(fulfillmentType) {
+    if (fulfillmentType === 'delivery')        return STATUS_NEXT_DELIVERY;
+    if (fulfillmentType === 'catering')        return STATUS_NEXT_CATERING;
+    // dine_in, pickup, qr, or anything else — no out_for_delivery
+    return STATUS_NEXT_DINE_IN;
+  }
 
   const ACTION_LABELS = {
     confirmed:        'Accept',
@@ -89,7 +109,8 @@ const OrdersView = (() => {
   }
 
   function _actionButtons(o) {
-    const nexts = STATUS_NEXT[o.status];
+    const machine = _statusNext(o.fulfillment_type);
+    const nexts   = machine[o.status];
     if (!nexts) return '';
     return nexts.map(s =>
       `<button class="btn ${ACTION_STYLE[s]} btn-sm order-action"

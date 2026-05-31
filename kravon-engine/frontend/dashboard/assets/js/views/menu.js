@@ -122,67 +122,110 @@ const MenuView = (() => {
   }
 
   function _openItemModal(catId, item = null) {
-    const isEdit = !!item;
-    const cats   = _categories;
+    const isEdit  = !!item;
+    const cats    = _categories;
     const catOpts = cats.map(c => `<option value="${c.id}" ${c.id === catId ? 'selected' : ''}>${_esc(c.name)}</option>`).join('');
+
     document.body.insertAdjacentHTML('beforeend', `
       <div class="modal-overlay" id="item-modal">
-        <div class="modal">
+        <div class="modal" style="max-width:560px">
           <div class="modal-header">
             <span class="modal-title">${isEdit ? 'Edit item' : 'Add item'}</span>
             <button class="modal-close" id="item-modal-close">✕</button>
           </div>
-          <form id="item-form">
-            <div class="modal-body">
-              <div class="form-group">
-                <label>Category</label>
-                <select name="category_id">${catOpts}</select>
-              </div>
-              <div class="form-row">
+          ${isEdit ? `
+          <div class="tab-bar" style="padding:0 var(--sp-5);margin-bottom:0;border-bottom:1px solid var(--gray-200)">
+            <button class="tab active" data-tab="details">Details</button>
+            <button class="tab" data-tab="variants">Variants</button>
+            <button class="tab" data-tab="customizations">Add-ons</button>
+          </div>` : ''}
+          <div id="item-tab-details">
+            <form id="item-form">
+              <div class="modal-body">
                 <div class="form-group">
-                  <label>Name</label>
-                  <input name="name" type="text" value="${_esc(item?.name || '')}" required maxlength="150">
+                  <label>Category</label>
+                  <select name="category_id">${catOpts}</select>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Name</label>
+                    <input name="name" type="text" value="${_esc(item?.name || '')}" required maxlength="150">
+                  </div>
+                  <div class="form-group">
+                    <label>Price (₹)</label>
+                    <input name="price" type="number" min="0" step="0.01" value="${item?.price ?? ''}">
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Food type</label>
+                    <select name="food_type">
+                      ${['veg','non_veg','egg','vegan'].map(v => `<option value="${v}" ${(item?.food_type||'veg')===v?'selected':''}>${v.replace('_',' ')}</option>`).join('')}
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label>Available</label>
+                    <select name="is_available">
+                      <option value="true"  ${item?.is_available !== false ? 'selected' : ''}>Yes</option>
+                      <option value="false" ${item?.is_available === false  ? 'selected' : ''}>No (86'd)</option>
+                    </select>
+                  </div>
                 </div>
                 <div class="form-group">
-                  <label>Price (₹)</label>
-                  <input name="price" type="number" min="0" step="0.01" value="${item?.price ?? ''}" required>
-                </div>
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label>Food type</label>
-                  <select name="food_type">
-                    ${['veg','non_veg','egg','vegan'].map(v => `<option value="${v}" ${(item?.food_type||'veg')===v?'selected':''}>${v}</option>`).join('')}
-                  </select>
+                  <label>Description</label>
+                  <input name="description" type="text" value="${_esc(item?.description || '')}" maxlength="500">
                 </div>
                 <div class="form-group">
-                  <label>Available?</label>
-                  <select name="is_available">
-                    <option value="true"  ${(item?.is_available !== false) ? 'selected' : ''}>Yes</option>
-                    <option value="false" ${(item?.is_available === false)  ? 'selected' : ''}>No (86'd)</option>
-                  </select>
+                  <label>Image URL</label>
+                  <input name="image_url" type="url" value="${_esc(item?.image_url || '')}" maxlength="500" placeholder="https://…">
                 </div>
+                <p id="item-modal-error" class="form-error" hidden></p>
               </div>
-              <div class="form-group">
-                <label>Description <span class="text-muted">(optional)</span></label>
-                <input name="description" type="text" value="${_esc(item?.description || '')}" maxlength="500">
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="item-modal-cancel">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="item-modal-save">Save</button>
               </div>
-              <p id="item-modal-error" class="form-error" hidden></p>
+            </form>
+          </div>
+          ${isEdit ? `
+          <div id="item-tab-variants" style="display:none">
+            <div class="modal-body" style="min-height:200px">
+              <div id="variants-list"></div>
+              <button class="btn btn-secondary btn-sm" id="add-variant-btn" style="margin-top:var(--sp-3)">+ Add variant</button>
             </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" id="item-modal-cancel">Cancel</button>
-              <button type="submit" class="btn btn-primary" id="item-modal-save">Save</button>
+          </div>
+          <div id="item-tab-customizations" style="display:none">
+            <div class="modal-body" style="min-height:200px">
+              <div id="custom-groups-list"></div>
+              <button class="btn btn-secondary btn-sm" id="add-group-btn" style="margin-top:var(--sp-3)">+ Add group</button>
             </div>
-          </form>
+          </div>` : ''}
         </div>
       </div>`);
 
     const overlay = document.getElementById('item-modal');
     const close   = () => overlay.remove();
     overlay.querySelector('#item-modal-close').onclick  = close;
-    overlay.querySelector('#item-modal-cancel').onclick = close;
+    overlay.querySelector('#item-modal-cancel')?.addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
 
-    overlay.querySelector('#item-form').onsubmit = async (e) => {
+    // Tab switching
+    if (isEdit) {
+      overlay.querySelectorAll('.tab[data-tab]').forEach(tab => {
+        tab.addEventListener('click', () => {
+          overlay.querySelectorAll('.tab[data-tab]').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          ['details','variants','customizations'].forEach(t => {
+            overlay.querySelector(`#item-tab-${t}`).style.display = tab.dataset.tab === t ? '' : 'none';
+          });
+          if (tab.dataset.tab === 'variants')       _loadVariants(overlay, item.id);
+          if (tab.dataset.tab === 'customizations') _loadCustomizations(overlay, item.id);
+        });
+      });
+    }
+
+    // Details form submit
+    overlay.querySelector('#item-form').onsubmit = async e => {
       e.preventDefault();
       const fd   = new FormData(e.target);
       const body = {
@@ -192,6 +235,7 @@ const MenuView = (() => {
         food_type:    fd.get('food_type'),
         is_available: fd.get('is_available') === 'true',
         description:  fd.get('description') || null,
+        image_url:    fd.get('image_url') || null,
       };
       const btn = overlay.querySelector('#item-modal-save');
       const err = overlay.querySelector('#item-modal-error');
@@ -205,6 +249,237 @@ const MenuView = (() => {
         err.textContent = ex.message; err.hidden = false;
         btn.disabled = false; btn.textContent = 'Save';
       }
+    };
+  }
+
+  // ── Variants panel ────────────────────────────────────────────────────────
+  async function _loadVariants(overlay, itemId) {
+    const list = overlay.querySelector('#variants-list');
+    list.innerHTML = '<div class="skeleton skeleton-line"></div>';
+    try {
+      const data     = await Api.rGet(`/menu/items/${itemId}/variants`);
+      const variants = data.variants || [];
+      list.innerHTML = variants.length
+        ? variants.map(v => `
+            <div class="menu-item-row" data-vid="${v.id}">
+              <div class="menu-item-info">
+                <span class="menu-item-name">${_esc(v.name)}</span>
+                <span class="menu-item-price">₹ ${Number(v.price).toLocaleString('en-IN')}</span>
+              </div>
+              <div class="menu-item-actions">
+                <button class="btn btn-danger btn-sm del-variant" data-vid="${v.id}">Remove</button>
+              </div>
+            </div>`).join('')
+        : '<div class="text-sm text-muted">No variants yet.</div>';
+
+      list.querySelectorAll('.del-variant').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          btn.disabled = true;
+          try {
+            await Api.rDel(`/menu/items/${itemId}/variants/${btn.dataset.vid}`);
+            _loadVariants(overlay, itemId);
+          } catch { btn.disabled = false; }
+        });
+      });
+    } catch (err) {
+      list.innerHTML = `<div class="text-sm text-muted">Could not load variants.</div>`;
+    }
+
+    const addBtn = overlay.querySelector('#add-variant-btn');
+    addBtn.onclick = () => {
+      // Replace button with inline add form
+      addBtn.style.display = 'none';
+      const form = document.createElement('div');
+      form.className = 'inline-add-form';
+      form.innerHTML = `
+        <div class="form-row" style="margin-bottom:0">
+          <div class="form-group" style="margin-bottom:0">
+            <input id="v-name" type="text" placeholder="Variant name (e.g. Small)" maxlength="150" autofocus>
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <input id="v-price" type="number" min="0" step="0.01" placeholder="Price ₹">
+          </div>
+        </div>
+        <div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-2)">
+          <button class="btn btn-primary btn-sm" id="v-save">Add variant</button>
+          <button class="btn btn-ghost btn-sm" id="v-cancel">Cancel</button>
+        </div>
+        <p class="form-error" id="v-err" hidden></p>`;
+      addBtn.parentNode.insertBefore(form, addBtn.nextSibling);
+
+      form.querySelector('#v-cancel').onclick = () => { form.remove(); addBtn.style.display = ''; };
+      form.querySelector('#v-save').onclick = async () => {
+        const name  = form.querySelector('#v-name').value.trim();
+        const price = form.querySelector('#v-price').value;
+        const err   = form.querySelector('#v-err');
+        if (!name) { err.textContent = 'Name is required.'; err.hidden = false; return; }
+        if (!price) { err.textContent = 'Price is required.'; err.hidden = false; return; }
+        const saveBtn = form.querySelector('#v-save');
+        saveBtn.disabled = true; saveBtn.textContent = 'Adding…';
+        try {
+          await Api.rPost(`/menu/items/${itemId}/variants`, { name, price: Number(price) });
+          form.remove(); addBtn.style.display = '';
+          _loadVariants(overlay, itemId);
+        } catch (ex) {
+          err.textContent = ex.message; err.hidden = false;
+          saveBtn.disabled = false; saveBtn.textContent = 'Add variant';
+        }
+      };
+    };
+  }
+
+  // ── Customizations panel ──────────────────────────────────────────────────
+  async function _loadCustomizations(overlay, itemId) {
+    const list = overlay.querySelector('#custom-groups-list');
+    list.innerHTML = '<div class="skeleton skeleton-line"></div>';
+    try {
+      const data   = await Api.rGet(`/menu/items/${itemId}/customizations`);
+      const groups = data.groups || [];
+
+      list.innerHTML = groups.length
+        ? groups.map(g => `
+            <div class="category-block" style="margin-bottom:var(--sp-3)" data-gid="${g.id}">
+              <div class="category-header" style="cursor:default">
+                <div class="category-header-left">
+                  <span style="font-weight:600">${_esc(g.name)}</span>
+                  <span class="text-sm text-muted">${g.group_type} · ${g.is_required ? 'Required' : 'Optional'}</span>
+                </div>
+                <div class="category-header-actions">
+                  <button class="btn btn-danger btn-sm del-group" data-gid="${g.id}">Remove group</button>
+                </div>
+              </div>
+              <div class="category-items open" style="padding:var(--sp-3)">
+                ${(g.options || []).map(o => `
+                  <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0">
+                    <span class="text-sm">${_esc(o.name)}${o.price_modifier > 0 ? ` (+₹${o.price_modifier})` : ''}</span>
+                    <button class="btn btn-ghost btn-sm del-option" data-oid="${o.id}" style="color:var(--red-500)">✕</button>
+                  </div>`).join('')}
+                <button class="btn btn-ghost btn-sm add-option" data-gid="${g.id}" style="margin-top:var(--sp-2)">+ Add option</button>
+              </div>
+            </div>`).join('')
+        : '<div class="text-sm text-muted">No add-on groups yet.</div>';
+
+      list.querySelectorAll('.del-group').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          btn.disabled = true;
+          try {
+            await Api.rDel(`/menu/items/${itemId}/customizations/groups/${btn.dataset.gid}`);
+            _loadCustomizations(overlay, itemId);
+          } catch { btn.disabled = false; }
+        });
+      });
+
+      list.querySelectorAll('.del-option').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          btn.disabled = true;
+          try {
+            await Api.rDel(`/menu/items/${itemId}/customizations/options/${btn.dataset.oid}`);
+            _loadCustomizations(overlay, itemId);
+          } catch { btn.disabled = false; }
+        });
+      });
+
+      list.querySelectorAll('.add-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+          btn.style.display = 'none';
+          const form = document.createElement('div');
+          form.className = 'inline-add-form';
+          form.style.marginTop = 'var(--sp-2)';
+          form.innerHTML = `
+            <div class="form-row" style="margin-bottom:0">
+              <div class="form-group" style="margin-bottom:0">
+                <input class="opt-name" type="text" placeholder="Option name (e.g. Mild)" maxlength="100">
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <input class="opt-price" type="number" min="0" step="0.01" placeholder="Extra ₹ (0 = free)">
+              </div>
+            </div>
+            <div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-2)">
+              <button class="btn btn-primary btn-sm opt-save">Add option</button>
+              <button class="btn btn-ghost btn-sm opt-cancel">Cancel</button>
+            </div>
+            <p class="form-error opt-err" hidden></p>`;
+          btn.parentNode.insertBefore(form, btn.nextSibling);
+
+          form.querySelector('.opt-cancel').onclick = () => { form.remove(); btn.style.display = ''; };
+          form.querySelector('.opt-save').onclick = async () => {
+            const name  = form.querySelector('.opt-name').value.trim();
+            const price = form.querySelector('.opt-price').value || '0';
+            const err   = form.querySelector('.opt-err');
+            if (!name) { err.textContent = 'Name is required.'; err.hidden = false; return; }
+            const saveBtn = form.querySelector('.opt-save');
+            saveBtn.disabled = true; saveBtn.textContent = 'Adding…';
+            try {
+              await Api.rPost(`/menu/items/${itemId}/customizations/groups/${btn.dataset.gid}/options`, {
+                name, price_modifier: Number(price),
+              });
+              form.remove(); btn.style.display = '';
+              _loadCustomizations(overlay, itemId);
+            } catch (ex) {
+              err.textContent = ex.message; err.hidden = false;
+              saveBtn.disabled = false; saveBtn.textContent = 'Add option';
+            }
+          };
+        });
+      });
+
+    } catch {
+      list.innerHTML = `<div class="text-sm text-muted">Could not load customizations.</div>`;
+    }
+
+    const addGroupBtn = overlay.querySelector('#add-group-btn');
+    addGroupBtn.onclick = () => {
+      addGroupBtn.style.display = 'none';
+      const form = document.createElement('div');
+      form.className = 'inline-add-form';
+      form.innerHTML = `
+        <div class="form-group">
+          <label>Group name</label>
+          <input id="g-name" type="text" placeholder="e.g. Spice Level, Extras, Side choice" maxlength="100">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Type</label>
+            <select id="g-type">
+              <option value="radio">Single select (radio)</option>
+              <option value="checkbox">Multi-select (checkbox)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Required?</label>
+            <select id="g-required">
+              <option value="false">Optional</option>
+              <option value="true">Required</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:var(--sp-2)">
+          <button class="btn btn-primary btn-sm" id="g-save">Add group</button>
+          <button class="btn btn-ghost btn-sm" id="g-cancel">Cancel</button>
+        </div>
+        <p class="form-error" id="g-err" hidden></p>`;
+      addGroupBtn.parentNode.insertBefore(form, addGroupBtn.nextSibling);
+
+      form.querySelector('#g-cancel').onclick = () => { form.remove(); addGroupBtn.style.display = ''; };
+      form.querySelector('#g-save').onclick = async () => {
+        const name = form.querySelector('#g-name').value.trim();
+        const type = form.querySelector('#g-type').value;
+        const req  = form.querySelector('#g-required').value === 'true';
+        const err  = form.querySelector('#g-err');
+        if (!name) { err.textContent = 'Name is required.'; err.hidden = false; return; }
+        const saveBtn = form.querySelector('#g-save');
+        saveBtn.disabled = true; saveBtn.textContent = 'Adding…';
+        try {
+          await Api.rPost(`/menu/items/${itemId}/customizations/groups`, {
+            name, group_type: type, is_required: req,
+          });
+          form.remove(); addGroupBtn.style.display = '';
+          _loadCustomizations(overlay, itemId);
+        } catch (ex) {
+          err.textContent = ex.message; err.hidden = false;
+          saveBtn.disabled = false; saveBtn.textContent = 'Add group';
+        }
+      };
     };
   }
 

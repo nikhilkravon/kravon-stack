@@ -22,6 +22,12 @@
     await KravonAPI.loadConfig();
     // window.CONFIG, window.MENU, window.ADDONS are now populated
 
+    // Update shell brand name before renderer runs so it never shows placeholder
+    const shellName = document.querySelector('.p-nav-name');
+    const shellTag  = document.querySelector('.p-nav-tagline');
+    if (shellName && window.CONFIG?.brand?.name) shellName.textContent = window.CONFIG.brand.name;
+    if (shellTag  && window.CONFIG?.brand?.tagline) shellTag.textContent = window.CONFIG.brand.tagline;
+
     // Initialise presence (same call sequence as V7 main.js equivalent)
     if (typeof window.initRenderer === 'function') window.initRenderer();
     if (typeof window.initBehaviour === 'function') window.initBehaviour();

@@ -63,6 +63,32 @@ const PresenceView = (() => {
     </div>`;
   }
 
+  // ── BRANDING ──────────────────────────────────────────────────────────────
+  function _renderBranding(el) {
+    const b = _content.branding || {};
+    el.insertAdjacentHTML('beforeend', `
+      <div class="card" style="margin-bottom:var(--sp-5)">
+        ${_sectionHeader('Branding', 'Logo and hero image shown on your presence page')}
+        <div class="card-body">
+          <div class="form-group">
+            <label>Logo URL</label>
+            <input id="br-logo" type="url" value="${_esc(b.logoUrl)}" placeholder="https://…/logo.png">
+            <span class="text-sm text-muted" style="margin-top:4px">Displayed in the nav bar. Recommended: square, at least 88×88px.</span>
+          </div>
+          <div class="form-group">
+            <label>Hero image URL</label>
+            <input id="br-hero" type="url" value="${_esc(b.heroImage)}" placeholder="https://…/hero.jpg">
+            <span class="text-sm text-muted" style="margin-top:4px">Full-width banner at the top of your page. Recommended: 1600×900px.</span>
+          </div>
+        </div>
+        ${_cardFooter('branding')}
+      </div>`);
+
+    el.querySelector('#br-logo').addEventListener('input', e => _set('branding.logoUrl',  e.target.value));
+    el.querySelector('#br-hero').addEventListener('input', e => _set('branding.heroImage', e.target.value));
+    _bindSave(el, 'branding');
+  }
+
   // ── BASICS ────────────────────────────────────────────────────────────────
   function _renderBasics(el) {
     const b = _content.basics || {};
@@ -183,7 +209,7 @@ const PresenceView = (() => {
     const h = _content.hero || {};
     el.insertAdjacentHTML('beforeend', `
       <div class="card" style="margin-bottom:var(--sp-5)">
-        ${_sectionHeader('Hero Banner', 'What guests see at the very top of your page')}
+        ${_sectionHeader('Hero Text', 'Headline and subheadline overlaid on your hero image')}
         <div class="card-body">
           <div class="form-group">
             <label>Headline</label>
@@ -193,17 +219,12 @@ const PresenceView = (() => {
             <label>Subheadline</label>
             <input id="hero-subheadline" type="text" value="${_esc(h.subheadline)}" maxlength="200" placeholder="One line that makes them hungry">
           </div>
-          <div class="form-group">
-            <label>Hero image URL</label>
-            <input id="hero-image" type="url" value="${_esc(h.heroImage)}" placeholder="https://…">
-          </div>
         </div>
         ${_cardFooter('hero')}
       </div>`);
 
     el.querySelector('#hero-headline').addEventListener('input',    e => _set('hero.headline',    e.target.value));
     el.querySelector('#hero-subheadline').addEventListener('input', e => _set('hero.subheadline', e.target.value));
-    el.querySelector('#hero-image').addEventListener('input',       e => _set('hero.heroImage',   e.target.value));
     _bindSave(el, 'hero');
   }
 
@@ -490,10 +511,10 @@ const PresenceView = (() => {
     el.innerHTML = `<div style="max-width:720px" id="pers-editor"></div>`;
     const editor = el.querySelector('#pers-editor');
 
+    _renderBranding(editor);
     _renderBasics(editor);
     _renderContact(editor);
     _renderSocial(editor);
-    _renderHero(editor);
     _renderStory(editor);
     _renderSignatureDishes(editor);
     _renderGallery(editor);

@@ -15,6 +15,26 @@
   <link rel="stylesheet" href="assets/css/components.css">
 </head>
 <body>
+  <!-- Loading skeleton — visible only while data-loading="true" -->
+  <div id="catering-shell" aria-hidden="true">
+    <div class="cshell-nav">
+      <div class="c-skeleton cshell-brand"></div>
+    </div>
+    <div class="cshell-hero">
+      <div class="c-skeleton cshell-h1"></div>
+      <div class="c-skeleton cshell-sub"></div>
+      <div class="c-skeleton cshell-sub2"></div>
+      <div class="c-skeleton cshell-btn"></div>
+    </div>
+  </div>
+
+  <!-- Error fallback -->
+  <div class="catering-error" role="alert">
+    <div class="catering-error-icon">⚠️</div>
+    <div class="catering-error-title">Page unavailable</div>
+    <div class="catering-error-body">We couldn't load your catering page. Please refresh or try again shortly.</div>
+  </div>
+
   <script>
     const _q = new URLSearchParams(window.location.search);
     const KRAVON_API_URL      = "__KRAVON_API_URL__"  !== "__KRAVON_API_URL__"  ? "__KRAVON_API_URL__"  : (_q.get('api')  || 'http://localhost:3000');

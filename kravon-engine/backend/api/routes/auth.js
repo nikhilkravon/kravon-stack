@@ -86,6 +86,11 @@ const RefreshSchema = z.object({
   refreshToken: z.string().length(64), // 32 bytes → 64 hex chars
 });
 
+const ChangePasswordSchema = z.object({
+  current_password: z.string().min(1).max(200),
+  new_password:     z.string().min(8).max(200),
+});
+
 /* ── POST /v1/auth/login ───────────────────────────────────────────────── */
 router.post('/login', authLimiter, async (req, res, next) => {
   try {
@@ -209,6 +214,51 @@ router.post('/refresh', async (req, res, next) => {
     // Re-issue the cookie to refresh its maxAge.
     res.cookie(COOKIE_NAME, rawToken, COOKIE_OPTS);
     res.json({ accessToken, expiresIn: ACCESS_TTL_SEC });
+  } catch (err) { next(err); }
+});
+
+/* ── POST /v1/auth/change-password ────────────────────────────────────── */
+router.post('/change-password', async (req, res, next) => {
+  try {
+    const header = req.headers.authorization || '';
+    const token  = header.startsWith('Bearer ') ? header.slice(7) : null;
+    if (!token) return res.status(401).json({ error: 'Unauthorized.' });
+
+    let payload;
+    try { payload = jwt.verify(token, JWT_SECRET()); }
+    catch { return res.status(401).json({ error: 'Invalid or expired token.' }); }
+
+    const parsed = ChangePasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
+    }
+
+    const { current_password, new_password } = parsed.data;
+
+    const staffRes = await query(
+      `SELECT id, password_hash FROM tenant.staff WHERE id = $1 AND is_active = TRUE AND deleted_at IS NULL`,
+      [payload.staffId]
+    );
+    if (!staffRes.rows.length) return res.status(404).json({ error: 'Account not found.' });
+
+    const staff = staffRes.rows[0];
+    const match = await bcrypt.compare(current_password, staff.password_hash);
+    if (!match) return res.status(401).json({ error: 'Current password is incorrect.' });
+
+    const newHash = await bcrypt.hash(new_password, 12);
+    await query(
+      `UPDATE tenant.staff SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+      [newHash, staff.id]
+    );
+
+    // Revoke all other sessions so existing logins are invalidated
+    await query(
+      `UPDATE tenant.staff_sessions SET revoked_at = NOW()
+       WHERE staff_id = $1 AND revoked_at IS NULL`,
+      [staff.id]
+    );
+
+    res.json({ ok: true });
   } catch (err) { next(err); }
 });
 

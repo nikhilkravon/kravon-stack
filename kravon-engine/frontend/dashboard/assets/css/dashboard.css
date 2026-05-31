@@ -475,6 +475,93 @@ tbody tr:hover td { background: var(--gray-50); }
 .order-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 [hidden]        { display: none !important; }
 
+/* ── Inline add form (variants, options, covers) ──────────────────────────── */
+.inline-add-form {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: var(--sp-3);
+  margin-top: var(--sp-2);
+}
+.inline-add-form .form-group { margin-bottom: var(--sp-2); }
+.inline-add-form .form-group:last-child { margin-bottom: 0; }
+
+/* ── Tables view ──────────────────────────────────────────────────────────── */
+.tables-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--sp-4);
+}
+
+.table-card {
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  box-shadow: var(--shadow-sm);
+  transition: border-color .15s;
+}
+.table-card:hover { border-color: var(--gray-300); }
+.table-card--occupied { border-left: 3px solid var(--blue-500); }
+.table-card--reserved { border-left: 3px solid var(--amber-600); }
+.table-card--available { border-left: 3px solid var(--green-600); }
+
+.table-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.table-card-name {
+  font-family: -apple-system, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--gray-900);
+  letter-spacing: -0.3px;
+}
+.table-card-cap { font-size: 12px; color: var(--gray-400); }
+
+.table-session-info { display: flex; flex-direction: column; gap: 3px; }
+.table-session-row  { font-size: 12px; color: var(--gray-600); }
+
+.table-card-actions { display: flex; gap: var(--sp-1); flex-wrap: wrap; }
+.table-card-footer  {
+  display: flex;
+  gap: var(--sp-1);
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--gray-100);
+}
+
+/* ── Kitchen view ─────────────────────────────────────────────────────────── */
+.kitchen-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--sp-4);
+}
+.kitchen-card {
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.kitchen-card-header {
+  background: var(--gray-900);
+  color: white;
+  padding: var(--sp-3) var(--sp-4);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.kitchen-table-name {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+.kitchen-orders { padding: var(--sp-4); }
+
 /* ── Mobile responsive ────────────────────────────────────────────────────── */
 /* Sidebar overlay — hidden by default everywhere, shown only on mobile when open */
 .dash-sidebar-overlay { display: none; }

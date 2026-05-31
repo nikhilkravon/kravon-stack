@@ -70,17 +70,20 @@ const { resolveRestaurant } = require('./api/middleware/tenant');
 const { requireFeature }    = require('./api/middleware/feature');
 const { errorHandler }      = require('./api/middleware/error');
 
-const configRoutes   = require('./api/routes/config');
-const presenceRoutes = require('./api/routes/presence');
-const menuRoutes     = require('./api/routes/menu');
-const orderRoutes   = require('./api/routes/orders');
-const leadRoutes    = require('./api/routes/leads');
-const reviewRoutes  = require('./api/routes/reviews');
-const insightRoutes = require('./api/routes/insights');
-const dineInRoutes  = require('./api/routes/dine-in');
-const webhookRoutes = require('./api/routes/webhooks');
-const adminRoutes   = require('./api/routes/admin');
-const authRoutes    = require('./api/routes/auth');
+const configRoutes    = require('./api/routes/config');
+const presenceRoutes  = require('./api/routes/presence');
+const menuRoutes      = require('./api/routes/menu');
+const orderRoutes     = require('./api/routes/orders');
+const leadRoutes      = require('./api/routes/leads');
+const reviewRoutes    = require('./api/routes/reviews');
+const insightRoutes   = require('./api/routes/insights');
+const dineInRoutes    = require('./api/routes/dine-in');
+const tablesRoutes    = require('./api/routes/tables');
+const staffRoutes     = require('./api/routes/staff');
+const customersRoutes = require('./api/routes/customers');
+const webhookRoutes   = require('./api/routes/webhooks');
+const adminRoutes     = require('./api/routes/admin');
+const authRoutes      = require('./api/routes/auth');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -204,6 +207,25 @@ app.use('/v1/restaurants/:slug/dine-in',
   resolveRestaurant,
   requireFeature('has_tables'),
   dineInRoutes
+);
+
+// Tables: CRUD for dining.tables (admin dashboard)
+app.use('/v1/restaurants/:slug/tables',
+  resolveRestaurant,
+  requireFeature('has_tables'),
+  tablesRoutes
+);
+
+// Staff: list + manage restaurant staff members
+app.use('/v1/restaurants/:slug/staff',
+  resolveRestaurant,
+  staffRoutes
+);
+
+// Customers: CRM list + order history
+app.use('/v1/restaurants/:slug/customers',
+  resolveRestaurant,
+  customersRoutes
 );
 
 /* ── 404 ───────────────────────────────────────────────────────────────────── */

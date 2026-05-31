@@ -430,4 +430,214 @@ router.delete('/items/:id', requireRestaurantAuth, async (req, res, next) => {
   }
 });
 
+/* ══════════════════════════════════════════════════════════
+   VARIANTS
+   ══════════════════════════════════════════════════════════ */
+
+/* GET /items/:id/variants */
+router.get('/items/:id/variants', requireRestaurantAuth, async (req, res, next) => {
+  try {
+    const result = await query(
+      `SELECT id, name, price, food_type, is_available, sort_order
+       FROM menu.item_variants
+       WHERE menu_item_id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+       ORDER BY sort_order, name`,
+      [req.params.id, req.tenant.tenant_id]
+    );
+    res.json({ ok: true, variants: result.rows.map(r => ({ ...r, price: Number(r.price) })) });
+  } catch (err) { next(err); }
+});
+
+/* POST /items/:id/variants */
+router.post('/items/:id/variants', requireRestaurantAuth, async (req, res, next) => {
+  const schema = z.object({
+    name:         z.string().min(1).max(150),
+    price:        z.number().min(0),
+    food_type:    z.enum(['veg','non_veg','egg','vegan']).optional(),
+    is_available: z.boolean().optional(),
+    sort_order:   z.number().int().min(0).optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return validationError(res, parsed.error.issues);
+
+  try {
+    const tenantId = req.tenant.tenant_id;
+    const d        = parsed.data;
+    const result   = await query(
+      `INSERT INTO menu.item_variants (tenant_id, menu_item_id, name, price, food_type, is_available, sort_order)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       RETURNING id, name, price, food_type, is_available, sort_order`,
+      [tenantId, req.params.id, d.name, d.price, d.food_type ?? null, d.is_available ?? true, d.sort_order ?? 0]
+    );
+    const v = result.rows[0];
+    res.status(201).json({ ok: true, variant: { ...v, price: Number(v.price) } });
+  } catch (err) { next(err); }
+});
+
+/* PUT /items/:id/variants/:vid */
+router.put('/items/:id/variants/:vid', requireRestaurantAuth, async (req, res, next) => {
+  const schema = z.object({
+    name:         z.string().min(1).max(150).optional(),
+    price:        z.number().min(0).optional(),
+    food_type:    z.enum(['veg','non_veg','egg','vegan']).optional(),
+    is_available: z.boolean().optional(),
+    sort_order:   z.number().int().min(0).optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return validationError(res, parsed.error.issues);
+
+  try {
+    const d = parsed.data; const sets = []; const values = []; let idx = 1;
+    if (d.name         !== undefined) { sets.push(`name = $${idx++}`);         values.push(d.name); }
+    if (d.price        !== undefined) { sets.push(`price = $${idx++}`);        values.push(d.price); }
+    if (d.food_type    !== undefined) { sets.push(`food_type = $${idx++}`);    values.push(d.food_type); }
+    if (d.is_available !== undefined) { sets.push(`is_available = $${idx++}`); values.push(d.is_available); }
+    if (d.sort_order   !== undefined) { sets.push(`sort_order = $${idx++}`);   values.push(d.sort_order); }
+    if (!sets.length) return res.status(400).json({ error: 'Nothing to update' });
+    sets.push('updated_at = NOW()');
+    values.push(req.params.vid, req.tenant.tenant_id);
+    const result = await query(
+      `UPDATE menu.item_variants SET ${sets.join(',')}
+       WHERE id = $${idx} AND tenant_id = $${idx+1} AND deleted_at IS NULL
+       RETURNING id, name, price, food_type, is_available, sort_order`, values
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Variant not found' });
+    const v = result.rows[0];
+    res.json({ ok: true, variant: { ...v, price: Number(v.price) } });
+  } catch (err) { next(err); }
+});
+
+/* DELETE /items/:id/variants/:vid */
+router.delete('/items/:id/variants/:vid', requireRestaurantAuth, async (req, res, next) => {
+  try {
+    const result = await query(
+      `UPDATE menu.item_variants SET deleted_at = NOW()
+       WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL RETURNING id`,
+      [req.params.vid, req.tenant.tenant_id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Variant not found' });
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+/* ══════════════════════════════════════════════════════════
+   CUSTOMIZATION GROUPS + OPTIONS
+   ══════════════════════════════════════════════════════════ */
+
+/* GET /items/:id/customizations */
+router.get('/items/:id/customizations', requireRestaurantAuth, async (req, res, next) => {
+  try {
+    const tenantId = req.tenant.tenant_id;
+    const groups   = await query(
+      `SELECT id, name, group_type, is_required, min_select, max_select, is_free, position
+       FROM menu.customization_groups
+       WHERE menu_item_id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+       ORDER BY position`,
+      [req.params.id, tenantId]
+    );
+    const groupIds = groups.rows.map(g => g.id);
+    let options = { rows: [] };
+    if (groupIds.length) {
+      options = await query(
+        `SELECT id, group_id, name, price_modifier, food_type, is_default, is_available, sort_order
+         FROM menu.customization_options
+         WHERE group_id = ANY($1) AND tenant_id = $2 AND deleted_at IS NULL
+         ORDER BY group_id, sort_order`,
+        [groupIds, tenantId]
+      );
+    }
+    const optMap = new Map();
+    for (const o of options.rows) {
+      if (!optMap.has(o.group_id)) optMap.set(o.group_id, []);
+      optMap.get(o.group_id).push({ ...o, price_modifier: Number(o.price_modifier) });
+    }
+    res.json({ ok: true, groups: groups.rows.map(g => ({ ...g, options: optMap.get(g.id) || [] })) });
+  } catch (err) { next(err); }
+});
+
+/* POST /items/:id/customizations/groups */
+router.post('/items/:id/customizations/groups', requireRestaurantAuth, async (req, res, next) => {
+  const schema = z.object({
+    name:        z.string().min(1).max(100),
+    group_type:  z.enum(['radio','checkbox']).default('checkbox'),
+    is_required: z.boolean().default(false),
+    min_select:  z.number().int().min(0).default(0),
+    max_select:  z.number().int().min(1).default(1),
+    is_free:     z.boolean().default(false),
+    position:    z.number().int().min(0).default(0),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return validationError(res, parsed.error.issues);
+
+  try {
+    const d = parsed.data;
+    const result = await query(
+      `INSERT INTO menu.customization_groups
+         (tenant_id, menu_item_id, name, group_type, is_required, min_select, max_select, is_free, position)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       RETURNING id, name, group_type, is_required, min_select, max_select, is_free, position`,
+      [req.tenant.tenant_id, req.params.id, d.name, d.group_type, d.is_required, d.min_select, d.max_select, d.is_free, d.position]
+    );
+    res.status(201).json({ ok: true, group: { ...result.rows[0], options: [] } });
+  } catch (err) { next(err); }
+});
+
+/* DELETE /items/:id/customizations/groups/:gid */
+router.delete('/items/:id/customizations/groups/:gid', requireRestaurantAuth, async (req, res, next) => {
+  try {
+    const tenantId = req.tenant.tenant_id;
+    await query(
+      `UPDATE menu.customization_options SET deleted_at = NOW()
+       WHERE group_id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
+      [req.params.gid, tenantId]
+    );
+    const result = await query(
+      `UPDATE menu.customization_groups SET deleted_at = NOW()
+       WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL RETURNING id`,
+      [req.params.gid, tenantId]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Group not found' });
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+/* POST /items/:id/customizations/groups/:gid/options */
+router.post('/items/:id/customizations/groups/:gid/options', requireRestaurantAuth, async (req, res, next) => {
+  const schema = z.object({
+    name:           z.string().min(1).max(100),
+    price_modifier: z.number().min(0).default(0),
+    food_type:      z.enum(['veg','non_veg','egg','vegan']).optional(),
+    is_default:     z.boolean().default(false),
+    sort_order:     z.number().int().min(0).default(0),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return validationError(res, parsed.error.issues);
+
+  try {
+    const d = parsed.data;
+    const result = await query(
+      `INSERT INTO menu.customization_options
+         (tenant_id, group_id, name, price_modifier, food_type, is_default, sort_order)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       RETURNING id, name, price_modifier, food_type, is_default, is_available, sort_order`,
+      [req.tenant.tenant_id, req.params.gid, d.name, d.price_modifier, d.food_type ?? null, d.is_default, d.sort_order]
+    );
+    const o = result.rows[0];
+    res.status(201).json({ ok: true, option: { ...o, price_modifier: Number(o.price_modifier) } });
+  } catch (err) { next(err); }
+});
+
+/* DELETE /items/:id/customizations/options/:oid */
+router.delete('/items/:id/customizations/options/:oid', requireRestaurantAuth, async (req, res, next) => {
+  try {
+    const result = await query(
+      `UPDATE menu.customization_options SET deleted_at = NOW()
+       WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL RETURNING id`,
+      [req.params.oid, req.tenant.tenant_id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Option not found' });
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

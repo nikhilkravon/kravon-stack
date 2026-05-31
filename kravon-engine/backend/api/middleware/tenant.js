@@ -43,8 +43,9 @@ function buildTenant(tenantRow, locationRow, integrations, contactLinks, seoRow,
   // https://wa.me/912267891234 → 912267891234
   const wa_number = waLink?.url?.replace(/^https?:\/\/wa\.me\//, '') || s.wa_number || null;
 
-  // Presence — hero image (first active banner asset)
-  const bannerAsset  = assets.find(a => a.type === 'banner');
+  // Presence — hero image + logo (from brand.assets)
+  const bannerAsset   = assets.find(a => a.type === 'banner');
+  const logoAsset     = assets.find(a => a.type === 'logo');
   const galleryAssets = assets.filter(a => a.type === 'gallery');
 
   return {
@@ -93,6 +94,7 @@ function buildTenant(tenantRow, locationRow, integrations, contactLinks, seoRow,
     story_facts:         presSt.facts            || s.story_facts    || [],
 
     // Presence marketing — brand.assets
+    logo_url:   logoAsset?.url   || null,
     hero_image: bannerAsset?.url || null,
     gallery: {
       food:     galleryAssets.filter(a => a.metadata?.category === 'food')    .map(a => a.url),
@@ -205,7 +207,7 @@ async function resolveRestaurant(req, res, next) {
       query(
         `SELECT type, url, alt_text, metadata
          FROM brand.assets
-         WHERE tenant_id = $1 AND type IN ('banner', 'gallery') AND deleted_at IS NULL
+         WHERE tenant_id = $1 AND type IN ('banner', 'logo', 'gallery') AND deleted_at IS NULL
          ORDER BY created_at`,
         [tenantId]
       ),

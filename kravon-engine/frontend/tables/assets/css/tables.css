@@ -5,8 +5,65 @@
    ═══════════════════════════════════════════════════════════ */
 
 /* ── Loading / error states ───────────────────────────────── */
-body[data-loading="true"] #app { opacity: 0; }
 body { background: var(--black); color: var(--stone); }
+
+@keyframes t-shimmer {
+  from { background-position: -600px 0; }
+  to   { background-position:  600px 0; }
+}
+.t-skeleton {
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0.04) 25%,
+    rgba(255,255,255,0.08) 50%,
+    rgba(255,255,255,0.04) 75%);
+  background-size: 1200px 100%;
+  animation: t-shimmer 1.6s infinite;
+  border-radius: var(--r-md);
+}
+
+body[data-loading="true"] #app { display: none; }
+body[data-loading="true"] #tables-shell { display: flex; }
+
+#tables-shell {
+  display: none;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--black);
+}
+.tshell-nav {
+  height: 56px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--sp-5);
+}
+.tshell-brand { width: 100px; height: 14px; }
+.tshell-badge { width: 60px; height: 14px; }
+.tshell-choice {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-5);
+  padding: var(--sp-8);
+}
+.tshell-choice-card { width: 160px; height: 180px; border-radius: var(--r-lg); }
+
+body[data-error="true"] #app { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+.tables-error {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--sp-4);
+  padding: var(--sp-8) var(--sp-5);
+  max-width: 340px;
+}
+body[data-error="true"] .tables-error { display: flex; }
+.tables-error-icon  { font-size: 36px; opacity: .5; }
+.tables-error-title { font-family: var(--font-head); font-size: 20px; font-weight: 800; color: var(--cream); }
+.tables-error-body  { font-size: 14px; color: var(--muted); line-height: 1.7; }
 
 /* ── Nav ──────────────────────────────────────────────────── */
 .tables-nav {

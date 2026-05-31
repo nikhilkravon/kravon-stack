@@ -21,7 +21,7 @@
      Returns an array of CTA anchor/button strings based on
      which products the tenant has enabled.
   ────────────────────────────────────────────────────────── */
-  function buildCtAs(sizeCls) {
+  function buildCtAs(sizeCls, navMode) {
     const cap  = C.capabilities || C.products || {};
     const sc   = sizeCls ? ` ${sizeCls}` : '';
     const slug = C.slug || '';
@@ -35,11 +35,14 @@
     }
 
     if (cap.tables) {
-      ctas.push(`<a href="/tables/?slug=${encodeURIComponent(slug)}" class="p-btn p-btn-secondary${sc}">Dine In</a>`);
-      ctas.push(`<a href="/presence/reservation.html?slug=${encodeURIComponent(slug)}" class="p-btn p-btn-secondary${sc}">Reserve a Table</a>`);
+      ctas.push(`<a href="/tables/?slug=${encodeURIComponent(slug)}" class="p-btn p-btn-secondary${sc}">Order at Table</a>`);
+      // Reserve a Table: hero only — too many buttons for nav
+      if (!navMode) {
+        ctas.push(`<a href="/presence/reservation.html?slug=${encodeURIComponent(slug)}" class="p-btn p-btn-secondary${sc}">Reserve a Table</a>`);
+      }
     }
 
-    if (cap.catering) {
+    if (cap.catering && !navMode) {
       ctas.push(`<a href="/catering/?slug=${encodeURIComponent(slug)}" class="p-btn p-btn-secondary${sc}">Plan Event</a>`);
     }
 
@@ -62,8 +65,11 @@
       <div class="p-container">
         <div class="p-nav-inner">
           <div class="p-nav-brand">
-            <div class="p-nav-name">${Kravon.esc(C.brand.name)}</div>
-            <div class="p-nav-tagline">${Kravon.esc(C.brand.tagline)}</div>
+            ${C.brand.logoUrl ? `<img src="${Kravon.esc(C.brand.logoUrl)}" alt="${Kravon.esc(C.brand.name)} logo" class="p-nav-logo">` : ''}
+            <div>
+              <div class="p-nav-name">${Kravon.esc(C.brand.name)}</div>
+              <div class="p-nav-tagline">${Kravon.esc(C.brand.tagline)}</div>
+            </div>
           </div>
           <div class="p-nav-center">
             <div class="p-nav-hours" aria-label="Opening hours">
@@ -72,7 +78,7 @@
             </div>
           </div>
           <div class="p-nav-right">
-            ${buildCtAs()}
+            ${buildCtAs('', true)}
           </div>
         </div>
       </div>`;

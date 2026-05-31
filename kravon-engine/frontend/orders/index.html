@@ -47,8 +47,39 @@
   <!-- Demo banner -->
   <div class="demo-banner" id="demoBanner" aria-label="Demo notice"></div>
 
+  <!-- Loading skeleton shell — visible only while data-loading="true" -->
+  <div id="orders-shell" aria-hidden="true">
+    <div class="shell-nav">
+      <div class="o-skeleton shell-nav-brand"></div>
+    </div>
+    <div class="shell-body">
+      <div class="shell-sidebar">
+        <div class="o-skeleton shell-cat"></div>
+        <div class="o-skeleton shell-cat"></div>
+        <div class="o-skeleton shell-cat"></div>
+        <div class="o-skeleton shell-cat"></div>
+        <div class="o-skeleton shell-cat"></div>
+      </div>
+      <div class="shell-grid">
+        <div class="o-skeleton shell-card"></div>
+        <div class="o-skeleton shell-card"></div>
+        <div class="o-skeleton shell-card"></div>
+        <div class="o-skeleton shell-card"></div>
+      </div>
+      <div class="o-skeleton shell-cart"></div>
+    </div>
+  </div>
+
   <!-- App shell: renderer populates #app with nav + all 3 screens -->
-  <div id="app"></div>
+  <div id="app">
+    <!-- Error fallback -->
+    <div class="orders-error" role="alert">
+      <div class="orders-error-icon">⚠️</div>
+      <div class="orders-error-title">Menu unavailable</div>
+      <div class="orders-error-body">We couldn't load the menu right now. Please refresh the page or try again shortly.</div>
+      <button class="add-btn" style="border-radius:var(--r-lg);padding:10px 24px" onclick="location.reload()">Refresh</button>
+    </div>
+  </div>
 
   <!-- Upgrade bridge: shown on ordering screen only -->
   <div class="upgrade" id="upgradeSection" style="display:none"></div>
