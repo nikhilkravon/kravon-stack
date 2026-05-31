@@ -1,1 +1,14 @@
 [startup] RAZORPAY_WEBHOOK_SECRET is not set — Razorpay webhooks will be rejected at runtime.
+[error] GET /v1/restaurants/avartana/config: Error: Connection terminated due to connection timeout
+    at C:\Users\Nikhil\KravonSAAS\kravon-stack\kravon-engine\backend\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async query (C:\Users\Nikhil\KravonSAAS\kravon-stack\kravon-engine\backend\db\pool.js:33:18)
+    at async resolveRestaurant (C:\Users\Nikhil\KravonSAAS\kravon-stack\kravon-engine\backend\api\middleware\tenant.js:161:22) {
+  [cause]: Error: Connection terminated unexpectedly
+      at Connection.<anonymous> (C:\Users\Nikhil\KravonSAAS\kravon-stack\kravon-engine\backend\node_modules\pg\lib\client.js:180:73)
+      at Object.onceWrapper (node:events:630:28)
+      at Connection.emit (node:events:509:28)
+      at Socket.<anonymous> (C:\Users\Nikhil\KravonSAAS\kravon-stack\kravon-engine\backend\node_modules\pg\lib\connection.js:61:12)
+      at Socket.emit (node:events:509:28)
+      at TCP.<anonymous> (node:net:350:12)
+}

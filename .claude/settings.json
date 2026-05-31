@@ -135,7 +135,8 @@
       "Bash(node -e \"const d=require\\('fs'\\).readFileSync\\(0,'utf8'\\); const j=JSON.parse\\(d\\); const c=j.config; console.log\\('menu:', JSON.stringify\\(c.menu\\).slice\\(0,200\\)\\); console.log\\('hero:', JSON.stringify\\(c.hero\\).slice\\(0,200\\)\\);\")",
       "Bash(sed -n '569,640p' \"c:/Users/Nikhil/KravonSAAS/kravon-stack/kravon-engine/backend/db/schema/kravon_schema_v12.sql\")",
       "Bash(sed -n '941,1010p' \"c:/Users/Nikhil/KravonSAAS/kravon-stack/kravon-engine/backend/db/schema/kravon_schema_v12.sql\")",
-      "Bash(sed -n '1128,1165p' \"c:/Users/Nikhil/KravonSAAS/kravon-stack/kravon-engine/backend/db/schema/kravon_schema_v12.sql\")"
+      "Bash(sed -n '1128,1165p' \"c:/Users/Nikhil/KravonSAAS/kravon-stack/kravon-engine/backend/db/schema/kravon_schema_v12.sql\")",
+      "Bash(gh auth *)"
     ],
     "additionalDirectories": [
       "\\tmp",
