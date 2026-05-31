@@ -42,13 +42,20 @@ const KRAVON_DOMAIN  = (process.env.KRAVON_DOMAIN || 'kravon.in').toLowerCase();
 // Matches any subdomain of kravon.in: https://spice-of-india.kravon.in
 const KRAVON_SUBDOMAIN_RE = new RegExp(`^https?://[a-z0-9-]+\\.${KRAVON_DOMAIN.replace('.', '\\.')}$`);
 
+// Extra origins allowed via env var — comma-separated, e.g. Railway preview URLs
+const EXTRA_ORIGINS = new Set(
+  (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean)
+);
+
 const corsOptions = {
   origin: async (origin, callback) => {
     if (!origin) return callback(null, true);
     // Allow all kravon.in subdomains (restaurant frontends + dashboard).
     if (KRAVON_SUBDOMAIN_RE.test(origin)) return callback(null, true);
+    // Allow explicitly whitelisted origins (e.g. Railway deployment URLs).
+    if (EXTRA_ORIGINS.has(origin)) return callback(null, true);
     // Allow localhost in development.
-    if (process.env.NODE_ENV !== 'production' && /^http:\/\/localhost(:\d+)?$/.test(origin)) {
+    if (/^http:\/\/localhost(:\d+)?$/.test(origin)) {
       return callback(null, true);
     }
     try {
