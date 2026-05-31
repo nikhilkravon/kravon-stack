@@ -74,24 +74,15 @@ async function createOrder(tenant, data) {
     /* ── 4. Upsert customer ──────────────────────────────────────────────── */
     let customerId = null;
     if (data.customer_phone) {
-      const existingCustomer = await client.query(
-        `SELECT id FROM customer.customers
-         WHERE tenant_id = $1 AND phone = $2 AND deleted_at IS NULL LIMIT 1`,
-        [tenant.tenant_id, data.customer_phone]
+      const upsertResult = await client.query(
+        `INSERT INTO customer.customers (tenant_id, name, phone)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (tenant_id, phone) WHERE phone IS NOT NULL AND deleted_at IS NULL
+         DO UPDATE SET name = EXCLUDED.name, updated_at = NOW()
+         RETURNING id`,
+        [tenant.tenant_id, data.customer_name, data.customer_phone]
       );
-      if (existingCustomer.rows.length) {
-        customerId = existingCustomer.rows[0].id;
-        await client.query(
-          `UPDATE customer.customers SET name = $1, updated_at = NOW() WHERE id = $2`,
-          [data.customer_name, customerId]
-        );
-      } else {
-        const newCustomer = await client.query(
-          `INSERT INTO customer.customers (tenant_id, name, phone) VALUES ($1,$2,$3) RETURNING id`,
-          [tenant.tenant_id, data.customer_name, data.customer_phone]
-        );
-        customerId = newCustomer.rows[0].id;
-      }
+      customerId = upsertResult.rows[0].id;
     }
 
     /* ── 5. Write order to orders.orders ────────────────────────────────── */
@@ -193,7 +184,8 @@ async function createOrder(tenant, data) {
       };
 
       notifyService.orderConfirmed(tenant, orderForNotify).catch(err =>
-        console.error('[order.service] notify failed:', err.message)
+        console.error(JSON.stringify({ level: 'error', event: 'order.notify_failed',
+          tenantId: tenant.tenant_id, orderId, message: err.message }))
       );
     }
 

@@ -30,6 +30,7 @@ const { z }    = require('zod');
 const { query } = require('../../db/pool');
 const orderService = require('../../services/order.service');
 const { requireRestaurantAuth } = require('../middleware/auth');
+const audit    = require('../../utils/audit');
 
 const router = express.Router();
 
@@ -89,11 +90,13 @@ router.post('/', async (req, res, next) => {
     const result = await orderService.createOrder(req.tenant, data);
 
     res.status(201).json({
-      ok:                true,
-      order_id:          result.orderId,
-      razorpay_order_id: result.razorpayOrderId,
-      razorpay_key_id:   result.razorpayKeyId,
-      total:             result.total,
+      ok:    true,
+      order: {
+        id:                result.orderId,
+        total:             result.total,
+        razorpay_order_id: result.razorpayOrderId,
+        razorpay_key_id:   result.razorpayKeyId,
+      },
     });
   } catch (err) {
     next(err);
@@ -104,7 +107,7 @@ router.post('/', async (req, res, next) => {
 router.get('/', requireRestaurantAuth, async (req, res, next) => {
   try {
     const tenantId = req.tenant.tenant_id;
-    const page     = Math.max(1, parseInt(req.query.page,  10) || 1);
+    const page     = Math.min(10000, Math.max(1, parseInt(req.query.page,  10) || 1));
     const limit    = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 25));
     const offset   = (page - 1) * limit;
     const status   = req.query.status  || null;
@@ -114,8 +117,16 @@ router.get('/', requireRestaurantAuth, async (req, res, next) => {
     const filters = ['o.tenant_id = $1', 'o.deleted_at IS NULL'];
 
     if (status) {
-      params.push(status);
-      filters.push(`o.status = $${params.length}`);
+      // 'completed' tab also shows legacy 'delivered' rows
+      if (status === 'completed') {
+        filters.push(`o.status IN ('completed','delivered')`);
+      // 'live' tab covers all in-progress statuses
+      } else if (status === 'live') {
+        filters.push(`o.status IN ('pending','confirmed','preparing','ready','out_for_delivery')`);
+      } else {
+        params.push(status);
+        filters.push(`o.status = $${params.length}`);
+      }
     }
     if (channel) {
       params.push(channel);
@@ -167,6 +178,62 @@ router.get('/:id', requireRestaurantAuth, async (req, res, next) => {
       [id, req.tenant.tenant_id]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Order not found' });
+    res.json({ ok: true, order: result.rows[0] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* ── GET /orders/:id/items (admin only) ──────────────────────────────────── */
+router.get('/:id/items', requireRestaurantAuth, async (req, res, next) => {
+  try {
+    const result = await query(
+      `SELECT oi.item_name, oi.quantity, oi.unit_price, oi.total_price, oi.special_note
+       FROM orders.order_items oi
+       JOIN orders.orders o ON o.id = oi.order_id
+       WHERE oi.order_id = $1::uuid AND o.tenant_id = $2`,
+      [req.params.id, req.tenant.tenant_id]
+    );
+    res.json({ ok: true, items: result.rows.map(r => ({
+      ...r,
+      unit_price:  Number(r.unit_price),
+      total_price: Number(r.total_price),
+    }))});
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* ── PATCH /orders/:id (admin — update status) ───────────────────────────── */
+const VALID_ORDER_STATUSES = [
+  'confirmed', 'preparing', 'ready',
+  'out_for_delivery', 'completed', 'delivered', 'cancelled',
+];
+
+router.patch('/:id', requireRestaurantAuth, async (req, res, next) => {
+  try {
+    const { status } = req.body;
+    if (!status) return res.status(400).json({ error: 'status is required' });
+    if (!VALID_ORDER_STATUSES.includes(status)) {
+      return res.status(400).json({ error: `Invalid status. Valid: ${VALID_ORDER_STATUSES.join(', ')}` });
+    }
+
+    const result = await query(
+      `UPDATE orders.orders
+       SET status = $1, updated_at = NOW()
+       WHERE id = $2::uuid AND tenant_id = $3 AND deleted_at IS NULL
+       RETURNING id, status, updated_at`,
+      [status, req.params.id, req.tenant.tenant_id]
+    );
+
+    if (!result.rows.length) return res.status(404).json({ error: 'Order not found' });
+
+    audit.log(null, {
+      tenantId: req.tenant.tenant_id, actorId: req.auth?.staffId, actorType: 'staff',
+      action: 'order.status_update', entityType: 'orders.order', entityId: req.params.id,
+      newValue: { status }, req,
+    });
+
     res.json({ ok: true, order: result.rows[0] });
   } catch (err) {
     next(err);

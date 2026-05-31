@@ -137,7 +137,8 @@ router.post('/razorpay', async (req, res) => {
         order_surface:  order.fulfillment_type === 'delivery' ? 'orders' : 'tables',
       };
       notifyService.orderConfirmed(tenant, orderForNotify).catch(err =>
-        console.error('[razorpay-webhook] notify failed:', err.message)
+        console.error(JSON.stringify({ level: 'error', event: 'webhook.notify_failed',
+          tenantId: order.tenant_id, orderId: order.id, message: err.message }))
       );
     }
 

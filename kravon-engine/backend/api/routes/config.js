@@ -13,13 +13,36 @@ const express = require('express');
 const { z }   = require('zod');
 const { query } = require('../../db/pool');
 const { requireRestaurantAuth } = require('../middleware/auth');
+const { validateSettingsPatch } = require('../../db/settingsSchema');
+const audit   = require('../../utils/audit');
 
 const router = express.Router();
+
+// 60-second per-tenant config cache — matches the Cache-Control max-age.
+// Prevents the full menu JOIN running on every concurrent request.
+const _configCache = new Map();
+const CONFIG_TTL   = 60 * 1000;
+
+function getConfigCached(tenantId) {
+  const entry = _configCache.get(tenantId);
+  if (entry && Date.now() - entry.ts < CONFIG_TTL) return entry.data;
+  return null;
+}
+function setConfigCached(tenantId, data) {
+  if (_configCache.size > 500) _configCache.delete(_configCache.keys().next().value);
+  _configCache.set(tenantId, { data, ts: Date.now() });
+}
 
 router.get('/', async (req, res, next) => {
   try {
     const r  = req.tenant;
     const id = r.tenant_id;
+
+    const cached = getConfigCached(id);
+    if (cached) {
+      res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+      return res.json(cached);
+    }
 
     // Fetch categories + items in one pass (v12 column names)
     const menuRes = await query(`
@@ -66,7 +89,7 @@ router.get('/', async (req, res, next) => {
         const item = {
           id:              row.item_id,
           name:            row.item_name,
-          price:           Number(row.item_price),   // already in rupees
+          price:           Number(row.item_price),
           desc:            row.item_desc,
           image:           row.image,
           imageBg:         null,
@@ -74,8 +97,6 @@ router.get('/', async (req, res, next) => {
           badgeStyle:      null,
           badgeClass:      '',
           is_customizable: row.is_customizable,
-          customisable:    row.is_customizable,  // compat alias for presence + tables renderer
-          customise:       row.is_customizable,  // compat alias for orders ui.js
           has_variants:    row.has_variants,
           food_type:       row.food_type,
           tags:            row.tags || [],
@@ -96,7 +117,6 @@ router.get('/', async (req, res, next) => {
 
     const config = {
       tenant_id: id,
-      rest_id:   id,   // backward-compat alias
       slug:      r.slug,
 
       meta: {
@@ -128,15 +148,7 @@ router.get('/', async (req, res, next) => {
         kitchenNote: r.hours_display || '',
       },
 
-      products: {
-        presence: r.has_presence,
-        tables:   r.has_tables,
-        orders:   r.has_orders,
-        catering: r.has_catering,
-        insights: r.has_insights,
-      },
-
-      // Capability model — replaces raw product booleans for frontend logic.
+      // Capability model — single source for frontend feature gating.
       // Frontend reads CONFIG.capabilities.* instead of CONFIG.products.*.
       // checkoutStrategy tells Presence which checkout path to use:
       //   'whatsapp'  — Starter: cart + WhatsApp message (no payment gateway)
@@ -289,14 +301,12 @@ router.get('/', async (req, res, next) => {
 
       demo:    null,
       upgrade: null,
-
-      // v12 has no addons/spice_levels tables yet — return empty
-      addons:      [],
-      spiceLevels: [],
     };
 
+    const payload = { ok: true, config };
+    setConfigCached(id, payload);
     res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
-    res.json({ ok: true, config });
+    res.json(payload);
 
   } catch (err) {
     console.error('Config route error:', err);
@@ -318,8 +328,9 @@ router.patch('/', requireRestaurantAuth, async (req, res, next) => {
   const parsed = SettingsUpdateSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(422).json({
-      error:  'Validation failed',
-      issues: parsed.error.issues.map(i => ({ path: i.path.join('.'), message: i.message })),
+      error:   'Validation failed',
+      code:    'validation_error',
+      details: parsed.error.issues.map(i => ({ path: i.path.join('.'), message: i.message })),
     });
   }
   if (Object.keys(parsed.data).length === 0) {
@@ -341,6 +352,10 @@ router.patch('/', requireRestaurantAuth, async (req, res, next) => {
       values.push(name);
     }
     if (Object.keys(settingsFields).length) {
+      const unknown = validateSettingsPatch(settingsFields);
+      if (unknown.length) {
+        return res.status(422).json({ error: `Unknown settings keys: ${unknown.join(', ')}`, code: 'validation_error' });
+      }
       setClauses.push(`settings = settings || $${idx++}::jsonb`);
       values.push(JSON.stringify(settingsFields));
     }
@@ -358,6 +373,17 @@ router.patch('/', requireRestaurantAuth, async (req, res, next) => {
     if (!result.rows.length) {
       return res.status(404).json({ error: 'Restaurant not found' });
     }
+
+    // Bust the GET /config cache so the next request re-fetches the updated settings.
+    _configCache.delete(tenantId);
+
+    // Fire-and-forget audit log — non-critical, must not block the response.
+    audit.log(null, {
+      tenantId: tenantId, actorId: req.auth?.staffId, actorType: 'staff',
+      action: 'config.update', entityType: 'tenant.restaurant', entityId: tenantId,
+      newValue: d, req,
+    });
+
     res.json({ ok: true, name: result.rows[0].name });
   } catch (err) {
     next(err);

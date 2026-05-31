@@ -1,15 +1,14 @@
 /**
  * MIDDLEWARE — cors.js
- * Dynamic CORS policy. Each restaurant registers an allowed_origin
- * in the DB. The middleware loads the origin list once and caches it.
- * Only registered origins receive CORS headers.
+ * Dynamic CORS policy. Allowed origins are derived from tenant custom domains
+ * stored in tenant.restaurants.settings->>'domain' (v12 canonical schema).
+ * Cache refreshed every 5 minutes.
  */
 
 'use strict';
 
 const { query } = require('../../db/pool');
 
-// Cache origin → restaurant_id mapping, refreshed every 5 minutes
 let _originCache  = null;
 let _cacheBuiltAt = 0;
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -18,8 +17,19 @@ async function getAllowedOrigins() {
   if (_originCache && Date.now() - _cacheBuiltAt < CACHE_TTL_MS) {
     return _originCache;
   }
-  const res  = await query('SELECT allowed_origin FROM restaurants WHERE allowed_origin IS NOT NULL');
-  const set  = new Set(res.rows.map(r => r.allowed_origin).filter(Boolean));
+  const res = await query(
+    `SELECT settings->>'domain' AS domain
+     FROM tenant.restaurants
+     WHERE settings->>'domain' IS NOT NULL
+       AND deleted_at IS NULL`
+  );
+  const set = new Set();
+  for (const row of res.rows) {
+    if (row.domain) {
+      set.add(`https://${row.domain}`);
+      set.add(`http://${row.domain}`);
+    }
+  }
   // Always allow local development
   set.add('http://localhost:3000');
   set.add('http://localhost:5173');
@@ -28,11 +38,16 @@ async function getAllowedOrigins() {
   return set;
 }
 
+const KRAVON_DOMAIN  = (process.env.KRAVON_DOMAIN || 'kravon.in').toLowerCase();
+// Matches any subdomain of kravon.in: https://spice-of-india.kravon.in
+const KRAVON_SUBDOMAIN_RE = new RegExp(`^https?://[a-z0-9-]+\\.${KRAVON_DOMAIN.replace('.', '\\.')}$`);
+
 const corsOptions = {
   origin: async (origin, callback) => {
-    // Non-browser requests (curl, server-to-server, health checks) have no origin
     if (!origin) return callback(null, true);
-    // Allow any localhost port in development
+    // Allow all kravon.in subdomains (restaurant frontends + dashboard).
+    if (KRAVON_SUBDOMAIN_RE.test(origin)) return callback(null, true);
+    // Allow localhost in development.
     if (process.env.NODE_ENV !== 'production' && /^http:\/\/localhost(:\d+)?$/.test(origin)) {
       return callback(null, true);
     }
@@ -47,9 +62,10 @@ const corsOptions = {
       callback(err);
     }
   },
-  methods:     ['GET', 'POST', 'PUT', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
+  methods:        ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+  exposedHeaders: ['X-Request-ID'],
+  credentials:    true,
 };
 
 module.exports = { corsOptions };

@@ -182,9 +182,8 @@
       date_end:   dateE      || undefined,
       notes:      notes      || undefined,
     }).then(function(result) {
-      /* result = { ref, tier } from the API */
-      var ref  = result.ref;
-      var tier = result.tier;
+      var ref  = result.lead.ref;
+      var tier = result.lead.tier;
 
       /* Update confirmation UI — same as V7 */
       var refEl  = document.getElementById('confirmRef');

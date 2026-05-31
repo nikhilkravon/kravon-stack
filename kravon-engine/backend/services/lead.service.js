@@ -99,7 +99,8 @@ async function createLead(tenant, data) {
   const lead = result.rows[0];
 
   notifyService.leadReceived(tenant, { ...data, id: lead.id, ref, tier, score }).catch(err =>
-    console.error('[lead.service] notify failed:', err.message)
+    console.error(JSON.stringify({ level: 'error', event: 'lead.notify_failed',
+      tenantId: tenant.tenant_id, leadId: lead.id, message: err.message }))
   );
 
   return { ref, tier };

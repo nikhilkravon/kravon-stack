@@ -2,21 +2,38 @@
 
 const SettingsView = (() => {
 
+  function _esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function _cap(s) {
+    return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+  }
+
+  function _productRow(label, enabled) {
+    const icon  = enabled ? '✓' : '✕';
+    const color = enabled ? 'var(--green-600)' : 'var(--gray-400)';
+    return `<div style="display:flex;align-items:center;gap:var(--sp-3)">
+      <span style="color:${color};font-weight:700;width:16px;text-align:center">${icon}</span>
+      <span style="font-size:13px;color:${enabled ? 'var(--gray-800)' : 'var(--gray-400)'}">${label}</span>
+    </div>`;
+  }
+
   async function init(el) {
     el.innerHTML = `<div class="skeleton skeleton-line wide" style="height:300px"></div>`;
 
     let config;
     try {
-      const slug = Auth.state().slug;
-      const data = await fetch(`${window.KRAVON_API_BASE || 'http://localhost:3000'}/v1/restaurants/${slug}/config`);
-      const json = await data.json();
-      config = json.config || {};
+      // Use Api.rGet so auth + base URL are handled consistently
+      const data = await Api.rGet('/config');
+      config = data.config || {};
     } catch (err) {
-      el.innerHTML = `<div class="empty-state">Failed to load config: ${err.message}</div>`;
+      el.innerHTML = DashUI.errorState(err.message);
       return;
     }
 
     const caps = config.capabilities || {};
+    const plan = caps.plan || 'starter';
 
     el.innerHTML = `
       <div style="max-width:560px">
@@ -37,7 +54,7 @@ const SettingsView = (() => {
                 <input name="email" type="email" value="${_esc(config.contact?.email || '')}" maxlength="150">
               </div>
               <div class="form-group">
-                <label>Hours display</label>
+                <label>Opening hours</label>
                 <input name="hours_display" type="text" placeholder="e.g. Mon–Sat 11 AM – 11 PM" value="${_esc(config.hours?.display || '')}" maxlength="100">
               </div>
               <div class="form-row">
@@ -69,11 +86,13 @@ const SettingsView = (() => {
               ${_productRow('Catering',       caps.catering)}
               ${_productRow('Insights',       caps.analytics)}
             </div>
-            <p class="text-sm text-muted" style="margin-top:var(--sp-4)">Products are controlled by your plan. Contact support to change.</p>
+            <p class="text-sm text-muted" style="margin-top:var(--sp-4)">
+              Products are managed per your subscription plan. Contact support to change.
+            </p>
           </div>
           <div class="card-header" style="border-top:1px solid var(--gray-100);border-bottom:none">
             <span class="card-title">Plan</span>
-            <span class="plan-badge" data-plan="${caps.plan || 'starter'}" style="font-size:13px;padding:3px 10px">${caps.plan || 'starter'}</span>
+            <span class="plan-badge" data-plan="${plan}" style="font-size:13px;padding:3px 10px">${_cap(plan)}</span>
           </div>
         </div>
       </div>`;
@@ -88,43 +107,32 @@ const SettingsView = (() => {
       btn.disabled = true; btn.textContent = 'Saving…';
 
       const body = {};
-      const name         = fd.get('name')?.trim();
-      const tagline      = fd.get('tagline')?.trim();
-      const email        = fd.get('email')?.trim();
-      const hours        = fd.get('hours_display')?.trim();
-      const deliveryFee  = fd.get('delivery_fee');
-      const freeAbove    = fd.get('free_delivery_above');
+      const name        = fd.get('name')?.trim();
+      const tagline     = fd.get('tagline')?.trim();
+      const email       = fd.get('email')?.trim();
+      const hours       = fd.get('hours_display')?.trim();
+      const deliveryFee = fd.get('delivery_fee');
+      const freeAbove   = fd.get('free_delivery_above');
 
-      if (name)    body.name         = name;
-      if (tagline) body.tagline       = tagline;
-      if (email)   body.email         = email;
-      if (hours)   body.hours_display = hours;
+      if (name)    body.name              = name;
+      if (tagline) body.tagline            = tagline;
+      if (email)   body.email              = email;
+      if (hours)   body.hours_display      = hours;
       if (deliveryFee !== '')  body.delivery_fee         = Number(deliveryFee);
       if (freeAbove   !== '')  body.free_delivery_above  = Number(freeAbove);
 
       try {
         await Api.rPatch('/config', body);
         ok.hidden = false;
+        DashUI.toast('Settings saved.', 'success');
         setTimeout(() => { ok.hidden = true; }, 3000);
       } catch (ex) {
-        err.textContent = ex.message; err.hidden = false;
+        err.textContent = 'Could not save settings. Please try again.';
+        err.hidden = false;
       } finally {
         btn.disabled = false; btn.textContent = 'Save changes';
       }
     });
-  }
-
-  function _productRow(label, enabled) {
-    const icon  = enabled ? '✓' : '✕';
-    const color = enabled ? 'var(--green-600)' : 'var(--gray-400)';
-    return `<div style="display:flex;align-items:center;gap:var(--sp-3)">
-      <span style="color:${color};font-weight:700;width:16px;text-align:center">${icon}</span>
-      <span style="font-size:13px;color:${enabled ? 'var(--gray-800)' : 'var(--gray-400)'}">${label}</span>
-    </div>`;
-  }
-
-  function _esc(s) {
-    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
   return { init };

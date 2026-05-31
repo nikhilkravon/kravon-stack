@@ -12,21 +12,25 @@
 const App = (() => {
 
   const VIEWS = {
-    overview: OverviewView,
-    orders:   OrdersView,
-    menu:     MenuView,
-    insights: InsightsView,
-    presence: PresenceView,
-    settings: SettingsView,
+    overview:     OverviewView,
+    orders:       OrdersView,
+    menu:         MenuView,
+    reservations: ReservationsView,
+    catering:     CateringView,
+    insights:     InsightsView,
+    presence:     PresenceView,
+    settings:     SettingsView,
   };
 
   const VIEW_TITLES = {
-    overview: 'Overview',
-    orders:   'Orders',
-    menu:     'Menu',
-    insights: 'Insights',
-    presence: 'Presence',
-    settings: 'Settings',
+    overview:     'Overview',
+    orders:       'Orders',
+    menu:         'Menu',
+    reservations: 'Reservations',
+    catering:     'Catering',
+    insights:     'Insights',
+    presence:     'Personalisation',
+    settings:     'Settings',
   };
 
   let _currentView = null;
@@ -49,8 +53,25 @@ const App = (() => {
     $('dash-staff-name').textContent  = staff?.name  || '—';
     $('dash-staff-email').textContent = staff?.email || '—';
 
-    const planBadge = $('dash-plan-badge');
-    // plan comes from config; we don't load it here — leave as-is until settings loads
+    // Load restaurant display name from config in background
+    if (slug) {
+      const base = window.KRAVON_API_BASE || 'http://localhost:3000';
+      fetch(`${base}/v1/restaurants/${slug}/config`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => {
+          if (!d?.config) return;
+          const name = d.config.brand?.name;
+          const plan = d.config.capabilities?.plan || 'starter';
+          if (name) $('dash-restaurant-name').textContent = name;
+          const badge = $('dash-plan-badge');
+          if (badge) {
+            badge.dataset.plan   = plan;
+            badge.textContent    = plan.charAt(0).toUpperCase() + plan.slice(1);
+          }
+        })
+        .catch(() => {});
+    }
+
     // hash-based routing
     const hash = location.hash.slice(1) || 'overview';
     navigate(hash in VIEWS ? hash : 'overview');
@@ -64,6 +85,20 @@ const App = (() => {
       await Auth.logout();
       location.reload();
     });
+
+    // Mobile sidebar toggle
+    const sidebar  = document.querySelector('.dash-sidebar');
+    const overlay  = $('dash-sidebar-overlay');
+    const toggle   = $('dash-menu-toggle');
+    if (toggle && sidebar && overlay) {
+      const openSidebar  = () => { sidebar.classList.add('open'); overlay.classList.add('open'); };
+      const closeSidebar = () => { sidebar.classList.remove('open'); overlay.classList.remove('open'); };
+      toggle.addEventListener('click', openSidebar);
+      overlay.addEventListener('click', closeSidebar);
+      document.querySelectorAll('.dash-nav-item').forEach(a =>
+        a.addEventListener('click', () => { if (window.innerWidth <= 768) closeSidebar(); })
+      );
+    }
   }
 
   // ── Login form ─────────────────────────────────────────────────────────────

@@ -100,13 +100,13 @@ const TablesCheckout = (() => {
     };
 
     try {
-      const result = await KravonAPI.createOrder(orderData);
-      _orderId          = result.order_id;
+      const { order } = await KravonAPI.createOrder(orderData);
+      _orderId          = order.id;
       _deferredBillTable = 'takeaway';
-      if (_selectedPaymentId === 'razorpay' && result.razorpay_order_id) {
-        openRazorpay(result, name, phone, orderData);
+      if (_selectedPaymentId === 'razorpay' && order.razorpay_order_id) {
+        openRazorpay(order, name, phone, orderData);
       } else {
-        showConfirmScreen(result.order_id, orderData);
+        showConfirmScreen(order.id, orderData);
       }
     } catch (err) {
       console.error('[tables:checkout] placeOrder failed:', err.message);
@@ -116,12 +116,12 @@ const TablesCheckout = (() => {
   }
 
   /* ── Razorpay checkout ───────────────────────────────────── */
-  function openRazorpay(result, name, phone, orderData) {
+  function openRazorpay(order, name, phone, orderData) {
     const cfg = window.CONFIG.tables || {};
     const options = {
-      key:         result.razorpay_key_id,
-      order_id:    result.razorpay_order_id,
-      amount:      result.total,
+      key:         order.razorpay_key_id,
+      order_id:    order.razorpay_order_id,
+      amount:      order.total,
       currency:    'INR',
       name:        window.CONFIG.brand.name,
       description: `Order — ${orderData.table_identifier !== 'takeaway' ? 'Table ' + orderData.table_identifier : 'Takeaway'}`,

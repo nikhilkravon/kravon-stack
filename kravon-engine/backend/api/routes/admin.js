@@ -16,6 +16,7 @@ const bcrypt     = require('bcryptjs');
 const { z }      = require('zod');
 const { query, getClient }  = require('../../db/pool');
 const { encrypt } = require('../../utils/crypto');
+const { validateSettingsPatch } = require('../../db/settingsSchema');
 
 const router = express.Router();
 
@@ -53,7 +54,6 @@ const CreateRestaurantSchema = z.object({
   has_insights:       z.boolean().optional(),
   razorpay_key_id:    z.string().max(40).optional(),
   razorpay_key_secret:z.string().max(200).optional(),
-  allowed_origin:     z.string().url().max(200).optional(),
   review_threshold:   z.number().int().min(1).max(5).optional(),
   google_review_url:  z.string().url().max(300).optional(),
   webhook_url:        z.string().url().max(300).optional(),
@@ -101,7 +101,6 @@ router.post('/restaurants', async (req, res, next) => {
       ...(d.delivery_zone      && { delivery_zone:      d.delivery_zone      }),
       ...(d.hours_display      && { hours_display:      d.hours_display      }),
       ...(d.open_until         && { open_until:         d.open_until         }),
-      ...(d.allowed_origin     && { allowed_origin:     d.allowed_origin     }),
       ...(d.review_threshold   != null && { review_threshold:   d.review_threshold   }),
       ...(d.google_review_url  && { google_review_url:  d.google_review_url  }),
       ...(d.delivery_fee       != null && { delivery_fee:       d.delivery_fee       }),
@@ -208,7 +207,7 @@ router.put('/restaurants/:slug', async (req, res, next) => {
     const settingsPatch = {};
     const SETTINGS_FIELDS = [
       'tagline','year','email','delivery_zone','hours_display','open_until',
-      'allowed_origin','review_threshold','google_review_url',
+      'review_threshold','google_review_url',
       'delivery_fee','free_delivery_above','domain','map_url','webhook_url',
     ];
     for (const f of SETTINGS_FIELDS) {
@@ -228,6 +227,10 @@ router.put('/restaurants/:slug', async (req, res, next) => {
     if (d.plan         !== undefined) { sets.push(`plan = $${idx++}`);         values.push(d.plan); }
 
     if (Object.keys(settingsPatch).length) {
+      const unknown = validateSettingsPatch(settingsPatch);
+      if (unknown.length) {
+        return res.status(422).json({ error: `Unknown settings keys: ${unknown.join(', ')}` });
+      }
       sets.push(`settings = settings || $${idx++}`);
       values.push(JSON.stringify(settingsPatch));
     }

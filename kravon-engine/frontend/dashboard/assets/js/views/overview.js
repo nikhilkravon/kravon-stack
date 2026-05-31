@@ -2,23 +2,67 @@
 
 const OverviewView = (() => {
 
-  function _fmt(n) { return '₹ ' + Number(n || 0).toLocaleString('en-IN'); }
+  function _fmt(n) { return '₹ ' + Number(n || 0).toLocaleString('en-IN'); }
+
   function _ago(iso) {
     const diff = Math.floor((Date.now() - new Date(iso)) / 1000);
-    if (diff < 60)  return `${diff}s ago`;
+    if (diff < 60)   return `${diff}s ago`;
     if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
     return `${Math.floor(diff / 3600)}h ago`;
   }
 
+  // Complete status → badge class map covering every possible order status
+  const STATUS_BADGE = {
+    pending:          'badge-placed',
+    confirmed:        'badge-preparing',
+    preparing:        'badge-preparing',
+    ready:            'badge-ready',
+    out_for_delivery: 'badge-preparing',
+    delivered:        'badge-delivered',
+    completed:        'badge-delivered',
+    cancelled:        'badge-cancelled',
+    refunded:         'badge-cancelled',
+  };
+
+  const STATUS_LABEL = {
+    pending:          'Pending',
+    confirmed:        'Confirmed',
+    preparing:        'Preparing',
+    ready:            'Ready',
+    out_for_delivery: 'Out for delivery',
+    delivered:        'Delivered',
+    completed:        'Completed',
+    cancelled:        'Cancelled',
+    refunded:         'Refunded',
+  };
+
+  const CHANNEL_LABEL = {
+    dine_in:  'Dine-in',
+    delivery: 'Delivery',
+    pickup:   'Pickup',
+    catering: 'Catering',
+    qr:       'QR Table',
+    web:      'Online',
+    whatsapp: 'WhatsApp',
+    pos:      'POS',
+    phone:    'Phone',
+  };
+
   function _statusBadge(s) {
-    const map = { placed: 'placed', preparing: 'preparing', delivered: 'delivered', cancelled: 'cancelled' };
-    return `<span class="badge badge-${map[s] || 'pending'}">${s}</span>`;
+    const cls   = STATUS_BADGE[s]  || 'badge-placed';
+    const label = STATUS_LABEL[s]  || s.replace(/_/g, ' ');
+    return `<span class="badge ${cls}">${label}</span>`;
   }
 
-  function _statCards(s, r) {
-    const o  = s.orders  || {};
-    const c  = s.customers || {};
-    const leads = s.leads || {};
+  function _channel(o) {
+    const key = o.fulfillment_type || o.channel || '';
+    return CHANNEL_LABEL[key] || key || '—';
+  }
+
+  function _statCards(s) {
+    const o     = s.orders    || {};
+    const c     = s.customers || {};
+    const leads = s.leads     || {};
     return `
       <div class="stat-grid">
         <div class="stat-card">
@@ -45,20 +89,25 @@ const OverviewView = (() => {
   }
 
   function _recentOrders(orders) {
-    if (!orders.length) return `<div class="empty-state">No orders yet</div>`;
+    if (!orders.length) {
+      return DashUI.emptyState({
+        icon:    '🛍',
+        title:   'No orders yet',
+        body:    'Orders placed through your restaurant will appear here.',
+      });
+    }
     const rows = orders.map(o => `
       <tr>
-        <td>#${o.id.slice(-6).toUpperCase()}</td>
-        <td>${o.fulfillment_type === 'dine_in' ? 'Dine-in' : o.fulfillment_type === 'delivery' ? 'Delivery' : (o.fulfillment_type || o.channel || '—')}</td>
-        <td>${_fmt(o.total_amount)}</td>
+        <td class="text-sm text-muted">#${o.id.slice(-6).toUpperCase()}</td>
+        <td class="text-sm">${_channel(o)}</td>
+        <td style="font-weight:500">${_fmt(o.total_amount)}</td>
         <td>${_statusBadge(o.status)}</td>
         <td class="td-muted">${_ago(o.created_at)}</td>
-        <td><button class="btn btn-ghost btn-sm" data-order-id="${o.id}">Details</button></td>
       </tr>`).join('');
     return `
       <div class="table-wrap">
         <table>
-          <thead><tr><th>#</th><th>Surface</th><th>Amount</th><th>Status</th><th>Time</th><th></th></tr></thead>
+          <thead><tr><th>#</th><th>Channel</th><th>Amount</th><th>Status</th><th>Time</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>`;
@@ -67,9 +116,16 @@ const OverviewView = (() => {
   async function init(el) {
     el.innerHTML = `
       <div class="stat-grid">
-        ${[1,2,3,4].map(() => `<div class="stat-card"><div class="skeleton skeleton-line wide"></div><div class="skeleton skeleton-line short" style="height:28px;margin-top:4px"></div></div>`).join('')}
+        ${[1,2,3,4].map(() => `
+          <div class="stat-card">
+            <div class="skeleton skeleton-line short" style="margin-bottom:var(--sp-2)"></div>
+            <div class="skeleton skeleton-line wide" style="height:28px"></div>
+          </div>`).join('')}
       </div>
-      <div class="card"><div class="card-body"><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line wide"></div></div></div>`;
+      <div class="card">
+        <div class="card-header"><span class="card-title">Recent orders</span></div>
+        <div class="card-body"><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line wide"></div></div>
+      </div>`;
 
     try {
       const [summary, ordersData] = await Promise.all([
@@ -78,7 +134,7 @@ const OverviewView = (() => {
       ]);
 
       el.innerHTML = `
-        ${_statCards(summary, ordersData)}
+        ${_statCards(summary)}
         <div class="card">
           <div class="card-header">
             <span class="card-title">Recent orders</span>
@@ -87,13 +143,16 @@ const OverviewView = (() => {
           ${_recentOrders(ordersData.orders || [])}
         </div>`;
 
-      el.querySelector('.card')?.addEventListener('click', e => {
-        const btn = e.target.closest('[data-order-id]');
-        if (btn) App.navigate('orders');
-      });
-
     } catch (err) {
-      el.innerHTML = `<div class="empty-state">Failed to load overview: ${err.message}</div>`;
+      console.error('[overview] load failed:', err);
+      const errHtml = (typeof DashUI !== 'undefined')
+        ? DashUI.errorState(err.message)
+        : `<div style="padding:32px;text-align:center;color:#9CA3AF;font-size:13px">Could not load overview. Try refreshing.</div>`;
+      el.innerHTML = `
+        <div class="card" style="margin-top:var(--sp-4)">
+          <div class="card-header"><span class="card-title">Overview</span></div>
+          ${errHtml}
+        </div>`;
     }
   }
 

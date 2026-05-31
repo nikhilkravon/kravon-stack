@@ -26,12 +26,17 @@ pool.on('error', (err) => {
  * query(text, params) → pg QueryResult
  * Thin wrapper so callers never touch pool directly.
  */
+const SLOW_QUERY_MS = parseInt(process.env.SLOW_QUERY_MS || '500', 10);
+
 async function query(text, params) {
   const start  = Date.now();
   const result = await pool.query(text, params);
   const ms     = Date.now() - start;
   if (process.env.NODE_ENV !== 'production') {
     console.log(`[db] ${ms}ms — ${text.slice(0, 80)}`);
+  } else if (ms > SLOW_QUERY_MS) {
+    // Always surface slow queries in production so they're visible in log aggregators.
+    console.warn(JSON.stringify({ level: 'warn', event: 'slow_query', ms, query: text.slice(0, 120) }));
   }
   return result;
 }

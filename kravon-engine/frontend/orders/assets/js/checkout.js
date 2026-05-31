@@ -212,14 +212,14 @@ const Checkout = (() => {
         payment_method:   _selectedPaymentId,
       };
 
-      const result = await KravonAPI.createOrder(orderPayload);
+      const { order } = await KravonAPI.createOrder(orderPayload);
 
-      if (_selectedPaymentId !== 'cod' && result.razorpay_order_id) {
+      if (_selectedPaymentId !== 'cod' && order.razorpay_order_id) {
         // Open Razorpay checkout modal
-        _openRazorpay(result);
+        _openRazorpay(order);
       } else {
         // COD — go straight to confirmation
-        _showConfirmation(result.order_id, totals.total);
+        _showConfirmation(order.id, totals.total);
       }
 
     } catch (err) {
@@ -228,12 +228,12 @@ const Checkout = (() => {
     }
   }
 
-  function _openRazorpay(result) {
+  function _openRazorpay(order) {
     const options = {
-      key:       result.razorpay_key_id,
-      amount:    result.total,
+      key:       order.razorpay_key_id,
+      amount:    order.total,
       currency:  'INR',
-      order_id:  result.razorpay_order_id,
+      order_id:  order.razorpay_order_id,
       name:      CONFIG.brand.name,
       description: 'Direct Order',
       prefill: {
@@ -244,7 +244,7 @@ const Checkout = (() => {
       handler: function(response) {
         // Payment captured — webhook handles DB confirmation
         // Frontend just shows the confirmation screen
-        _showConfirmation(result.order_id, result.total);
+        _showConfirmation(order.id, order.total);
       },
       modal: {
         ondismiss: function() {

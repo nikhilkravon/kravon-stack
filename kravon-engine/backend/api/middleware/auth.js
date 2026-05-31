@@ -29,7 +29,7 @@ function requireAuth(req, res, next) {
  */
 function requireRestaurantAuth(req, res, next) {
   requireAuth(req, res, () => {
-    if (req.auth.tenantId !== req.tenant.rest_id) {
+    if (req.auth.tenantId !== req.tenant.tenant_id) {
       return res.status(403).json({ error: 'Forbidden' });
     }
     next();

@@ -4,8 +4,10 @@
  * Auth — token lifecycle management
  *
  * Access token (15 min): kept in memory only, never persisted.
- * Refresh token (30 day): stored in localStorage under 'krv_rt'.
- * Staff + slug stored in localStorage for sidebar display.
+ * Refresh token (30 day): stored in an HttpOnly cookie set by the server.
+ *   The frontend never reads or stores the RT — it's invisible to JS.
+ *   All auth requests use credentials:'include' so the cookie is sent automatically.
+ * Staff + slug stored in localStorage for sidebar display only (non-sensitive).
  *
  * getToken() is transparent: returns current AT, or silently refreshes,
  * or throws if the session is fully expired.
@@ -13,11 +15,10 @@
 const Auth = (() => {
   const BASE = () => window.KRAVON_API_BASE || 'http://localhost:3000';
 
-  const K_RT    = 'krv_rt';
   const K_STAFF = 'krv_staff';
   const K_SLUG  = 'krv_slug';
 
-  let _at    = null;  // access token string
+  let _at    = null;  // access token string (in memory only)
   let _atExp = 0;     // unix seconds
 
   // ── JWT decode (no verify — trust the server) ─────────────────────────────
@@ -37,28 +38,27 @@ const Auth = (() => {
   // ── Public ─────────────────────────────────────────────────────────────────
   async function login(slug, email, password) {
     const r = await fetch(`${BASE()}/v1/auth/login`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ slug, email, password }),
+      method:      'POST',
+      credentials: 'include',   // receive HttpOnly RT cookie from server
+      headers:     { 'Content-Type': 'application/json' },
+      body:        JSON.stringify({ slug, email, password }),
     });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || 'Login failed');
 
     _storeAt(data.accessToken);
-    localStorage.setItem(K_RT,    data.refreshToken);
+    // RT is now in an HttpOnly cookie — do not store it here.
     localStorage.setItem(K_SLUG,  slug);
     localStorage.setItem(K_STAFF, JSON.stringify(data.staff));
     return data;
   }
 
   async function refresh() {
-    const rt = localStorage.getItem(K_RT);
-    if (!rt) throw new Error('No refresh token');
-
+    // RT is sent automatically via the HttpOnly cookie — no body needed.
     const r = await fetch(`${BASE()}/v1/auth/refresh`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ refreshToken: rt }),
+      method:      'POST',
+      credentials: 'include',
+      headers:     { 'Content-Type': 'application/json' },
     });
     if (!r.ok) {
       clear();
@@ -66,14 +66,28 @@ const Auth = (() => {
     }
     const data = await r.json();
     _storeAt(data.accessToken);
+
+    // Restore slug and staff from the JWT payload so Api._slug() works
+    // after a cookie-based refresh (localStorage may have been cleared).
+    const payload = _decodeJwt(data.accessToken);
+    if (payload?.slug && !localStorage.getItem(K_SLUG)) {
+      localStorage.setItem(K_SLUG, payload.slug);
+    }
+    if (payload && !localStorage.getItem(K_STAFF)) {
+      localStorage.setItem(K_STAFF, JSON.stringify({
+        id: payload.staffId, roles: payload.roles,
+      }));
+    }
+
     return data.accessToken;
   }
 
   async function logout() {
     if (_at) {
       fetch(`${BASE()}/v1/auth/logout`, {
-        method:  'POST',
-        headers: { 'Authorization': `Bearer ${_at}` },
+        method:      'POST',
+        credentials: 'include',
+        headers:     { 'Authorization': `Bearer ${_at}` },
       }).catch(() => {});
     }
     clear();
@@ -87,7 +101,7 @@ const Auth = (() => {
   }
 
   function isLoggedIn() {
-    return !!localStorage.getItem(K_RT);
+    return !!_at || !!localStorage.getItem(K_STAFF);
   }
 
   function state() {
@@ -98,7 +112,6 @@ const Auth = (() => {
 
   function clear() {
     _at = null; _atExp = 0;
-    localStorage.removeItem(K_RT);
     localStorage.removeItem(K_STAFF);
     localStorage.removeItem(K_SLUG);
   }

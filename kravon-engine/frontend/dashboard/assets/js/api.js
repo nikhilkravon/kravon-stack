@@ -17,6 +17,7 @@ const Api = (() => {
 
     const init = {
       method,
+      credentials: 'include',   // send HttpOnly RT cookie on every request
       headers: { 'Authorization': `Bearer ${token}` },
     };
     if (body !== undefined) {

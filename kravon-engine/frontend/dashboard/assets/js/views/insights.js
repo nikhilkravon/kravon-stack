@@ -92,11 +92,20 @@ const InsightsView = (() => {
 
       el.querySelector('#insights-stats').innerHTML = _statCards(o, leads, customers);
 
-      const canvas = el.querySelector('#revenue-canvas');
-      if (canvas) _drawChart(canvas, chartData.data || []);
+      const chartRows = chartData.data || [];
+      const canvas    = el.querySelector('#revenue-canvas');
+      if (canvas && chartRows.length) {
+        _drawChart(canvas, chartRows);
+      } else if (canvas) {
+        canvas.closest('.chart-wrap').innerHTML = DashUI.emptyState({
+          icon:  '📊',
+          title: 'No revenue data yet',
+          body:  'Revenue will appear here once orders start coming in.',
+        });
+      }
 
     } catch (err) {
-      el.querySelector('#insights-stats').innerHTML = `<div class="empty-state">Error: ${err.message}</div>`;
+      el.querySelector('#insights-stats').innerHTML = DashUI.errorState(err.message);
     }
   }
 

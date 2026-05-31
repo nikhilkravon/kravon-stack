@@ -20,16 +20,21 @@
 
 const { query } = require('../../db/pool');
 
-const _cache = new Map();
-const TTL_MS = 60 * 1000;
+const _cache   = new Map();
+const TTL_MS   = 60 * 1000;
+const MAX_SIZE = 500;
 
 /**
  * buildTenant — assembles req.tenant from v12 schema rows.
  */
 function buildTenant(tenantRow, locationRow, integrations, contactLinks, seoRow, assets, announcements) {
-  const s    = tenantRow.settings || {};
-  const loc  = locationRow        || {};
-  const seo  = seoRow             || {};
+  const s       = tenantRow.settings || {};
+  const loc     = locationRow        || {};
+  const seo     = seoRow             || {};
+  // Presence content: consolidated owner is settings.presence.
+  // Fallback to scattered legacy keys so existing DB rows still work.
+  const pres    = s.presence        || {};
+  const presSt  = pres.story        || {};
 
   const razorpay = integrations.find(r => r.provider === 'razorpay');
   const webhook  = integrations.find(r => r.provider === 'webhook');
@@ -44,7 +49,6 @@ function buildTenant(tenantRow, locationRow, integrations, contactLinks, seoRow,
 
   return {
     tenant_id: tenantRow.id,
-    rest_id:   tenantRow.id,  // backward-compat alias
 
     slug:   tenantRow.slug,
     name:   tenantRow.name,
@@ -84,9 +88,9 @@ function buildTenant(tenantRow, locationRow, integrations, contactLinks, seoRow,
     open_until:          s.open_until           || null,
     delivery_zone:       s.delivery_zone        || null,
     map_url:             s.map_url              || null,
-    story_headline:      s.story_headline       || null,
-    story_body:          s.story_body           || [],
-    story_facts:         s.story_facts          || [],
+    story_headline:      presSt.headline         || s.story_headline || null,
+    story_body:          presSt.body             || s.story_body     || [],
+    story_facts:         presSt.facts            || s.story_facts    || [],
 
     // Presence marketing — brand.assets
     hero_image: bannerAsset?.url || null,
@@ -107,9 +111,8 @@ function buildTenant(tenantRow, locationRow, integrations, contactLinks, seoRow,
       active:      a.is_active,
     })),
 
-    // Presence marketing — settings JSONB
-    timeline:         s.timeline          || [],
-    signature_dishes: s.signature_dishes  || [],
+    timeline:         pres.timeline         || s.timeline         || [],
+    signature_dishes: pres.signature_dishes || s.signature_dishes || [],
 
     _settings: s,
   };
@@ -225,6 +228,10 @@ async function resolveRestaurant(req, res, next) {
       annRes.rows,
     );
 
+    if (_cache.size >= MAX_SIZE) {
+      // Evict the oldest entry (Map preserves insertion order)
+      _cache.delete(_cache.keys().next().value);
+    }
     _cache.set(raw, { tenant, ts: Date.now() });
     req.tenant = tenant;
     next();

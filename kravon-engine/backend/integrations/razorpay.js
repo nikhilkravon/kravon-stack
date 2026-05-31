@@ -50,9 +50,11 @@ async function createPayment(tenant, amountPaise, internalOrderId) {
 
   // receipt ties the Razorpay order back to our DB order — unique and traceable.
   // Razorpay caps receipt at 40 chars; rest_id + orderId fits comfortably.
+  // Razorpay caps receipt at 40 chars. Use first 8 chars of UUID for brevity.
+  const tenantShort = tenant.tenant_id.replace(/-/g, '').slice(0, 8);
   const receipt = internalOrderId
-    ? `kravon_${tenant.rest_id}_${internalOrderId}`
-    : `kravon_${tenant.rest_id}_${Date.now()}`;
+    ? `krv_${tenantShort}_${internalOrderId}`.slice(0, 40)
+    : `krv_${tenantShort}_${Date.now()}`.slice(0, 40);
 
   const rzpOrder = await rzp.orders.create({
     amount:   amountPaise,

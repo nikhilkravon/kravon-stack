@@ -54,7 +54,8 @@ async function orderConfirmed(tenant, order) {
   const surface   = order.order_surface;
   const table     = order.table_identifier;
   const itemLines = formatItems(order.items_json);
-  const totalRs   = Math.round(order.total_amount / 100);
+  // DB stores rupees (NUMERIC). Use total field directly — no paise conversion.
+  const totalRs   = Math.round(order.total ?? order.total_amount ?? 0);
   const payment   = (order.payment_method || '').toUpperCase();
 
   /* ── 1. Kitchen WhatsApp ─────────────────────────────────────────────── */
@@ -94,8 +95,8 @@ async function orderConfirmed(tenant, order) {
         `─────────────────`,
         itemLines,
         `─────────────────`,
-        `*Subtotal:* ₹${Math.round(order.subtotal / 100)}`,
-        order.delivery_fee > 0 ? `*Delivery:* ₹${Math.round(order.delivery_fee / 100)}` : null,
+        `*Subtotal:* ₹${Math.round(order.subtotal ?? 0)}`,
+        order.delivery_fee > 0 ? `*Delivery:* ₹${Math.round(order.delivery_fee ?? 0)}` : null,
         `*Total:* ₹${totalRs}`,
         `*Payment:* ${payment}`,
         `*Order ID:* ${orderId}`,
@@ -103,7 +104,8 @@ async function orderConfirmed(tenant, order) {
     }
 
     await whatsapp.sendOrderNotification(tenant.wa_number, kitchenMsg).catch(err =>
-      console.error('[notify] kitchen WA failed:', err.message)
+      console.error(JSON.stringify({ level: 'error', event: 'notify.kitchen_wa_failed',
+        tenantId: tenant.tenant_id, orderId: order.id, message: err.message }))
     );
   }
 
@@ -120,7 +122,8 @@ async function orderConfirmed(tenant, order) {
     ].join('\n');
 
     await whatsapp.sendOrderNotification(order.customer_phone, customerMsg).catch(err =>
-      console.error('[notify] customer WA failed:', err.message)
+      console.error(JSON.stringify({ level: 'error', event: 'notify.customer_wa_failed',
+        tenantId: tenant.tenant_id, orderId: order.id, message: err.message }))
     );
   }
 
@@ -160,7 +163,8 @@ async function leadReceived(tenant, lead) {
     ].filter(Boolean).join('\n');
 
     await whatsapp.sendLeadNotification(tenant.wa_number, msg).catch(err =>
-      console.error('[notify] lead WA failed:', err.message)
+      console.error(JSON.stringify({ level: 'error', event: 'notify.lead_wa_failed',
+        tenantId: tenant.tenant_id, leadId: lead.id, message: err.message }))
     );
   }
 

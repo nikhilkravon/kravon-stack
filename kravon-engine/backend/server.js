@@ -37,11 +37,20 @@ require('dotenv').config();
   const missing  = REQUIRED.filter(k => !process.env[k]);
   if (missing.length) {
     console.error(`[startup] Missing required env vars: ${missing.join(', ')}`);
-    console.error('[startup] Set them in .env or your deployment environment and restart.');
     process.exit(1);
   }
   if (process.env.ENCRYPTION_KEY.length !== 64) {
     console.error('[startup] ENCRYPTION_KEY must be a 64-char hex string (32 bytes).');
+    process.exit(1);
+  }
+  // JWT_SECRET needs at least 32 chars of entropy to resist brute-force.
+  if (process.env.JWT_SECRET.length < 32) {
+    console.error('[startup] JWT_SECRET must be at least 32 characters.');
+    process.exit(1);
+  }
+  // ADMIN_API_KEY needs at least 32 chars — single-key protection for all admin routes.
+  if (process.env.ADMIN_API_KEY.length < 32) {
+    console.error('[startup] ADMIN_API_KEY must be at least 32 characters.');
     process.exit(1);
   }
   if (!process.env.RAZORPAY_WEBHOOK_SECRET) {
@@ -49,10 +58,12 @@ require('dotenv').config();
   }
 })();
 
-const express   = require('express');
-const helmet    = require('helmet');
-const cors      = require('cors');
-const rateLimit = require('express-rate-limit');
+const express      = require('express');
+const helmet       = require('helmet');
+const cors         = require('cors');
+const crypto       = require('crypto');
+const cookieParser = require('cookie-parser');
+const rateLimit    = require('express-rate-limit');
 
 const { corsOptions }       = require('./api/middleware/cors');
 const { resolveRestaurant } = require('./api/middleware/tenant');
@@ -73,6 +84,31 @@ const authRoutes    = require('./api/routes/auth');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
+
+/* ── Request ID — attach to every request for log correlation ──────────────── */
+app.use((req, _res, next) => {
+  req.id = req.headers['x-request-id'] || crypto.randomUUID();
+  next();
+});
+
+/* ── Request logger ────────────────────────────────────────────────────────── */
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const ms  = Date.now() - start;
+    const log = { level: 'info', event: 'request', reqId: req.id, method: req.method,
+                  path: req.path, status: res.statusCode, ms };
+    if (process.env.NODE_ENV === 'production') {
+      console.log(JSON.stringify(log));
+    } else if (res.statusCode >= 400) {
+      console.log(`[req] ${req.method} ${req.path} ${res.statusCode} ${ms}ms`);
+    }
+  });
+  next();
+});
+
+/* ── Cookie parser ─────────────────────────────────────────────────────────── */
+app.use(cookieParser());
 
 /* ── Security headers ──────────────────────────────────────────────────────── */
 app.use(helmet());
@@ -96,7 +132,15 @@ app.use('/v1/webhooks', express.raw({ type: 'application/json' }));
 app.use(express.json({ limit: '256kb' }));
 
 /* ── Health check ──────────────────────────────────────────────────────────── */
-app.get('/health', (_req, res) => res.json({ status: 'ok', ts: Date.now() }));
+app.get('/health', async (_req, res) => {
+  try {
+    const { query } = require('./db/pool');
+    await query('SELECT 1');
+    res.json({ status: 'ok', ts: Date.now() });
+  } catch {
+    res.status(503).json({ status: 'error', reason: 'db_unreachable', ts: Date.now() });
+  }
+});
 
 /* ── Public routes (no restaurant context) ─────────────────────────────────── */
 app.use('/v1/webhooks', webhookRoutes);
@@ -169,8 +213,24 @@ app.use((_req, res) => res.status(404).json({ error: 'Not found.' }));
 app.use(errorHandler);
 
 /* ── Start ─────────────────────────────────────────────────────────────────── */
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`kravon-platform listening on :${PORT} [${process.env.NODE_ENV || 'development'}]`);
 });
+
+function shutdown(signal) {
+  console.log(JSON.stringify({ level: 'info', event: 'shutdown', signal }));
+  // Stop accepting new connections; wait up to 10 s for in-flight requests to drain.
+  server.close(() => {
+    console.log(JSON.stringify({ level: 'info', event: 'shutdown_complete' }));
+    process.exit(0);
+  });
+  setTimeout(() => {
+    console.error(JSON.stringify({ level: 'error', event: 'shutdown_timeout' }));
+    process.exit(1);
+  }, 10000).unref();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT',  () => shutdown('SIGINT'));
 
 module.exports = app;

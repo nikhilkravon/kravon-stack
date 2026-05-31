@@ -27,6 +27,18 @@ const JWT_SECRET      = () => process.env.JWT_SECRET;
 const ACCESS_TTL_SEC  = 15 * 60;          // 15 minutes
 const REFRESH_TTL_MS  = 30 * 24 * 3600 * 1000; // 30 days
 
+const COOKIE_NAME = 'krv_rt';
+const COOKIE_OPTS = {
+  httpOnly: true,
+  secure:   process.env.NODE_ENV === 'production',
+  // 'strict' blocks the cookie on cross-origin requests.
+  // In dev the dashboard (port 8000) calls the API (port 3000) cross-origin,
+  // so we need 'lax' in dev. In production they share a domain, so 'strict' is safe.
+  sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+  maxAge:   REFRESH_TTL_MS,
+  path:     '/v1/auth',
+};
+
 /* ── Tighter rate limit for auth endpoints ─────────────────────────────── */
 const authLimiter = rateLimit({
   windowMs:        60 * 1000,
@@ -137,9 +149,12 @@ router.post('/login', authLimiter, async (req, res, next) => {
       [staff.id]
     ).catch(() => {});
 
+    // Refresh token goes in an HttpOnly cookie — not in the JSON body.
+    // The JSON body still includes it for backward-compat with any existing clients
+    // reading it, but frontend should migrate to cookie-only.
+    res.cookie(COOKIE_NAME, refreshToken, COOKIE_OPTS);
     res.json({
       accessToken,
-      refreshToken,
       expiresIn: ACCESS_TTL_SEC,
       staff: { id: staff.id, name: staff.name, email: staff.email, roles },
     });
@@ -149,12 +164,13 @@ router.post('/login', authLimiter, async (req, res, next) => {
 /* ── POST /v1/auth/refresh ─────────────────────────────────────────────── */
 router.post('/refresh', async (req, res, next) => {
   try {
-    const parsed = RefreshSchema.safeParse(req.body);
-    if (!parsed.success) {
+    // Accept RT from HttpOnly cookie (preferred) or request body (legacy fallback).
+    const rawToken = req.cookies?.[COOKIE_NAME] || req.body?.refreshToken;
+    if (!rawToken || typeof rawToken !== 'string' || rawToken.length !== 64) {
       return res.status(400).json({ error: 'Invalid request.' });
     }
 
-    const hashed = sha256(parsed.data.refreshToken);
+    const hashed = sha256(rawToken);
 
     const sessionResult = await query(
       `SELECT ss.staff_id, ss.tenant_id,
@@ -190,6 +206,8 @@ router.post('/refresh', async (req, res, next) => {
     const roles = row.roles || [];
     const accessToken = issueAccessToken(staff, row.tenant_id, row.slug, roles);
 
+    // Re-issue the cookie to refresh its maxAge.
+    res.cookie(COOKIE_NAME, rawToken, COOKIE_OPTS);
     res.json({ accessToken, expiresIn: ACCESS_TTL_SEC });
   } catch (err) { next(err); }
 });
@@ -216,6 +234,7 @@ router.post('/logout', async (req, res, next) => {
       [payload.staffId]
     );
 
+    res.clearCookie(COOKIE_NAME, { path: '/v1/auth' });
     res.json({ ok: true });
   } catch (err) { next(err); }
 });

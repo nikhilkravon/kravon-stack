@@ -26,12 +26,31 @@ const { requireRestaurantAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Aggregate queries are expensive. Cache per-tenant for 30 seconds so
+// concurrent dashboard loads don't each run a full table scan.
+const _cache   = new Map();
+const CACHE_TTL = 30 * 1000;
+
+function getCached(key) {
+  const entry = _cache.get(key);
+  if (entry && Date.now() - entry.ts < CACHE_TTL) return entry.data;
+  return null;
+}
+function setCached(key, data) {
+  if (_cache.size > 200) _cache.delete(_cache.keys().next().value);
+  _cache.set(key, { data, ts: Date.now() });
+}
+
 router.use(requireRestaurantAuth);
 
 /* ── Summary — last 30 days ──────────────────────────────────────────────── */
 router.get('/summary', async (req, res, next) => {
   try {
-    const id = req.tenant.rest_id;
+    const id        = req.tenant.tenant_id;
+    const cacheKey  = `summary:${id}`;
+    const cached    = getCached(cacheKey);
+    if (cached) return res.json(cached);
+
     const [ordersRes, leadsRes, repeatRes] = await Promise.all([
       query(`
         SELECT
@@ -41,7 +60,7 @@ router.get('/summary', async (req, res, next) => {
           COUNT(DISTINCT customer_id) AS unique_customers
         FROM orders.orders
         WHERE tenant_id = $1
-          AND status = 'delivered'
+          AND status IN ('completed', 'delivered')
           AND deleted_at IS NULL
           AND created_at > NOW() - INTERVAL '30 days'
       `, [id]),
@@ -72,13 +91,15 @@ router.get('/summary', async (req, res, next) => {
       `, [id]),
     ]);
 
-    res.json({
+    const payload = {
       ok: true,
       period: '30d',
       orders:    ordersRes.rows[0],
       leads:     leadsRes.rows[0],
       customers: repeatRes.rows[0],
-    });
+    };
+    setCached(cacheKey, payload);
+    res.json(payload);
   } catch (err) {
     next(err);
   }
@@ -87,9 +108,13 @@ router.get('/summary', async (req, res, next) => {
 /* ── Orders by day ───────────────────────────────────────────────────────── */
 router.get('/orders', async (req, res, next) => {
   try {
-    const id      = req.tenant.rest_id;
+    const id      = req.tenant.tenant_id;
     const rawDays = parseInt(req.query.days, 10);
     const days    = Number.isFinite(rawDays) ? Math.min(Math.max(rawDays, 1), 365) : 30;
+
+    const cacheKey = `orders_by_day:${id}:${days}`;
+    const cached   = getCached(cacheKey);
+    if (cached) return res.json(cached);
 
     const result = await query(`
       SELECT
@@ -98,14 +123,16 @@ router.get('/orders', async (req, res, next) => {
         SUM(total_amount)             AS revenue
       FROM orders.orders
       WHERE tenant_id = $1
-        AND status NOT IN ('cancelled')
+        AND status NOT IN ('cancelled', 'refunded', 'pending')
         AND deleted_at IS NULL
         AND created_at > NOW() - INTERVAL '1 day' * $2
       GROUP BY 1
       ORDER BY 1
     `, [id, days]);
 
-    res.json({ ok: true, data: result.rows });
+    const payload = { ok: true, data: result.rows };
+    setCached(cacheKey, payload);
+    res.json(payload);
   } catch (err) {
     next(err);
   }

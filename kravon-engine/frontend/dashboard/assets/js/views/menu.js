@@ -24,8 +24,12 @@ const MenuView = (() => {
             <span class="toggle-track"></span>
             <span class="toggle-thumb"></span>
           </label>
-          <button class="btn btn-ghost btn-sm" data-action="edit-item" data-item-id="${item.id}" data-cat-id="${catId}">✏</button>
-          <button class="btn btn-danger btn-sm" data-action="delete-item" data-item-id="${item.id}">🗑</button>
+          <button class="btn btn-ghost btn-sm" data-action="edit-item" data-item-id="${item.id}" data-cat-id="${catId}" aria-label="Edit ${_esc(item.name)}">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M9.5 1.5l3 3L4 13H1v-3L9.5 1.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="btn btn-danger btn-sm" data-action="delete-item" data-item-id="${item.id}" aria-label="Delete ${_esc(item.name)}">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2 3.5h10M5.5 3.5V2h3v1.5M5.5 6v4.5M8.5 6v4.5M3 3.5l.7 8h6.6l.7-8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
         </div>
       </div>`;
   }
@@ -41,8 +45,12 @@ const MenuView = (() => {
             <span class="text-muted text-sm">(${(cat.items || []).length})</span>
           </div>
           <div class="category-header-actions" onclick="event.stopPropagation()">
-            <button class="btn btn-ghost btn-sm" data-action="edit-cat" data-cat-id="${cat.id}">✏</button>
-            <button class="btn btn-danger btn-sm" data-action="delete-cat" data-cat-id="${cat.id}">🗑</button>
+            <button class="btn btn-ghost btn-sm" data-action="edit-cat" data-cat-id="${cat.id}" aria-label="Edit category ${_esc(cat.name)}">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M9.5 1.5l3 3L4 13H1v-3L9.5 1.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+            </button>
+            <button class="btn btn-danger btn-sm" data-action="delete-cat" data-cat-id="${cat.id}" aria-label="Delete category ${_esc(cat.name)}">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2 3.5h10M5.5 3.5V2h3v1.5M5.5 6v4.5M8.5 6v4.5M3 3.5l.7 8h6.6l.7-8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
           </div>
         </div>
         <div class="category-items ${open ? 'open' : ''}">
@@ -210,7 +218,8 @@ const MenuView = (() => {
       _categories   = data.categories || [];
       _renderList(_el);
     } catch (err) {
-      _el.querySelector('#menu-list').innerHTML = `<div class="empty-state">Error: ${err.message}</div>`;
+      const listEl = _el.querySelector('#menu-list');
+      if (listEl) listEl.innerHTML = DashUI.errorState(err.message);
     }
   }
 
@@ -218,7 +227,11 @@ const MenuView = (() => {
     const listEl = el.querySelector('#menu-list');
     if (!listEl) return;
     if (!_categories.length) {
-      listEl.innerHTML = `<div class="empty-state">No categories yet. Add one to get started.</div>`;
+      listEl.innerHTML = DashUI.emptyState({
+        icon:  '🍽',
+        title: 'No menu categories yet',
+        body:  'Add your first category to start building your menu.',
+      });
       return;
     }
     listEl.innerHTML = _categories.map((c, i) => _categoryBlock(c, i === 0)).join('');
@@ -248,9 +261,14 @@ const MenuView = (() => {
         _openCategoryModal(cat);
       }
       if (action === 'delete-cat') {
-        if (!confirm('Delete this category and all its items?')) return;
+        const cat = _categories.find(c => c.id === catId);
+        const ok  = await DashUI.confirm(
+          `Delete <strong>${_esc(cat?.name || 'this category')}</strong> and all its items? This cannot be undone.`,
+          { title: 'Delete category', confirmLabel: 'Delete', danger: true }
+        );
+        if (!ok) return;
         try { await Api.rDel(`/menu/categories/${catId}`); await _reload(); }
-        catch (ex) { alert(ex.message); }
+        catch (ex) { DashUI.toast('Could not delete category. Please try again.', 'error'); }
       }
       if (action === 'add-item') {
         _openItemModal(catId);
@@ -261,9 +279,15 @@ const MenuView = (() => {
         _openItemModal(catId, item);
       }
       if (action === 'delete-item') {
-        if (!confirm('Delete this item?')) return;
+        const cat  = _categories.find(c => c.id === btn.dataset.catId);
+        const item = cat?.items.find(i => i.id === itemId);
+        const ok   = await DashUI.confirm(
+          `Delete <strong>${_esc(item?.name || 'this item')}</strong>? This cannot be undone.`,
+          { title: 'Delete item', confirmLabel: 'Delete', danger: true }
+        );
+        if (!ok) return;
         try { await Api.rDel(`/menu/items/${itemId}`); await _reload(); }
-        catch (ex) { alert(ex.message); }
+        catch (ex) { DashUI.toast('Could not delete item. Please try again.', 'error'); }
       }
     });
 
@@ -276,7 +300,7 @@ const MenuView = (() => {
           if (row) row.classList.toggle('menu-item-unavailable', !chk.checked);
         } catch (ex) {
           chk.checked = !chk.checked;
-          alert(ex.message);
+          DashUI.toast('Could not update availability. Please try again.', 'error');
         }
       });
     });

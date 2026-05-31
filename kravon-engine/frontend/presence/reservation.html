@@ -38,8 +38,8 @@
 <body>
   <div class="reserve-page">
     <div class="reserve-nav">
-      <a href="index.html">← Back to menu</a>
-      <a href="index.html" class="p-btn p-btn-secondary">Home</a>
+      <a id="backLink" href="index.html">← Back</a>
+      <a id="homeLink" href="index.html" class="p-btn p-btn-secondary">Home</a>
     </div>
     <header>
       <h1 class="reserve-headline">Reserve a Table</h1>
@@ -92,6 +92,15 @@
     const RESTAURANT_SLUG_ENV = "__RESTAURANT_SLUG__" !== "__RESTAURANT_SLUG__"
       ? "__RESTAURANT_SLUG__"
       : _q.get('slug');
+    // Wire back/home links to preserve slug
+    (function () {
+      const slug = RESTAURANT_SLUG_ENV;
+      const base = '/presence/?slug=' + encodeURIComponent(slug || '');
+      const bl = document.getElementById('backLink');
+      const hl = document.getElementById('homeLink');
+      if (bl) bl.href = base;
+      if (hl) hl.href = base;
+    })();
   </script>
   <script src="../shared/js/kravon.js"></script>
   <script src="assets/js/reservation.js"></script>

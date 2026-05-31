@@ -22,23 +22,24 @@
      which products the tenant has enabled.
   ────────────────────────────────────────────────────────── */
   function buildCtAs(sizeCls) {
-    const p   = C.products || {};
-    const sc  = sizeCls ? ` ${sizeCls}` : '';
+    const cap  = C.capabilities || C.products || {};
+    const sc   = sizeCls ? ` ${sizeCls}` : '';
     const slug = C.slug || '';
     const ctas = [];
 
-    // Always: View Menu (anchor to #menu) + WhatsApp
+    // Always: View Menu (anchor to #menu)
     ctas.push(`<a href="#menu" class="p-btn p-btn-primary${sc}">View Menu</a>`);
 
-    if (p.orders) {
+    if (cap.orderManagement || cap.orders) {
       ctas.push(`<a href="/orders/?slug=${encodeURIComponent(slug)}" class="p-btn p-btn-secondary${sc}">Order Online</a>`);
     }
 
-    if (p.tables) {
+    if (cap.tables) {
       ctas.push(`<a href="/tables/?slug=${encodeURIComponent(slug)}" class="p-btn p-btn-secondary${sc}">Dine In</a>`);
+      ctas.push(`<a href="/presence/reservation.html?slug=${encodeURIComponent(slug)}" class="p-btn p-btn-secondary${sc}">Reserve a Table</a>`);
     }
 
-    if (p.catering) {
+    if (cap.catering) {
       ctas.push(`<a href="/catering/?slug=${encodeURIComponent(slug)}" class="p-btn p-btn-secondary${sc}">Plan Event</a>`);
     }
 
