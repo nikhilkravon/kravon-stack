@@ -1,0 +1,12 @@
+{
+  "name": "kravon-platform-frontend",
+  "version": "1.0.0",
+  "description": "Kravon platform frontend — vanilla JS static site",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
