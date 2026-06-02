@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Kravon Dashboard</title>
   <link rel="stylesheet" href="assets/css/dashboard.css">
+  <script>
+    window.KRAVON_API_BASE      = '%%KRAVON_API_URL%%'      || 'http://localhost:3000';
+    window.KRAVON_FRONTEND_BASE = '%%KRAVON_FRONTEND_URL%%' || 'http://localhost:8000';
+  </script>
 </head>
 <body>
 
@@ -130,25 +134,21 @@
 
   </div>
 
-  <script>
-    window.KRAVON_API_BASE      = '%%KRAVON_API_URL%%'      || 'http://localhost:3000';
-    window.KRAVON_FRONTEND_BASE = '%%KRAVON_FRONTEND_URL%%' || 'http://localhost:8000';
-  </script>
-  <script src="assets/js/auth.js"></script>
-  <script src="assets/js/api.js"></script>
-  <script src="assets/js/ui.js"></script>
-  <script src="assets/js/views/overview.js"></script>
-  <script src="assets/js/views/orders.js"></script>
-  <script src="assets/js/views/menu.js"></script>
-  <script src="assets/js/views/reservations.js"></script>
-  <script src="assets/js/views/tables.js"></script>
-  <script src="assets/js/views/kitchen.js"></script>
-  <script src="assets/js/views/catering.js"></script>
-  <script src="assets/js/views/insights.js"></script>
-  <script src="assets/js/views/customers.js"></script>
-  <script src="assets/js/views/staff.js"></script>
-  <script src="assets/js/views/presence.js"></script>
-  <script src="assets/js/views/settings.js"></script>
-  <script src="assets/js/app.js"></script>
+  <script src="assets/js/auth.js" defer></script>
+  <script src="assets/js/api.js" defer></script>
+  <script src="assets/js/ui.js" defer></script>
+  <script src="assets/js/views/overview.js" defer></script>
+  <script src="assets/js/views/orders.js" defer></script>
+  <script src="assets/js/views/menu.js" defer></script>
+  <script src="assets/js/views/reservations.js" defer></script>
+  <script src="assets/js/views/tables.js" defer></script>
+  <script src="assets/js/views/kitchen.js" defer></script>
+  <script src="assets/js/views/catering.js" defer></script>
+  <script src="assets/js/views/insights.js" defer></script>
+  <script src="assets/js/views/customers.js" defer></script>
+  <script src="assets/js/views/staff.js" defer></script>
+  <script src="assets/js/views/presence.js" defer></script>
+  <script src="assets/js/views/settings.js" defer></script>
+  <script src="assets/js/app.js" defer></script>
 </body>
 </html>

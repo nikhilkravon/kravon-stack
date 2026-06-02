@@ -999,4 +999,21 @@ body[data-error="true"] .orders-error { display: flex; }
   .direct-item  { border-right: none; border-bottom: 1px solid var(--border); }
   .confirm-card { padding: var(--sp-6); }
   .confirm-actions { flex-direction: column; }
+  .orders-hero-inner { padding: 32px var(--sp-4) 24px; }
+  .hero-stats { gap: var(--sp-3); }
+}
+
+@media (max-width: 480px) {
+  .orders-nav { padding: 0 var(--sp-4); }
+  .menu-nav   { padding: 0 var(--sp-4); }
+  .menu-main  { padding: var(--sp-4) var(--sp-4) 120px; }
+  .confirm-card { padding: var(--sp-4); }
+  .hero-stat-num { font-size: 22px; }
+  .sidebar-cats { gap: var(--sp-1); }
+  .cat-btn { padding: 6px 12px; font-size: 11px; }
+}
+
+@media (max-width: 360px) {
+  .menu-main  { padding: var(--sp-3) var(--sp-3) 110px; }
+  .hero-stats { display: none; }
 }

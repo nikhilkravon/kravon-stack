@@ -77,6 +77,7 @@ router.get('/', requireRestaurantAuth, async (req, res, next) => {
           body:  Array.isArray(st.body || s.story_body)
             ? (st.body || s.story_body || []).join('\n\n')
             : '',
+          image: r.story_image || '',
         },
         gallery:         r.gallery          || { food: [], ambience: [], people: [] },
         featured:        r.featured         || [],
@@ -267,7 +268,7 @@ router.patch('/', requireRestaurantAuth, async (req, res, next) => {
       }
     }
 
-    // ── Story → settings.presence.story ──────────────────────────────────
+    // ── Story → settings.presence.story + brand.assets type='story' ─────
     if (body.story) {
       const stIn = body.story;
       const currentStory  = currentPresence.story || {};
@@ -277,6 +278,20 @@ router.patch('/', requireRestaurantAuth, async (req, res, next) => {
         updatedStory.body = stIn.body.split(/\n\n+/).map(p => p.trim()).filter(Boolean);
       }
       presencePatch = { ...(presencePatch || currentPresence), story: updatedStory };
+
+      if (stIn.image !== undefined) {
+        parallelOps.push(
+          query(`DELETE FROM brand.assets WHERE tenant_id = $1 AND type = 'story'`, [tenantId])
+            .then(() => {
+              if (!stIn.image) return;
+              return query(
+                `INSERT INTO brand.assets (id, tenant_id, type, url, alt_text, metadata)
+                 VALUES (gen_random_uuid(), $1, 'story', $2, $3, '{}')`,
+                [tenantId, stIn.image, `${req.tenant.name} story image`]
+              );
+            })
+        );
+      }
     }
 
     // ── Gallery ───────────────────────────────────────────────────────────

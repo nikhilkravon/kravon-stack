@@ -318,9 +318,8 @@ body[data-error] #errorFallback { display: block; }
   height: 44px;
   object-fit: contain;
   border-radius: 8px;
-  margin-right: 12px;
+  flex-shrink: 0;
 }
-.p-nav-brand { display: flex; align-items: center; }
 
 /* Lightbox prev/next controls */
 .p-lightbox-prev,
@@ -388,19 +387,21 @@ body[data-error] #errorFallback { display: block; }
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   width: 100%;
+  padding: 0 40px;
 }
 
 .p-nav-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   justify-content: flex-end;
 }
 
 .p-nav-brand {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
 }
 
 .p-nav-name {
@@ -475,7 +476,19 @@ body[data-error] #errorFallback { display: block; }
   z-index: 0;
 }
 
-.p-hero-bg img {
+/* Slideshow slides */
+.p-hero-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+}
+.p-hero-slide.active {
+  opacity: 1;
+}
+
+.p-hero-slide img,
+.p-hero-bg > img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -1240,7 +1253,75 @@ body[data-error] #errorFallback { display: block; }
 
 .p-location-row-body--hl { color: var(--p-accent); }
 
-/* ── 15. Reveal animation ── */
+/* ── 15. Gallery ── */
+.p-gallery {
+  background: var(--p-bg);
+}
+
+.p-gallery-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 28px 0 36px;
+}
+
+.p-gallery-tab {
+  padding: 8px 20px;
+  border-radius: 100px;
+  border: 1px solid var(--p-border-2);
+  background: transparent;
+  color: var(--p-text-2);
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all var(--p-dur) var(--p-ease);
+}
+
+.p-gallery-tab:hover {
+  border-color: var(--p-accent);
+  color: var(--p-accent);
+}
+
+.p-gallery-tab.active {
+  background: var(--p-accent);
+  border-color: var(--p-accent);
+  color: #0A0A0A;
+}
+
+.p-gallery-grid {
+  columns: 3;
+  column-gap: 12px;
+}
+
+.p-gallery-item {
+  break-inside: avoid;
+  margin-bottom: 12px;
+  border-radius: var(--p-r-md);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.p-gallery-item img {
+  width: 100%;
+  display: block;
+  transition: transform 0.5s var(--p-ease);
+}
+
+.p-gallery-item:hover img {
+  transform: scale(1.04);
+}
+
+@media (max-width: 900px) {
+  .p-gallery-grid { columns: 2; }
+}
+
+@media (max-width: 540px) {
+  .p-gallery-grid { columns: 1; }
+}
+
+/* ── 16. Reveal animation ── */
 .reveal {
   opacity: 0;
   transform: translateY(24px);
@@ -1339,6 +1420,8 @@ body[data-error="true"] .p-error-state { display: flex; }
 }
 
 /* ── 17. Responsive ── */
+
+/* Large tablet / small desktop */
 @media (max-width: 1024px) {
   .p-hero-content {
     grid-template-columns: 1fr;
@@ -1346,27 +1429,68 @@ body[data-error="true"] .p-error-state { display: flex; }
     padding: 64px 0 100px;
   }
   .p-hero-stats { grid-template-columns: repeat(2, 1fr); }
-  .p-menu-grid { grid-template-columns: repeat(2, 1fr); }
+  .p-menu-grid  { grid-template-columns: repeat(2, 1fr); }
 }
 
+/* Tablet portrait */
 @media (max-width: 900px) {
-  .p-section { padding: 72px 0; }
-  .p-story-grid { grid-template-columns: 1fr; gap: 48px; }
-  .p-how-grid { grid-template-columns: 1fr; gap: 48px; }
+  .p-section     { padding: 72px 0; }
+  .p-container   { padding: 0 24px; }
+  .p-story-grid  { grid-template-columns: 1fr; gap: 48px; }
+  .p-how-grid    { grid-template-columns: 1fr; gap: 48px; }
   .p-location-grid { grid-template-columns: 1fr; gap: 40px; }
-  .p-reviews-grid { grid-template-columns: 1fr; }
-  .p-container { padding: 0 24px; }
-  .p-menu-header { flex-direction: column; align-items: flex-start; gap: 20px; }
-  .p-menu-note { border-left: none; padding-left: 0; text-align: left; }
+  .p-reviews-grid  { grid-template-columns: 1fr; }
+  .p-menu-header   { flex-direction: column; align-items: flex-start; gap: 20px; }
+  .p-menu-note     { border-left: none; padding-left: 0; text-align: left; }
+  .p-gallery-grid  { columns: 2; }
 }
 
+/* Large mobile (≤640px) */
 @media (max-width: 640px) {
-  .p-section { padding: 56px 0; }
-  .p-container { padding: 0 20px; }
-  .p-menu-grid { grid-template-columns: 1fr; }
-  .p-hero-ctas { flex-direction: column; align-items: flex-start; }
-  .p-hero-stats { grid-template-columns: 1fr 1fr; }
+  :root { --p-nav-h: 60px; }
+
+  .p-section     { padding: 56px 0; }
+  .p-container   { padding: 0 16px; }
+
+  .p-nav-center  { display: none; }
+  .p-nav-right   { gap: 8px; }
+  .p-nav-right .p-btn { padding: 10px 16px; font-size: 12px; }
+
+  .p-hero-content  { padding: 48px 0 80px; gap: 36px; }
+  .p-hero-headline { font-size: clamp(32px, 9vw, 48px); }
+  .p-hero-ctas     { flex-direction: column; align-items: stretch; }
+  .p-hero-ctas .p-btn { text-align: center; justify-content: center; }
+  .p-hero-stats    { grid-template-columns: 1fr 1fr; }
+
+  .p-menu-grid   { grid-template-columns: 1fr; }
+  .p-story-facts { grid-template-columns: 1fr 1fr; }
+  .p-gallery-grid { columns: 1; }
+
+  /* Section headlines scale down */
+  .p-headline    { font-size: clamp(26px, 7vw, 40px); }
+  .p-subhead     { font-size: 14px; }
+}
+
+/* Small mobile (≤480px) */
+@media (max-width: 480px) {
+  .p-container   { padding: 0 14px; }
+  .p-section     { padding: 44px 0; }
+
+  .p-hero-ctas   { gap: 10px; }
+  .p-hero-stats  { grid-template-columns: 1fr 1fr; gap: 12px; }
   .p-story-facts { grid-template-columns: 1fr; }
-  .p-nav-center { display: none; }
-  .p-hero-headline { font-size: clamp(36px, 9vw, 52px); }
+
+  .p-featured-grid { grid-template-columns: 1fr; }
+  .p-sig-grid      { grid-template-columns: 1fr; }
+
+  /* Gallery tabs: scrollable row on tiny screens */
+  .p-gallery-tabs  { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+  .p-gallery-tab   { flex-shrink: 0; }
+}
+
+/* Very small phones (≤360px) */
+@media (max-width: 360px) {
+  .p-container   { padding: 0 12px; }
+  .p-nav-right .p-btn:last-child { display: none; } /* hide Reserve on tiny screens, keep View menu */
+  .p-headline    { font-size: clamp(24px, 8vw, 36px); }
 }

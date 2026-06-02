@@ -44,8 +44,10 @@ function buildTenant(tenantRow, locationRow, integrations, contactLinks, seoRow,
   const wa_number = waLink?.url?.replace(/^https?:\/\/wa\.me\//, '') || s.wa_number || null;
 
   // Presence — hero image + logo (from brand.assets)
-  const bannerAsset   = assets.find(a => a.type === 'banner');
+  const bannerAssets  = assets.filter(a => a.type === 'banner').sort((a, b) => (a.metadata?.order || 0) - (b.metadata?.order || 0));
+  const bannerAsset   = bannerAssets[0] || null;
   const logoAsset     = assets.find(a => a.type === 'logo');
+  const storyAsset    = assets.find(a => a.type === 'story');
   const galleryAssets = assets.filter(a => a.type === 'gallery');
 
   return {
@@ -94,8 +96,10 @@ function buildTenant(tenantRow, locationRow, integrations, contactLinks, seoRow,
     story_facts:         presSt.facts            || s.story_facts    || [],
 
     // Presence marketing — brand.assets
-    logo_url:   logoAsset?.url   || null,
-    hero_image: bannerAsset?.url || null,
+    logo_url:    logoAsset?.url          || null,
+    hero_image:  bannerAsset?.url        || null,
+    hero_images: bannerAssets.map(a => a.url),
+    story_image: storyAsset?.url        || null,
     gallery: {
       food:     galleryAssets.filter(a => a.metadata?.category === 'food')    .map(a => a.url),
       ambience: galleryAssets.filter(a => a.metadata?.category === 'ambience').map(a => a.url),
@@ -207,7 +211,7 @@ async function resolveRestaurant(req, res, next) {
       query(
         `SELECT type, url, alt_text, metadata
          FROM brand.assets
-         WHERE tenant_id = $1 AND type IN ('banner', 'logo', 'gallery') AND deleted_at IS NULL
+         WHERE tenant_id = $1 AND type IN ('banner', 'logo', 'gallery', 'story') AND deleted_at IS NULL
          ORDER BY created_at`,
         [tenantId]
       ),

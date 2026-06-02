@@ -563,17 +563,20 @@ tbody tr:hover td { background: var(--gray-50); }
 .kitchen-orders { padding: var(--sp-4); }
 
 /* ── Mobile responsive ────────────────────────────────────────────────────── */
-/* Sidebar overlay — hidden by default everywhere, shown only on mobile when open */
 .dash-sidebar-overlay { display: none; }
 
-/* Hamburger toggle — hidden on desktop */
 .dash-mobile-toggle {
   display: none; background: none; border: none; cursor: pointer;
   color: var(--gray-700); padding: var(--sp-1); margin-right: var(--sp-3);
 }
 
+/* Tablet (≤900px): shrink sidebar */
+@media (max-width: 900px) {
+  :root { --sidebar-w: 200px; }
+}
+
+/* Tablet portrait + large phones (≤768px): overlay sidebar */
 @media (max-width: 768px) {
-  /* Layout: stack sidebar below, use overlay instead */
   .dash-layout { grid-template-columns: 1fr; }
 
   .dash-sidebar {
@@ -592,29 +595,66 @@ tbody tr:hover td { background: var(--gray-50); }
   .dash-content { padding: var(--sp-4); }
   .dash-header  { padding: 0 var(--sp-4); }
 
-  /* Stat grid: 2 columns on tablet, 1 column on phone */
+  /* 2-column stat grid on tablet */
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
 
-  /* Form rows stack on mobile */
   .form-row { grid-template-columns: 1fr; gap: 0; }
 
-  /* Modal: full-width with margin */
+  /* Sheet-style modal from bottom */
   .modal-overlay { align-items: flex-end; }
   .modal {
-    max-width: 100%; border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    max-width: 100%; width: 100%;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     max-height: 92vh;
   }
 
-  /* Toast: full-width bottom */
-  #dash-toast-container { left: 16px; right: 16px; bottom: 16px; }
-  .dash-toast { max-width: 100%; }
+  /* Toast: full-width bottom strip */
+  #dash-toast-container { left: 12px; right: 12px; bottom: 12px; }
+  .dash-toast { max-width: 100%; width: 100%; }
 
-  /* Table: horizontal scroll already handled by .table-wrap */
-  thead th:nth-child(n+5) { display: none; }
+  /* Auth card: less padding on tablet */
+  .auth-card { padding: var(--sp-6); }
+
+  /* Hide lower-priority table columns */
+  thead th:nth-child(n+5),
+  tbody td:nth-child(n+5) { display: none; }
 }
 
+/* Large phones (≤640px) */
+@media (max-width: 640px) {
+  .dash-content { padding: var(--sp-3); }
+
+  /* Kitchen cards: 1 column */
+  .kitchen-grid { grid-template-columns: 1fr; }
+
+  /* Insight chart container */
+  .chart-wrap { height: 200px; }
+}
+
+/* Small phones (≤480px) */
 @media (max-width: 480px) {
   .stat-grid { grid-template-columns: 1fr; }
-  .tab-bar { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 0; }
-  .tab { white-space: nowrap; flex-shrink: 0; }
+
+  /* Scrollable tab bar */
+  .tab-bar { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+  .tab     { white-space: nowrap; flex-shrink: 0; }
+
+  /* Auth card: edge-to-edge on tiny screens */
+  .auth-gate  { align-items: flex-end; padding: 0; }
+  .auth-card  {
+    max-width: 100%; border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding: var(--sp-6) var(--sp-4); border-left: 0; border-right: 0; border-bottom: 0;
+  }
+
+  .dash-content { padding: var(--sp-2); }
+
+  /* Presence editor sections: full-width inputs */
+  .pres-field-row { flex-direction: column; }
+}
+
+/* Very small phones (≤360px) */
+@media (max-width: 360px) {
+  html { font-size: 13px; }
+  .dash-content { padding: var(--sp-2); }
+  .stat-card    { padding: var(--sp-3); }
 }

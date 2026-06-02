@@ -232,7 +232,8 @@ router.get('/', async (req, res, next) => {
         eyebrow:  r.tagline || '',
         headline: r.name    || '',
         sub:      r.tagline || '',
-        image:    r.hero_image || null,
+        image:    r.hero_image  || null,
+        images:   r.hero_images?.length ? r.hero_images : (r.hero_image ? [r.hero_image] : []),
         footnote: r.hours_display || '',
         stats:    [],
       },
@@ -242,6 +243,7 @@ router.get('/', async (req, res, next) => {
         headline: r.story_headline || `About ${r.name}`,
         body:     r.story_body     || [],
         facts:    r.story_facts    || [],
+        image:    r.story_image    || null,
       },
 
       how: {

@@ -243,12 +243,18 @@ const PresenceView = (() => {
             <label>Body <span class="text-muted text-sm">(separate paragraphs with a blank line)</span></label>
             <textarea id="story-body" rows="6" style="resize:vertical">${_esc(s.body)}</textarea>
           </div>
+          <div class="form-group">
+            <label>Story image URL</label>
+            <input id="story-image" type="url" value="${_esc(s.image)}" placeholder="https://…/story.jpg">
+            <span class="text-sm text-muted" style="margin-top:4px">Shown beside your story text. Recommended: 4:3 ratio.</span>
+          </div>
         </div>
         ${_cardFooter('story')}
       </div>`);
 
     el.querySelector('#story-title').addEventListener('input', e => _set('story.title', e.target.value));
     el.querySelector('#story-body').addEventListener('input',  e => _set('story.body',  e.target.value));
+    el.querySelector('#story-image').addEventListener('input', e => _set('story.image', e.target.value));
     _bindSave(el, 'story');
   }
 

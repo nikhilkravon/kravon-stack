@@ -27,11 +27,11 @@
     const slug = C.slug || '';
     const ctas = [];
 
-    // Always: View Menu (anchor to #menu)
-    ctas.push(`<a href="#menu" class="p-btn p-btn-primary${sc}">View Menu</a>`);
-
+    // View Menu — links to orders page if ordering is enabled, else scrolls to #menu section
     if (cap.orderManagement || cap.orders) {
-      ctas.push(`<a href="/orders/?slug=${encodeURIComponent(slug)}" class="p-btn p-btn-secondary${sc}">Order Online</a>`);
+      ctas.push(`<a href="/orders/?slug=${encodeURIComponent(slug)}" class="p-btn p-btn-primary${sc}">View Menu</a>`);
+    } else {
+      ctas.push(`<a href="#menu" class="p-btn p-btn-primary${sc}">View Menu</a>`);
     }
 
     if (cap.tables) {
@@ -54,6 +54,11 @@
       ctas.push(`<a href="tel:${Kravon.esc(C.contact.phone)}" class="p-btn p-btn-secondary${sc}">Call Us</a>`);
     }
 
+    // Nav: show only first CTA (View Menu / Order Online) + WhatsApp to avoid cramping
+    if (navMode && ctas.length > 2) {
+      return [ctas[0], ctas[ctas.length - 1]].join('\n');
+    }
+
     return ctas.join('\n');
   }
 
@@ -62,8 +67,7 @@
     const nav = el('nav', 'p-nav');
     nav.setAttribute('aria-label', 'Main navigation');
     nav.innerHTML = `
-      <div class="p-container">
-        <div class="p-nav-inner">
+      <div class="p-nav-inner">
           <div class="p-nav-brand">
             ${C.brand.logoUrl ? `<img src="${Kravon.esc(C.brand.logoUrl)}" alt="${Kravon.esc(C.brand.name)} logo" class="p-nav-logo">` : ''}
             <div>
@@ -80,7 +84,6 @@
           <div class="p-nav-right">
             ${buildCtAs('', true)}
           </div>
-        </div>
       </div>`;
 
     window.addEventListener('scroll', () => {
@@ -95,17 +98,26 @@
     const headline = C.hero?.headline || C.brand.name  || '';
     const sub      = C.hero?.sub      || C.brand.tagline || '';
     const heroImg  = C.hero?.image    || 'assets/images/hero-bg.svg';
+
+    // Build slideshow from hero folder images; fall back to single hero image
+    const slideshowImgs = (C.hero?.images?.length ? C.hero.images : [heroImg]).filter(Boolean);
+
     const statsHtml = (C.hero?.stats || []).map(s => `
       <div class="p-hero-stat">
         <span class="p-hero-stat-num${s.className ? ' ' + s.className : ''}">${s.num}</span>
         <span class="p-hero-stat-label">${s.label}</span>
       </div>`).join('');
 
+    const slidesHtml = slideshowImgs.map((src, i) => `
+      <div class="p-hero-slide${i === 0 ? ' active' : ''}" aria-hidden="true">
+        <img src="${Kravon.esc(src)}" alt="" loading="${i === 0 ? 'eager' : 'lazy'}">
+      </div>`).join('');
+
     const section = el('section', 'p-hero');
     section.setAttribute('aria-labelledby', 'hero-heading');
     section.innerHTML = `
       <div class="p-hero-bg" aria-hidden="true">
-        <img src="${Kravon.esc(heroImg)}" alt="" loading="eager">
+        ${slidesHtml}
         <div class="p-hero-overlay"></div>
       </div>
       <div class="p-hero-content p-container">
@@ -123,6 +135,18 @@
         <span class="p-hero-scroll-label">Scroll</span>
         <div class="p-hero-scroll-line"></div>
       </div>`;
+
+    // Auto-rotate slides every 5s
+    if (slideshowImgs.length > 1) {
+      const slides = section.querySelectorAll('.p-hero-slide');
+      let cur = 0;
+      setInterval(() => {
+        slides[cur].classList.remove('active');
+        cur = (cur + 1) % slides.length;
+        slides[cur].classList.add('active');
+      }, 5000);
+    }
+
     return section;
   }
 
@@ -200,16 +224,32 @@
   /* ── GALLERY ─────────────────────────────────────────── */
   function renderGallery() {
     const gallery = C.gallery || {};
-    const all = [
-      ...(gallery.food     || []),
-      ...(gallery.ambience || []),
-      ...(gallery.people   || []),
-    ].filter(Boolean);
-    if (!all.length) return null;
+    const cats = [
+      { key: 'all',     label: 'All' },
+      { key: 'food',     label: 'Food' },
+      { key: 'ambience', label: 'Ambience' },
+      { key: 'people',   label: 'People' },
+    ];
 
-    const imgsHtml = all.map((url, i) => `
-      <div class="p-gallery-item reveal">
-        <img src="${Kravon.esc(url)}" alt="Gallery photo ${i + 1}" loading="lazy">
+    const tagged = [
+      ...(gallery.food     || []).map(u => ({ url: u, cat: 'food' })),
+      ...(gallery.ambience || []).map(u => ({ url: u, cat: 'ambience' })),
+      ...(gallery.people   || []).map(u => ({ url: u, cat: 'people' })),
+    ].filter(Boolean);
+    if (!tagged.length) return null;
+
+    // Only show tabs for categories that have images
+    const activeCats = cats.filter(c =>
+      c.key === 'all' || tagged.some(t => t.cat === c.key)
+    );
+
+    const tabsHtml = activeCats.map(c => `
+      <button class="p-gallery-tab${c.key === 'all' ? ' active' : ''}" data-cat="${c.key}">${c.label}</button>`
+    ).join('');
+
+    const imgsHtml = tagged.map((item, i) => `
+      <div class="p-gallery-item reveal" data-cat="${item.cat}">
+        <img src="${Kravon.esc(item.url)}" alt="Gallery photo ${i + 1}" loading="lazy">
       </div>`).join('');
 
     const section = el('section', 'p-gallery p-section');
@@ -217,9 +257,26 @@
     section.innerHTML = `
       <div class="p-container">
         <span class="p-eyebrow">Gallery</span>
-        <h2 class="p-headline" id="gallery-heading" style="margin-bottom:var(--sp-8)">See for yourself</h2>
+        <h2 class="p-headline" id="gallery-heading">See for yourself</h2>
+        <div class="p-gallery-tabs" role="tablist">${tabsHtml}</div>
         <div class="p-gallery-grid">${imgsHtml}</div>
       </div>`;
+
+    // Tab filter logic
+    const tabs  = section.querySelectorAll('.p-gallery-tab');
+    const items = section.querySelectorAll('.p-gallery-item');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const cat = tab.dataset.cat;
+        items.forEach(item => {
+          const show = cat === 'all' || item.dataset.cat === cat;
+          item.style.display = show ? '' : 'none';
+        });
+      });
+    });
+
     return section;
   }
 
@@ -233,7 +290,7 @@
         ${f.image ? `<img src="${Kravon.esc(f.image)}" alt="${Kravon.esc(f.title || '')}" loading="lazy" style="width:100%;border-radius:8px;margin-bottom:var(--sp-3)">` : ''}
         <div class="p-rcard-name" style="font-size:15px;font-weight:600">${Kravon.esc(f.title || '')}</div>
         <blockquote class="p-rcard-text">${Kravon.esc(f.description || '')}</blockquote>
-        ${f.ctaLabel && f.ctaUrl ? `<a href="${Kravon.esc(f.ctaUrl)}" class="p-btn p-btn-secondary" style="margin-top:var(--sp-3)">${Kravon.esc(f.ctaLabel)}</a>` : ''}
+        ${f.ctaLabel && f.ctaUrl ? `<a href="${Kravon.esc(f.ctaUrl)}?slug=${encodeURIComponent(C.slug || '')}" class="p-btn p-btn-secondary" style="margin-top:var(--sp-3)">${Kravon.esc(f.ctaLabel)}</a>` : ''}
       </article>`).join('');
 
     const section = el('section', 'p-reviews p-section');

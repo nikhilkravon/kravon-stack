@@ -883,9 +883,22 @@ body[data-error="true"] .tables-error { display: flex; }
   .mobile-cart-bar { display: block; }
 }
 
+@media (max-width: 640px) {
+  .tables-nav   { padding: 0 var(--sp-4); }
+  .menu-main    { padding: var(--sp-4) var(--sp-4) 120px; }
+  .tables-hero-grid { padding: 32px var(--sp-4) 24px; }
+  .menu-grid    { grid-template-columns: 1fr 1fr; }
+}
+
 @media (max-width: 420px) {
-  .menu-grid { grid-template-columns: 1fr; }
+  .menu-grid   { grid-template-columns: 1fr; }
   .choice-btns { grid-template-columns: 1fr 1fr; }
+  .cat-btn     { padding: 5px 10px; font-size: 11px; }
+}
+
+@media (max-width: 360px) {
+  .menu-main   { padding: var(--sp-3) var(--sp-3) 110px; }
+  .tables-nav  { padding: 0 var(--sp-3); }
 }
 
 

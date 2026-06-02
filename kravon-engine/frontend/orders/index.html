@@ -6,10 +6,18 @@
   <title id="pageTitle">Loading…</title>
   <meta name="description" id="pageDesc" content="">
 
-  <!-- Fonts -->
+  <!-- Fonts: non-blocking load -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Space+Mono:ital@0;1&display=swap" rel="stylesheet">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500&family=Space+Mono&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500&family=Space+Mono&display=swap"></noscript>
+
+  <!-- Inline config — must precede deferred scripts -->
+  <script>
+    const _q = new URLSearchParams(window.location.search);
+    const KRAVON_API_URL      = '%%KRAVON_API_URL%%'  || _q.get('api')  || 'http://localhost:3000';
+    const RESTAURANT_SLUG_ENV = '%%RESTAURANT_SLUG%%' || _q.get('slug');
+  </script>
 
   <!-- Shared styles -->
   <link rel="stylesheet" href="../shared/css/base.css">
@@ -150,23 +158,16 @@
   <!-- Toast -->
   <div class="toast" id="toast" role="alert" aria-live="assertive" aria-atomic="true"></div>
 
-  <!-- Load order: shared → config → cart → renderer → modules → behaviour (last) -->
-  <script src="../shared/js/kravon.js"></script>
-  <script src="../shared/js/cart.js"></script>
-  <script src="../shared/js/item-controls.js"></script>
-  <script>
-    // Injected by Vercel at build time; falls back to URL query params for local dev
-    const _q = new URLSearchParams(window.location.search);
-    const KRAVON_API_URL      = '%%KRAVON_API_URL%%'  || _q.get('api')  || 'http://localhost:3000';
-    const RESTAURANT_SLUG_ENV = '%%RESTAURANT_SLUG%%' || _q.get('slug');
-  </script>
-  <script src="../api-client/kravon-api.js"></script>
-  <script src="assets/js/cart.js"></script>
-  <script src="assets/js/renderer.js"></script>
-  <script src="assets/js/modal.js"></script>
-  <script src="assets/js/checkout.js"></script>
-  <script src="assets/js/ui.js"></script>
-  <script src="assets/js/behaviour.js"></script>
-  <script src="assets/js/boot.js"></script>
+  <script src="../shared/js/kravon.js" defer></script>
+  <script src="../shared/js/cart.js" defer></script>
+  <script src="../shared/js/item-controls.js" defer></script>
+  <script src="../api-client/kravon-api.js" defer></script>
+  <script src="assets/js/cart.js" defer></script>
+  <script src="assets/js/renderer.js" defer></script>
+  <script src="assets/js/modal.js" defer></script>
+  <script src="assets/js/checkout.js" defer></script>
+  <script src="assets/js/ui.js" defer></script>
+  <script src="assets/js/behaviour.js" defer></script>
+  <script src="assets/js/boot.js" defer></script>
 </body>
 </html>
