@@ -21,6 +21,7 @@ const rateLimit            = require('express-rate-limit');
 const { query, getClient } = require('../../db/pool');
 const { requireRestaurantAuth } = require('../middleware/auth');
 const audit                = require('../../utils/audit');
+const events               = require('../../utils/events');
 
 const router = express.Router();
 
@@ -102,6 +103,7 @@ router.post('/session/open', requireRestaurantAuth, async (req, res, next) => {
       newValue: { table_id, covers: covers ?? null }, req,
     });
     await client.query('COMMIT');
+    events.emit('session.opened', { tenantId: tenant_id, sessionId: session_id, tableId: table_id, covers: covers ?? null });
     res.status(201).json({ ok: true, session_id, table_id, opened_at });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -169,6 +171,7 @@ router.post('/session/close', requireRestaurantAuth, async (req, res, next) => {
       newValue: { table_id, total_billed: totalRupees }, req,
     });
     await client.query('COMMIT');
+    events.emit('session.closed', { tenantId: tenant_id, sessionId: session_id, tableId: table_id, totalBilled: totalRupees });
     res.json({ ok: true, session_id, closed_at, total_billed: totalRupees });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -308,6 +311,7 @@ router.post('/order', publicDineInLimiter, orderLimiter, async (req, res, next) 
     }
 
     await client.query('COMMIT');
+    events.emit('dine_in.order_created', { tenantId: tenant_id, orderId: order_id, sessionId: session_id, total: subtotal });
     res.status(201).json({ ok: true, order_id, total: parseFloat(subtotal.toFixed(2)) });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -401,6 +405,12 @@ router.post('/reservations', async (req, res, next) => {
     );
 
     await client.query('COMMIT');
+    events.emit('reservation.created', {
+      tenantId:        tenant_id,
+      reservationId:   reservationRes.rows[0].id,
+      partySize:       party_size,
+      reservationTime: reservationAt.toISOString(),
+    });
     res.status(201).json({
       ok: true,
       reservation_id:    reservationRes.rows[0].id,
@@ -500,6 +510,16 @@ router.patch('/reservations/:id', requireRestaurantAuth, async (req, res, next) 
     );
 
     if (!result.rows.length) return res.status(404).json({ error: 'Reservation not found' });
+
+    if (status) {
+      events.emit('reservation.status_updated', {
+        tenantId:      req.tenant.tenant_id,
+        reservationId: req.params.id,
+        status,
+        actorId:       req.auth?.staffId,
+      });
+    }
+
     res.json({ ok: true, reservation: result.rows[0] });
   } catch (err) {
     next(err);

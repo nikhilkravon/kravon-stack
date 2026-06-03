@@ -12,6 +12,7 @@ const { z }    = require('zod');
 const { query } = require('../../db/pool');
 const leadService = require('../../services/lead.service');
 const { requireRestaurantAuth } = require('../middleware/auth');
+const events = require('../../utils/events');
 
 const router = express.Router();
 
@@ -36,6 +37,13 @@ router.post('/', async (req, res, next) => {
     }
 
     const result = await leadService.createLead(req.tenant, parsed.data);
+
+    events.emit('lead.created', {
+      tenantId:    req.tenant.tenant_id,
+      leadId:      result.id,
+      contactName: parsed.data.name,
+      eventType:   parsed.data.event_type ?? null,
+    });
 
     res.status(201).json({
       ok:   true,
@@ -130,6 +138,16 @@ router.patch('/:id', requireRestaurantAuth, async (req, res, next) => {
     );
 
     if (!result.rows.length) return res.status(404).json({ error: 'Lead not found' });
+
+    if (status) {
+      events.emit('lead.status_updated', {
+        tenantId: req.tenant.tenant_id,
+        leadId:   req.params.id,
+        status,
+        actorId:  req.auth?.staffId,
+      });
+    }
+
     res.json({ ok: true, lead: result.rows[0] });
   } catch (err) {
     next(err);

@@ -31,6 +31,7 @@ const { query } = require('../../db/pool');
 const orderService = require('../../services/order.service');
 const { requireRestaurantAuth } = require('../middleware/auth');
 const audit    = require('../../utils/audit');
+const events   = require('../../utils/events');
 
 const router = express.Router();
 
@@ -88,6 +89,13 @@ router.post('/', async (req, res, next) => {
 
     const data   = parsed.data;
     const result = await orderService.createOrder(req.tenant, data);
+
+    events.emit('order.created', {
+      tenantId:    req.tenant.tenant_id,
+      orderId:     result.orderId,
+      total:       result.total,
+      channel:     data.order_surface,
+    });
 
     res.status(201).json({
       ok:    true,
@@ -232,6 +240,13 @@ router.patch('/:id', requireRestaurantAuth, async (req, res, next) => {
       tenantId: req.tenant.tenant_id, actorId: req.auth?.staffId, actorType: 'staff',
       action: 'order.status_update', entityType: 'orders.order', entityId: req.params.id,
       newValue: { status }, req,
+    });
+
+    events.emit('order.status_updated', {
+      tenantId: req.tenant.tenant_id,
+      orderId:  req.params.id,
+      status,
+      actorId:  req.auth?.staffId,
     });
 
     res.json({ ok: true, order: result.rows[0] });

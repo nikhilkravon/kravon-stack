@@ -80,8 +80,10 @@ const insightRoutes   = require('./api/routes/insights');
 const dineInRoutes    = require('./api/routes/dine-in');
 const tablesRoutes    = require('./api/routes/tables');
 const staffRoutes     = require('./api/routes/staff');
-const customersRoutes = require('./api/routes/customers');
-const webhookRoutes   = require('./api/routes/webhooks');
+const customersRoutes      = require('./api/routes/customers');
+const settingsRoutes       = require('./api/routes/settings');
+const notificationsRoutes  = require('./api/routes/notifications');
+const webhookRoutes        = require('./api/routes/webhooks');
 const adminRoutes     = require('./api/routes/admin');
 const authRoutes      = require('./api/routes/auth');
 
@@ -222,10 +224,22 @@ app.use('/v1/restaurants/:slug/staff',
   staffRoutes
 );
 
-// Customers: CRM list + order history
+// Customers: CRM list + order history + governance endpoints
 app.use('/v1/restaurants/:slug/customers',
   resolveRestaurant,
   customersRoutes
+);
+
+// Settings: tenant data export (owner/admin only)
+app.use('/v1/restaurants/:slug/settings',
+  resolveRestaurant,
+  settingsRoutes
+);
+
+// Notifications: in-app bell feed
+app.use('/v1/restaurants/:slug/notifications',
+  resolveRestaurant,
+  notificationsRoutes
 );
 
 /* ── 404 ───────────────────────────────────────────────────────────────────── */
@@ -233,6 +247,9 @@ app.use((_req, res) => res.status(404).json({ error: 'Not found.' }));
 
 /* ── Global error handler ──────────────────────────────────────────────────── */
 app.use(errorHandler);
+
+/* ── Platform event listeners ──────────────────────────────────────────────── */
+require('./services/notification.listeners').registerAll();
 
 /* ── Start ─────────────────────────────────────────────────────────────────── */
 const server = app.listen(PORT, () => {

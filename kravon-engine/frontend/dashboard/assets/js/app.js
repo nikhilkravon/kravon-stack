@@ -80,6 +80,9 @@ const App = (() => {
         .catch(() => {});
     }
 
+    // Notification bell
+    if (typeof NotifBell !== 'undefined') NotifBell.init();
+
     // hash-based routing
     const hash = location.hash.slice(1) || 'overview';
     navigate(hash in VIEWS ? hash : 'overview');

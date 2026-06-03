@@ -12,6 +12,7 @@
 const express = require('express');
 const { z }   = require('zod');
 const { query } = require('../../db/pool');
+const events  = require('../../utils/events');
 
 const router = express.Router();
 
@@ -55,6 +56,12 @@ router.post('/', async (req, res, next) => {
       data.stars,
       data.feedback   || null,
     ]);
+
+    events.emit('review.submitted', {
+      tenantId: r.tenant_id,
+      stars:    data.stars,
+      orderId:  data.order_id ?? null,
+    });
 
     const threshold     = r.review_threshold ?? 4;
     const aboveThreshold = data.stars >= threshold;

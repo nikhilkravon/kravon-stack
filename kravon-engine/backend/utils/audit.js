@@ -6,13 +6,13 @@
  *
  * Usage:
  *   audit.log(client, { tenantId, actorId, actorType, action, entityType, entityId,
- *                       oldValue, newValue, metadata, req })
+ *                       oldValue, newValue, req })
  *
  * Within an open transaction pass the pg client so the audit row is part of
  * the same transaction. Pass null to use the shared pool instead.
  */
 
-const { query, getClient } = require('../db/pool');
+const { query } = require('../db/pool');
 
 /**
  * @param {import('pg').PoolClient|null} client  - open transaction client, or null
@@ -23,15 +23,14 @@ const { query, getClient } = require('../db/pool');
  * @param {string}  opts.action       - e.g. 'session.open', 'config.update'
  * @param {string}  [opts.entityType] - e.g. 'dining.session', 'tenant.restaurant'
  * @param {string}  [opts.entityId]
- * @param {object}  [opts.oldValue]
- * @param {object}  [opts.newValue]
- * @param {object}  [opts.metadata]
+ * @param {object}  [opts.oldValue]   - maps to before_state column
+ * @param {object}  [opts.newValue]   - maps to after_state column
  * @param {object}  [opts.req]        - Express req, for ip/user-agent
  */
 async function log(client, {
   tenantId, actorId = null, actorType = 'staff',
   action, entityType = null, entityId = null,
-  oldValue = null, newValue = null, metadata = null,
+  oldValue = null, newValue = null,
   req = null,
 } = {}) {
   const ip        = req ? (req.ip || null) : null;
@@ -40,14 +39,13 @@ async function log(client, {
   const sql = `
     INSERT INTO platform.audit_log
       (tenant_id, actor_id, actor_type, action, entity_type, entity_id,
-       old_value, new_value, metadata, ip_address, user_agent)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       before_state, after_state, ip_address, user_agent)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
   `;
   const params = [
     tenantId, actorId, actorType, action, entityType, entityId,
-    oldValue  ? JSON.stringify(oldValue)  : null,
-    newValue  ? JSON.stringify(newValue)  : null,
-    metadata  ? JSON.stringify(metadata)  : null,
+    oldValue ? JSON.stringify(oldValue) : null,
+    newValue ? JSON.stringify(newValue) : null,
     ip, userAgent,
   ];
 

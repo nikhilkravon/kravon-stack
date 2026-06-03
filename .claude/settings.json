@@ -185,7 +185,18 @@
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Nikhil\\\\KravonSAAS\\\\kravon-stack\" -Directory)",
       "Bash(grep -E \"\\\\.js$\")",
       "Bash(xargs wc -l)",
-      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Nikhil\\\\KravonSAAS\\\\kravon-stack\\\\kravon-engine\\\\frontend\\\\\" -Recurse -Depth 2 | Select-Object -Property FullName, PSIsContainer | Format-Table)"
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Nikhil\\\\KravonSAAS\\\\kravon-stack\\\\kravon-engine\\\\frontend\\\\\" -Recurse -Depth 2 | Select-Object -Property FullName, PSIsContainer | Format-Table)",
+      "WebFetch(domain:kravon-frontend-production.up.railway.app)",
+      "Bash(Get-NetTCPConnection -LocalPort 3000,8000 -State Listen)",
+      "Bash(Select-Object LocalPort, OwningProcess)",
+      "PowerShell(Get-NetTCPConnection -LocalPort 3000,8000 -State Listen)",
+      "PowerShell(Stop-Process -Id 15520, 13020 -Force)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Nikhil\\\\KravonSAAS\\\\kravon-stack\\\\kravon-engine\\\\backend\\\\db\" -Recurse -File)",
+      "Bash(Select-Object FullName)",
+      "Bash(Sort-Object FullName)",
+      "Bash(node db/migrations/v18-governance.js)",
+      "Bash(node db/migrations/v19-notifications.js)",
+      "Bash(node -e \"require\\('dotenv'\\).config\\(\\); const s = require\\('./server.js'\\);\")"
     ],
     "additionalDirectories": [
       "\\tmp",

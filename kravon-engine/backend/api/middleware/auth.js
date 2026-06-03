@@ -36,4 +36,21 @@ function requireRestaurantAuth(req, res, next) {
   });
 }
 
-module.exports = { requireAuth, requireRestaurantAuth };
+/**
+ * requireRole(...roles)
+ * Returns middleware that allows only staff whose JWT roles array contains
+ * at least one of the specified roles. Must run after requireRestaurantAuth.
+ *
+ * Usage: router.post('/export', requireRole('owner', 'admin'), handler)
+ */
+function requireRole(...allowed) {
+  return (req, res, next) => {
+    const staffRoles = req.auth?.roles || [];
+    if (!allowed.some(r => staffRoles.includes(r))) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+    next();
+  };
+}
+
+module.exports = { requireAuth, requireRestaurantAuth, requireRole };
