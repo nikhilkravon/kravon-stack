@@ -1,0 +1,223 @@
+/* ═══════════════════════════════════════════════════════════
+   REVIEW PAGE — review.css
+   Standalone post-experience review page.
+   Shares design tokens from shared/css/base.css.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Shell ────────────────────────────────────────────────── */
+.rv-shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-5) var(--sp-4);
+  gap: var(--sp-4);
+}
+
+/* ── Loading skeleton ─────────────────────────────────────── */
+.rv-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-4);
+  width: 100%;
+  max-width: 360px;
+}
+
+.rv-skeleton {
+  background: rgba(255,255,255,0.08);
+  border-radius: 8px;
+  animation: rv-pulse 1.4s ease-in-out infinite;
+}
+
+.rv-sk-logo    { width: 80px;  height: 80px;  border-radius: 50%; }
+.rv-sk-heading { width: 200px; height: 24px; }
+.rv-sk-stars   { width: 240px; height: 44px; }
+
+@keyframes rv-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 0.8; }
+}
+
+/* ── Card ─────────────────────────────────────────────────── */
+.rv-card {
+  width: 100%;
+  max-width: 400px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: var(--sp-6) var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-5);
+}
+
+/* ── Brand ────────────────────────────────────────────────── */
+.rv-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.rv-brand-logo {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255,255,255,0.12);
+}
+
+.rv-brand-name {
+  font-family: var(--font-head);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--cream);
+  text-align: center;
+}
+
+/* ── Steps ────────────────────────────────────────────────── */
+.rv-step {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-4);
+  text-align: center;
+}
+
+.rv-heading {
+  font-family: var(--font-head);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--cream);
+  line-height: 1.2;
+}
+
+.rv-subheading {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.6;
+  max-width: 300px;
+}
+
+/* ── Stars ────────────────────────────────────────────────── */
+.rv-stars {
+  display: flex;
+  gap: var(--sp-3);
+}
+
+.rv-star {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgba(255,255,255,0.2);
+  padding: var(--sp-1);
+  border-radius: 8px;
+  transition: color 0.15s, transform 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rv-star svg { fill: currentColor; display: block; }
+
+.rv-star:hover,
+.rv-star.active { color: var(--amber); }
+
+.rv-star:hover { transform: scale(1.2); }
+
+.rv-star:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 2px;
+}
+
+/* ── Textarea ─────────────────────────────────────────────── */
+.rv-textarea {
+  width: 100%;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px;
+  color: var(--white);
+  font-family: var(--font-body);
+  font-size: 14px;
+  padding: var(--sp-3) var(--sp-4);
+  resize: none;
+  line-height: 1.6;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.rv-textarea:focus {
+  outline: none;
+  border-color: var(--lime);
+}
+
+.rv-textarea::placeholder { color: var(--muted); }
+
+/* ── Buttons ──────────────────────────────────────────────── */
+.rv-btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 14px var(--sp-5);
+  background: var(--lime);
+  color: var(--dark);
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 15px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.rv-btn-primary:hover  { opacity: 0.9; }
+.rv-btn-primary:active { transform: scale(0.98); }
+
+.rv-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rv-btn-ghost {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: 8px;
+  transition: color 0.15s;
+}
+
+.rv-btn-ghost:hover { color: var(--stone); }
+
+.rv-google-btn { background: #4285f4; }
+.rv-google-btn:hover { background: #3b78e7; opacity: 1; }
+
+/* ── Thank you ────────────────────────────────────────────── */
+.rv-thanks-icon {
+  font-size: 48px;
+  line-height: 1;
+}
+
+/* ── Footer ───────────────────────────────────────────────── */
+.rv-footer {
+  margin-top: var(--sp-3);
+}
+
+.rv-footer-kravon {
+  font-size: 12px;
+  color: rgba(255,255,255,0.2);
+}
+
+.rv-footer-kravon strong { color: rgba(255,255,255,0.35); }
+
+/* ── Mobile ───────────────────────────────────────────────── */
+@media (max-width: 440px) {
+  .rv-card { padding: var(--sp-5) var(--sp-4); border-radius: 16px; }
+  .rv-heading { font-size: 20px; }
+}

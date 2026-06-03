@@ -24,6 +24,9 @@
 
 const whatsapp      = require('../integrations/whatsapp');
 const webhookBus    = require('../integrations/webhook');
+const { query }     = require('../db/pool');
+
+const FRONTEND_URL  = (process.env.KRAVON_FRONTEND_URL || 'https://kravon.in').replace(/\/$/, '');
 
 /* ── Helpers ──────────────────────────────────────────────────────────────── */
 
@@ -172,4 +175,95 @@ async function leadReceived(tenant, lead) {
   webhookBus.leadCreated(tenant, lead.id);
 }
 
-module.exports = { orderConfirmed, leadReceived };
+/* ── reviewRequest ────────────────────────────────────────────────────────── */
+/**
+ * Sends a WhatsApp review request to a customer after a completed experience.
+ *
+ * Called from notification.listeners.js when:
+ *   - reservation.status_updated → status === 'completed'
+ *   - lead.status_updated        → status === 'converted'
+ *
+ * Looks up:
+ *   - tenant slug (to build the review URL)
+ *   - customer phone (from reservation or lead row)
+ *   - restaurant WhatsApp number (to send from)
+ *
+ * @param {object} opts
+ * @param {string} opts.tenantId
+ * @param {'reservation'|'catering'} opts.source
+ * @param {string} opts.entityId  — reservationId or leadId
+ */
+async function reviewRequest({ tenantId, source, entityId }) {
+  try {
+    // Load tenant slug and wa_number
+    const tenantRes = await query(
+      `SELECT r.slug, cl.url AS wa_url
+       FROM tenant.restaurants r
+       LEFT JOIN brand.contact_links cl
+              ON cl.tenant_id = r.id AND cl.platform = 'whatsapp' AND cl.deleted_at IS NULL
+       WHERE r.id = $1 LIMIT 1`,
+      [tenantId]
+    );
+    if (!tenantRes.rows.length) return;
+
+    const { slug, wa_url } = tenantRes.rows[0];
+
+    // Extract wa_number from the WhatsApp contact link URL (https://wa.me/91XXXXXXXXXX)
+    const waNumber = wa_url ? wa_url.replace('https://wa.me/', '') : null;
+    if (!waNumber) return; // no WhatsApp configured — nothing to send
+
+    // Load customer phone from the relevant entity
+    let customerPhone = null;
+    let restaurantName = slug;
+
+    if (source === 'reservation') {
+      const res = await query(
+        `SELECT c.phone, r.name AS restaurant_name
+         FROM dining.reservations rv
+         LEFT JOIN customer.customers c ON c.id = rv.customer_id
+         JOIN tenant.restaurants r ON r.id = rv.tenant_id
+         WHERE rv.id = $1 AND rv.tenant_id = $2 LIMIT 1`,
+        [entityId, tenantId]
+      );
+      if (!res.rows.length) return;
+      customerPhone  = res.rows[0].phone;
+      restaurantName = res.rows[0].restaurant_name;
+    } else if (source === 'catering') {
+      const res = await query(
+        `SELECT l.contact_phone, r.name AS restaurant_name
+         FROM catering.leads l
+         JOIN tenant.restaurants r ON r.id = l.tenant_id
+         WHERE l.id = $1 AND l.tenant_id = $2 LIMIT 1`,
+        [entityId, tenantId]
+      );
+      if (!res.rows.length) return;
+      customerPhone  = res.rows[0].contact_phone;
+      restaurantName = res.rows[0].restaurant_name;
+    }
+
+    if (!customerPhone) return;
+
+    // Build review link
+    const reviewUrl = `${FRONTEND_URL}/${slug}/review/?slug=${slug}&source=${source}&${source === 'reservation' ? 'reservation' : 'lead'}=${entityId}`;
+
+    const msg = [
+      `Hi! Thank you for visiting *${restaurantName}* 🙏`,
+      ``,
+      `We'd love to know how your experience was.`,
+      `It only takes 10 seconds:`,
+      ``,
+      reviewUrl,
+    ].join('\n');
+
+    await whatsapp.sendOrderNotification(customerPhone, msg).catch(err =>
+      console.error(JSON.stringify({ level: 'error', event: 'notify.review_request_failed',
+        tenantId, source, entityId, message: err.message }))
+    );
+
+  } catch (err) {
+    console.error(JSON.stringify({ level: 'error', event: 'notify.review_request_error',
+      tenantId, source, entityId, message: err.message }));
+  }
+}
+
+module.exports = { orderConfirmed, leadReceived, reviewRequest };

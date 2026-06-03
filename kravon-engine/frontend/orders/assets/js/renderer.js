@@ -430,6 +430,39 @@
                 New Order
               </button>
             </div>
+
+            <!-- Review prompt -->
+            <div class="confirm-review" id="confirmReview">
+              <div class="confirm-review-heading">How was your experience?</div>
+              <div class="confirm-review-stars" id="confirmReviewStars" role="group" aria-label="Rate your order">
+                ${[1,2,3,4,5].map(n =>
+                  `<button class="confirm-star" data-action="rate-order" data-stars="${n}"
+                           aria-label="${n} star${n > 1 ? 's' : ''}" aria-pressed="false">
+                     <svg width="28" height="28" aria-hidden="true"><use href="#icon-star"/></svg>
+                   </button>`
+                ).join('')}
+              </div>
+              <div class="confirm-review-feedback" id="confirmReviewFeedback" style="display:none">
+                <textarea id="confirmFeedbackText" class="confirm-feedback-textarea"
+                          placeholder="Tell us what we can improve…"
+                          maxlength="500" rows="3"
+                          aria-label="Your feedback"></textarea>
+                <button class="btn-primary confirm-feedback-submit" data-action="submit-order-feedback">
+                  Send Feedback
+                </button>
+              </div>
+              <div class="confirm-review-google" id="confirmReviewGoogle" style="display:none">
+                <p class="confirm-review-google-msg">So glad you enjoyed it! Share on Google?</p>
+                <a class="btn-primary confirm-google-btn" id="confirmGoogleLink"
+                   href="#" target="_blank" rel="noopener noreferrer">
+                  Leave a Google Review ↗
+                </a>
+              </div>
+              <div class="confirm-review-thanks" id="confirmReviewThanks" style="display:none" aria-live="polite">
+                Thank you for the feedback 🙏
+              </div>
+            </div>
+
           </div>
         </div>
       </div>`;

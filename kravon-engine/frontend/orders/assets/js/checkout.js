@@ -15,9 +15,11 @@
    ═══════════════════════════════════════════════════════════ */
 const Checkout = (() => {
 
-  let _selectedPayment     = '';
-  let _selectedPaymentId   = 'upi';
+  let _selectedPayment      = '';
+  let _selectedPaymentId    = 'upi';
   let _selectedDeliveryType = 'standard';
+  let _confirmedOrderId     = null;   // stored for review submission
+  let _reviewStars          = 0;
 
   /* ── Build delivery options from config ── */
   function buildDeliveryOptions() {
@@ -267,9 +269,84 @@ const Checkout = (() => {
     _setText('confirmPayment', _selectedPayment);
     _setText('confirmName',    _val('fieldName'));
 
+    _confirmedOrderId = orderId;
+    _reviewStars      = 0;
+    _resetReview();
+
     Cart.clear();
     UI.showScreen('screenConfirm');
   }
+
+  /* ── Review prompt ────────────────────────────────────── */
+  function _resetReview() {
+    document.querySelectorAll('.confirm-star').forEach(b => {
+      b.classList.remove('active');
+      b.setAttribute('aria-pressed', 'false');
+    });
+    const ids = ['confirmReviewFeedback','confirmReviewGoogle','confirmReviewThanks'];
+    ids.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+    const feedbackEl = document.getElementById('confirmFeedbackText');
+    if (feedbackEl) feedbackEl.value = '';
+  }
+
+  async function handleOrderRating(stars) {
+    if (_reviewStars) return; // already rated
+    _reviewStars = stars;
+
+    document.querySelectorAll('.confirm-star').forEach(b => {
+      const n = parseInt(b.dataset.stars, 10);
+      b.classList.toggle('active', n <= stars);
+      b.setAttribute('aria-pressed', n <= stars ? 'true' : 'false');
+      b.disabled = true;
+    });
+
+    try {
+      const res = await fetch(
+        `${(KRAVON_API_URL||'').replace(/\/$/,'')}/v1/restaurants/${RESTAURANT_SLUG_ENV||CONFIG?.slug}/reviews`,
+        {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order_id: _confirmedOrderId, stars }),
+        }
+      );
+      const data = res.ok ? await res.json() : {};
+
+      if (data.above_threshold && data.google_review_url) {
+        const link = document.getElementById('confirmGoogleLink');
+        if (link) link.href = data.google_review_url;
+        _show('confirmReviewGoogle');
+      } else {
+        _show('confirmReviewFeedback');
+      }
+    } catch {
+      _show('confirmReviewFeedback');
+    }
+  }
+
+  async function submitOrderFeedback() {
+    const text = document.getElementById('confirmFeedbackText')?.value.trim() || '';
+    const btn  = document.querySelector('[data-action="submit-order-feedback"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+
+    try {
+      if (text && _confirmedOrderId) {
+        await fetch(
+          `${(KRAVON_API_URL||'').replace(/\/$/,'')}/v1/restaurants/${RESTAURANT_SLUG_ENV||CONFIG?.slug}/reviews`,
+          {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order_id: _confirmedOrderId, stars: _reviewStars, feedback: text }),
+          }
+        );
+      }
+    } catch { /* silent */ }
+
+    const fbEl = document.getElementById('confirmReviewFeedback');
+    if (fbEl) fbEl.style.display = 'none';
+    _show('confirmReviewThanks');
+  }
+
+  function _show(id) { const el = document.getElementById(id); if (el) el.style.display = ''; }
 
   /* ── trackOrder and newOrder are UNCHANGED from V7 ── */
   function trackOrder() {
@@ -302,6 +379,6 @@ const Checkout = (() => {
     buildPaymentOptions();
   }
 
-  return { init, selectDelivery, selectPayment, goToCheckout, placeOrder, trackOrder, newOrder };
+  return { init, selectDelivery, selectPayment, goToCheckout, placeOrder, trackOrder, newOrder, handleOrderRating, submitOrderFeedback };
 
 })();

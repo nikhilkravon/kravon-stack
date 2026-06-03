@@ -2,8 +2,14 @@
  * ROUTE — staff.js
  * GET    /v1/restaurants/:slug/staff           — list staff
  * POST   /v1/restaurants/:slug/staff           — create staff member
- * PATCH  /v1/restaurants/:slug/staff/:id       — update (name, phone, is_active)
+ * PATCH  /v1/restaurants/:slug/staff/:id       — update (name, phone, is_active, password)
  * DELETE /v1/restaurants/:slug/staff/:id       — soft delete (deactivate)
+ *
+ * Authorization:
+ *   GET    — owner, manager
+ *   POST   — owner only
+ *   PATCH  — owner only
+ *   DELETE — owner only
  */
 
 'use strict';
@@ -12,13 +18,14 @@ const express  = require('express');
 const bcrypt   = require('bcryptjs');
 const { z }    = require('zod');
 const { query } = require('../../db/pool');
-const { requireRestaurantAuth } = require('../middleware/auth');
+const { requireRestaurantAuth, requireRole } = require('../middleware/auth');
+const audit    = require('../../utils/audit');
 
 const router = express.Router();
 router.use(requireRestaurantAuth);
 
 /* ── GET /staff ──────────────────────────────────────────────────────────── */
-router.get('/', async (req, res, next) => {
+router.get('/', requireRole('owner', 'manager'), async (req, res, next) => {
   try {
     const tenantId = req.tenant.tenant_id;
     const result   = await query(
@@ -50,7 +57,7 @@ const CreateStaffSchema = z.object({
   role:     z.enum(['manager', 'staff', 'kitchen']).default('staff'),
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', requireRole('owner'), async (req, res, next) => {
   try {
     const parsed = CreateStaffSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -71,10 +78,10 @@ router.post('/', async (req, res, next) => {
 
     const staffId = staffRes.rows[0].id;
 
-    // Assign role if a matching role exists
+    // Assign role if a matching role exists for this tenant
     const roleRes = await query(
-      `SELECT id FROM tenant.roles WHERE name = $1 LIMIT 1`,
-      [role]
+      `SELECT id FROM tenant.roles WHERE tenant_id = $1 AND name = $2 AND deleted_at IS NULL LIMIT 1`,
+      [tenantId, role]
     );
     if (roleRes.rows.length) {
       await query(
@@ -84,6 +91,17 @@ router.post('/', async (req, res, next) => {
         [tenantId, staffId, roleRes.rows[0].id, req.auth?.staffId ?? null]
       );
     }
+
+    audit.log(null, {
+      tenantId,
+      actorId:    req.auth?.staffId,
+      actorType:  'staff',
+      action:     'staff.create',
+      entityType: 'tenant.staff',
+      entityId:   staffId,
+      newValue:   { name, email, phone, role },
+      req,
+    });
 
     res.status(201).json({ ok: true, staff: { ...staffRes.rows[0], roles: [role] } });
   } catch (err) {
@@ -100,7 +118,7 @@ const UpdateStaffSchema = z.object({
   password:  z.string().min(8).max(200).optional(),
 });
 
-router.patch('/:id', async (req, res, next) => {
+router.patch('/:id', requireRole('owner'), async (req, res, next) => {
   try {
     const parsed = UpdateStaffSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -140,12 +158,24 @@ router.patch('/:id', async (req, res, next) => {
     );
 
     if (!result.rows.length) return res.status(404).json({ error: 'Staff member not found' });
+
+    audit.log(null, {
+      tenantId,
+      actorId:    req.auth?.staffId,
+      actorType:  'staff',
+      action:     'staff.update',
+      entityType: 'tenant.staff',
+      entityId:   req.params.id,
+      newValue:   { ...d, password: d.password ? '[redacted]' : undefined },
+      req,
+    });
+
     res.json({ ok: true, staff: result.rows[0] });
   } catch (err) { next(err); }
 });
 
 /* ── DELETE /staff/:id ───────────────────────────────────────────────────── */
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', requireRole('owner'), async (req, res, next) => {
   try {
     const tenantId = req.tenant.tenant_id;
 
@@ -163,11 +193,23 @@ router.delete('/:id', async (req, res, next) => {
     const result = await query(
       `UPDATE tenant.staff SET deleted_at = NOW(), is_active = FALSE
        WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
-       RETURNING id`,
+       RETURNING id, name, email`,
       [req.params.id, tenantId]
     );
 
     if (!result.rows.length) return res.status(404).json({ error: 'Staff member not found' });
+
+    audit.log(null, {
+      tenantId,
+      actorId:    req.auth?.staffId,
+      actorType:  'staff',
+      action:     'staff.delete',
+      entityType: 'tenant.staff',
+      entityId:   req.params.id,
+      oldValue:   result.rows[0],
+      req,
+    });
+
     res.json({ ok: true });
   } catch (err) { next(err); }
 });

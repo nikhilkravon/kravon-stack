@@ -66,16 +66,17 @@ router.post('/export', requireRole('owner', 'admin'), async (req, res, next) => 
         [tenantId]
       ),
       query(
-        `SELECT id, party_name, party_phone, party_email, party_size,
-                reservation_date, reservation_time, status, notes, created_at
+        `SELECT id, customer_id, party_size, reservation_time,
+                status, occasion, dietary_notes, notes, created_at
          FROM dining.reservations
          WHERE tenant_id = $1 AND deleted_at IS NULL
-         ORDER BY reservation_date DESC`,
+         ORDER BY reservation_time DESC`,
         [tenantId]
       ),
       query(
         `SELECT id, contact_name, contact_phone, contact_email, event_type,
-                event_date, guest_count, status, created_at
+                guest_count_min, guest_count_max, preferred_date_from,
+                preferred_date_to, status, created_at
          FROM catering.leads
          WHERE tenant_id = $1 AND deleted_at IS NULL
          ORDER BY created_at DESC`,
@@ -89,8 +90,8 @@ router.post('/export', requireRole('owner', 'admin'), async (req, res, next) => 
         [tenantId]
       ),
       query(
-        `SELECT i.id, i.category_id, i.name, i.description, i.price_paise,
-                i.is_veg, i.is_available, i.sort_order
+        `SELECT i.id, i.category_id, i.name, i.description, i.price,
+                i.food_type, i.is_available, i.sort_order
          FROM menu.menu_items i
          JOIN menu.categories c ON c.id = i.category_id
          WHERE i.tenant_id = $1 AND i.deleted_at IS NULL
@@ -108,7 +109,7 @@ router.post('/export', requireRole('owner', 'admin'), async (req, res, next) => 
         `SELECT
            (SELECT url FROM brand.assets WHERE tenant_id = $1 AND type = 'logo' AND deleted_at IS NULL LIMIT 1) AS logo_url,
            (SELECT url FROM brand.assets WHERE tenant_id = $1 AND type = 'banner' AND deleted_at IS NULL LIMIT 1) AS banner_url,
-           t.primary_color, t.accent_color, t.font_family
+           t.primary_color, t.accent_color, t.font_heading, t.font_body
          FROM brand.themes t WHERE t.tenant_id = $1`,
         [tenantId]
       ),

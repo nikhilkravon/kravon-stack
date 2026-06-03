@@ -12,20 +12,21 @@ const pool = new Pool({
 async function main() {
   const client = await pool.connect();
   try {
-    // 1. Wipe all v12 schemas
+    // 1. Wipe all schemas
     console.log('Dropping schemas...');
     await client.query(`
-      DROP SCHEMA IF EXISTS tenant    CASCADE;
-      DROP SCHEMA IF EXISTS brand     CASCADE;
-      DROP SCHEMA IF EXISTS menu      CASCADE;
-      DROP SCHEMA IF EXISTS customer  CASCADE;
-      DROP SCHEMA IF EXISTS orders    CASCADE;
-      DROP SCHEMA IF EXISTS payments  CASCADE;
-      DROP SCHEMA IF EXISTS dining    CASCADE;
-      DROP SCHEMA IF EXISTS catering  CASCADE;
-      DROP SCHEMA IF EXISTS insights  CASCADE;
-      DROP SCHEMA IF EXISTS platform  CASCADE;
-      DROP SCHEMA IF EXISTS inventory CASCADE;
+      DROP SCHEMA IF EXISTS tenant        CASCADE;
+      DROP SCHEMA IF EXISTS brand         CASCADE;
+      DROP SCHEMA IF EXISTS menu          CASCADE;
+      DROP SCHEMA IF EXISTS customer      CASCADE;
+      DROP SCHEMA IF EXISTS orders        CASCADE;
+      DROP SCHEMA IF EXISTS payments      CASCADE;
+      DROP SCHEMA IF EXISTS dining        CASCADE;
+      DROP SCHEMA IF EXISTS catering      CASCADE;
+      DROP SCHEMA IF EXISTS insights      CASCADE;
+      DROP SCHEMA IF EXISTS platform      CASCADE;
+      DROP SCHEMA IF EXISTS inventory     CASCADE;
+      DROP SCHEMA IF EXISTS notifications CASCADE;
     `);
     console.log('  schemas dropped.');
 
@@ -53,10 +54,10 @@ async function main() {
     }
     console.log(`  ${enumsRes.rows.length} ENUMs dropped.`);
 
-    // 4. Apply v12 schema
-    console.log('Applying kravon_schema_v12.sql...');
+    // 4. Apply v20 canonical schema
+    console.log('Applying kravon_schema_v20.sql...');
     const schema = fs.readFileSync(
-      path.join(__dirname, 'schema', 'kravon_schema_v12.sql'), 'utf8'
+      path.join(__dirname, 'kravon_schema_v20.sql'), 'utf8'
     );
     await client.query(schema);
     console.log('  schema applied.');

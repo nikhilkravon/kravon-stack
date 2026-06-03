@@ -133,6 +133,14 @@
         }));
         break;
 
+      case 'rate-order':
+        Checkout.handleOrderRating(parseInt(btn.dataset.stars, 10));
+        break;
+
+      case 'submit-order-feedback':
+        Checkout.submitOrderFeedback();
+        break;
+
       case 'go-back':
         UI.showScreen('screenOrdering');
         break;

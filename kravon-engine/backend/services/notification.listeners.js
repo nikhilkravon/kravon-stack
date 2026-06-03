@@ -13,6 +13,7 @@
 
 const events  = require('../utils/events');
 const notif   = require('./notification.service');
+const notify  = require('./notify.service');
 
 function registerAll() {
   /* ── Orders ─────────────────────────────────────────────────────────────── */
@@ -76,6 +77,11 @@ function registerAll() {
       actorId,
       metadata:   { reservationId, status },
     });
+
+    // Send review request when reservation is completed
+    if (status === 'completed') {
+      notify.reviewRequest({ tenantId, source: 'reservation', entityId: reservationId });
+    }
   });
 
   /* ── Catering Leads ──────────────────────────────────────────────────────── */
@@ -106,6 +112,11 @@ function registerAll() {
       actorId,
       metadata:   { leadId, status },
     });
+
+    // Send review request when catering lead is converted (event delivered)
+    if (status === 'converted') {
+      notify.reviewRequest({ tenantId, source: 'catering', entityId: leadId });
+    }
   });
 
   /* ── Dine-In Sessions ────────────────────────────────────────────────────── */

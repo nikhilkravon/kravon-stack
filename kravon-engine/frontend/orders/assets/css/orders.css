@@ -1017,3 +1017,90 @@ body[data-error="true"] .orders-error { display: flex; }
   .menu-main  { padding: var(--sp-3) var(--sp-3) 110px; }
   .hero-stats { display: none; }
 }
+
+/* ── Confirmation screen review prompt ──────────────────── */
+.confirm-review {
+  width: 100%;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding-top: var(--sp-5);
+  margin-top: var(--sp-2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-4);
+  text-align: center;
+}
+
+.confirm-review-heading {
+  font-family: var(--font-head);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--cream);
+}
+
+.confirm-review-stars {
+  display: flex;
+  gap: var(--sp-3);
+}
+
+.confirm-star {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgba(255,255,255,0.2);
+  padding: 4px;
+  border-radius: 6px;
+  transition: color 0.15s, transform 0.12s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.confirm-star svg { fill: currentColor; display: block; }
+.confirm-star:hover, .confirm-star.active { color: var(--amber); }
+.confirm-star:hover { transform: scale(1.18); }
+.confirm-star:disabled { cursor: default; transform: none; }
+
+.confirm-feedback-textarea {
+  width: 100%;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  color: var(--white);
+  font-family: var(--font-body);
+  font-size: 14px;
+  padding: var(--sp-3) var(--sp-4);
+  resize: none;
+  line-height: 1.6;
+  box-sizing: border-box;
+}
+
+.confirm-feedback-textarea:focus {
+  outline: none;
+  border-color: var(--lime);
+}
+
+.confirm-feedback-textarea::placeholder { color: var(--muted); }
+
+.confirm-feedback-submit {
+  width: 100%;
+  justify-content: center;
+}
+
+.confirm-review-google-msg {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.confirm-google-btn {
+  width: 100%;
+  justify-content: center;
+  background: #4285f4;
+}
+
+.confirm-google-btn:hover { background: #3b78e7; opacity: 1; }
+
+.confirm-review-thanks {
+  font-size: 14px;
+  color: var(--muted);
+  padding: var(--sp-3);
+}

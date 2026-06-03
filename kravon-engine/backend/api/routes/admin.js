@@ -61,7 +61,7 @@ const CreateRestaurantSchema = z.object({
   free_delivery_above:z.number().min(0).optional(),          // rupees
   domain:             z.string().max(200).optional(),
   map_url:            z.string().url().max(500).optional(),
-  plan:               z.enum(['presence', 'orders', 'catering', 'insights', 'full']).optional(),
+  plan:               z.enum(['starter', 'growth', 'pro', 'enterprise']).optional(),
 });
 
 const UpdateRestaurantSchema = CreateRestaurantSchema.partial().omit({ slug: true });
@@ -130,6 +130,24 @@ router.post('/restaurants', async (req, res, next) => {
     ]);
 
     const tenantId = tenantRes.rows[0].id;
+
+    // Seed the six system roles for this tenant
+    const SYSTEM_ROLES = [
+      { name: 'owner',    display_name: 'Owner',         description: 'Full platform access. Can manage staff, billing, and all settings.' },
+      { name: 'manager',  display_name: 'Manager',        description: 'Operational access. Cannot manage staff or billing.' },
+      { name: 'cashier',  display_name: 'Cashier',        description: 'Order management and payment view.' },
+      { name: 'kitchen',  display_name: 'Kitchen Staff',  description: 'Kitchen display view. Can update order status.' },
+      { name: 'host',     display_name: 'Host / Captain', description: 'Reservations, tables, and dine-in sessions.' },
+      { name: 'catering', display_name: 'Catering Staff', description: 'Catering leads and events only.' },
+    ];
+    for (const role of SYSTEM_ROLES) {
+      await client.query(
+        `INSERT INTO tenant.roles (tenant_id, name, display_name, description, is_system_role, is_active)
+         VALUES ($1, $2, $3, $4, TRUE, TRUE)
+         ON CONFLICT (tenant_id, name) DO NOTHING`,
+        [tenantId, role.name, role.display_name, role.description]
+      );
+    }
 
     // Insert location if any contact fields provided
     if (d.phone || d.address || d.city) {
@@ -338,7 +356,23 @@ router.post('/staff', async (req, res, next) => {
       [tenantId, name, email, phone ?? null, passwordHash]
     );
 
-    res.status(201).json({ ok: true, staff: result.rows[0] });
+    const staffId = result.rows[0].id;
+
+    // Assign owner role — admin-created staff are always owners
+    const ownerRoleRes = await query(
+      `SELECT id FROM tenant.roles WHERE tenant_id = $1 AND name = 'owner' LIMIT 1`,
+      [tenantId]
+    );
+    if (ownerRoleRes.rows.length) {
+      await query(
+        `INSERT INTO tenant.staff_roles (tenant_id, staff_id, role_id)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (staff_id, role_id) DO NOTHING`,
+        [tenantId, staffId, ownerRoleRes.rows[0].id]
+      );
+    }
+
+    res.status(201).json({ ok: true, staff: { ...result.rows[0], roles: ['owner'] } });
   } catch (err) {
     if (err.code === '23505') {
       return res.status(409).json({ error: 'A staff member with this email already exists for this restaurant.' });

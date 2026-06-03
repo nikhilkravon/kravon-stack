@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="pageTitle">Rate your experience</title>
+  <meta name="description" content="Share your feedback">
+
+  <!-- Prevent indexing — review pages are personal links -->
+  <meta name="robots" content="noindex, nofollow">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500&display=swap"></noscript>
+
+  <!-- Runtime config — injected by frontend server or read from query params -->
+  <script>
+    const _q = new URLSearchParams(window.location.search);
+    const KRAVON_API_URL      = '%%KRAVON_API_URL%%'  || _q.get('api')  || 'http://localhost:3000';
+    const RESTAURANT_SLUG_ENV = '%%RESTAURANT_SLUG%%' || _q.get('slug');
+  </script>
+
+  <link rel="stylesheet" href="../shared/css/base.css">
+  <link rel="stylesheet" href="../shared/css/layout.css">
+  <link rel="stylesheet" href="../shared/css/components.css">
+  <link rel="stylesheet" href="assets/css/review.css">
+
+  <!-- Star icon -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+    <symbol id="icon-star" viewBox="0 0 24 24">
+      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+    </symbol>
+  </svg>
+</head>
+<body>
+
+  <div class="rv-shell" id="rvShell">
+
+    <!-- Loading state -->
+    <div class="rv-loading" id="rvLoading" aria-live="polite">
+      <div class="rv-skeleton rv-sk-logo"></div>
+      <div class="rv-skeleton rv-sk-heading"></div>
+      <div class="rv-skeleton rv-sk-stars"></div>
+    </div>
+
+    <!-- Main card — hidden until loaded -->
+    <div class="rv-card" id="rvCard" style="display:none">
+
+      <!-- Brand -->
+      <div class="rv-brand" id="rvBrand">
+        <div class="rv-brand-name" id="rvBrandName"></div>
+      </div>
+
+      <!-- Step 1: Star rating -->
+      <div class="rv-step" id="rvStepRate">
+        <div class="rv-heading">How was your experience?</div>
+        <div class="rv-subheading" id="rvSubheading">We'd love to hear from you.</div>
+        <div class="rv-stars" id="rvStars" role="group" aria-label="Star rating">
+          <button class="rv-star" data-stars="1" aria-label="1 star"  aria-pressed="false"><svg width="36" height="36" aria-hidden="true"><use href="#icon-star"/></svg></button>
+          <button class="rv-star" data-stars="2" aria-label="2 stars" aria-pressed="false"><svg width="36" height="36" aria-hidden="true"><use href="#icon-star"/></svg></button>
+          <button class="rv-star" data-stars="3" aria-label="3 stars" aria-pressed="false"><svg width="36" height="36" aria-hidden="true"><use href="#icon-star"/></svg></button>
+          <button class="rv-star" data-stars="4" aria-label="4 stars" aria-pressed="false"><svg width="36" height="36" aria-hidden="true"><use href="#icon-star"/></svg></button>
+          <button class="rv-star" data-stars="5" aria-label="5 stars" aria-pressed="false"><svg width="36" height="36" aria-hidden="true"><use href="#icon-star"/></svg></button>
+        </div>
+      </div>
+
+      <!-- Step 2a: Private feedback (below threshold) -->
+      <div class="rv-step" id="rvStepFeedback" style="display:none">
+        <div class="rv-heading">Thanks for letting us know.</div>
+        <div class="rv-subheading">Tell us what we can do better — your feedback goes directly to the team.</div>
+        <textarea class="rv-textarea" id="rvFeedbackText"
+                  placeholder="What could we have done better?"
+                  maxlength="1000" rows="4"
+                  aria-label="Your feedback"></textarea>
+        <button class="rv-btn-primary" id="rvSubmitFeedback">Send Feedback</button>
+        <button class="rv-btn-ghost" id="rvSkipFeedback">Skip</button>
+      </div>
+
+      <!-- Step 2b: Google nudge (above threshold) -->
+      <div class="rv-step" id="rvStepGoogle" style="display:none">
+        <div class="rv-heading">So glad you enjoyed it!</div>
+        <div class="rv-subheading">Would you share your experience on Google? It helps us a lot.</div>
+        <a class="rv-btn-primary rv-google-btn" id="rvGoogleLink"
+           href="#" target="_blank" rel="noopener noreferrer">
+          Leave a Google Review ↗
+        </a>
+        <button class="rv-btn-ghost" id="rvSkipGoogle">Maybe later</button>
+      </div>
+
+      <!-- Step 3: Thank you -->
+      <div class="rv-step" id="rvStepThanks" style="display:none" aria-live="polite">
+        <div class="rv-thanks-icon">🙏</div>
+        <div class="rv-heading">Thank you!</div>
+        <div class="rv-subheading" id="rvThanksMsg">Your feedback means a lot to us.</div>
+      </div>
+
+      <!-- Error state -->
+      <div class="rv-step" id="rvStepError" style="display:none" role="alert">
+        <div class="rv-thanks-icon">⚠️</div>
+        <div class="rv-heading">Something went wrong</div>
+        <div class="rv-subheading">We couldn't load this review page. Please try again.</div>
+        <button class="rv-btn-ghost" onclick="location.reload()">Try again</button>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="rv-footer">
+      <span class="rv-footer-kravon">Powered by <strong>Kravon</strong></span>
+    </div>
+
+  </div>
+
+  <script src="assets/js/review.js" defer></script>
+</body>
+</html>
