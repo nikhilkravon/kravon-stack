@@ -225,7 +225,20 @@
       "Bash(node -e \"const j=require\\('C:/Users/Nikhil/cfg.json'\\); console.log\\(JSON.stringify\\({logo:j.brand?.logo_url,banner:j.brand?.banner_url,assets:j.brand?.assets},null,2\\)\\)\")",
       "Bash(node -e \"const j=require\\('C:/Users/Nikhil/cfg.json'\\); console.log\\(Object.keys\\(j\\)\\); console.log\\(JSON.stringify\\(j.brand,null,2\\)\\)\")",
       "Bash(node -e \"const j=require\\('C:/Users/Nikhil/cfg.json'\\); console.log\\(JSON.stringify\\(j.config?.brand,null,2\\)\\)\")",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:8000/seed-assets/royal-tandoor/logo/logo-001.png\")"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:8000/seed-assets/royal-tandoor/logo/logo-001.png\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:8001/seed-assets/royal-tandoor/logo/logo-001.png\")",
+      "Bash(pkill -f \"frontend.*server.js\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:8001/presence/?slug=royal-tandoor\")",
+      "Bash(curl -s \"http://localhost:8001/presence/?slug=royal-tandoor\")",
+      "Bash(node -e \"require\\('dotenv'\\).config\\(\\); console.log\\(process.env.BACKEND_URL, process.env.PORT\\)\")",
+      "Bash(curl -s \"http://localhost:8000/presence/?slug=royal-tandoor\")",
+      "Bash(curl -s -I \"http://localhost:8000/seed-assets/royal-tandoor/logo/logo-001.png\")",
+      "Bash(pkill -f \"node\")",
+      "Bash(taskkill /PID 23020 /F)",
+      "PowerShell(Stop-Process -Id 23020 -Force)",
+      "Bash(pkill -f \"backend.*server.js\")",
+      "Bash(node scripts/fetch-menu-images.js)",
+      "Bash(node scripts/fetch-menu-images-cdn.js)"
     ],
     "additionalDirectories": [
       "\\tmp",

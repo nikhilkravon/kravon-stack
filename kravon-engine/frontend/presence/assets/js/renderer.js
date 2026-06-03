@@ -192,11 +192,10 @@
 
     const cardsHtml = dishes.map(d => `
       <article class="p-mcard reveal" aria-label="${Kravon.esc(d.name || '')}">
-        <div class="p-mcard-image-wrap">
-          ${d.image
-            ? `<img src="${Kravon.esc(d.image)}" alt="${Kravon.esc(d.name || '')}" loading="lazy">`
-            : `<img src="assets/images/food-01.svg" alt="${Kravon.esc(d.name || '')}" loading="lazy">`}
-        </div>
+        ${d.image ? `<div class="p-mcard-image-wrap">
+          <img src="${Kravon.esc(d.image)}" alt="${Kravon.esc(d.name || '')}" loading="lazy"
+               onerror="this.parentElement.style.display='none'">
+        </div>` : ''}
         <div class="p-mcard-body">
           <h3 class="p-mcard-name">${Kravon.esc(d.name || '')}</h3>
           <p class="p-mcard-desc">${Kravon.esc(d.description || '')}</p>

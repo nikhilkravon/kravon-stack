@@ -122,17 +122,20 @@
   let _tablesCtrl; /* set in initTablesRenderer via ItemControls.makeRenderer */
 
   function buildItemCard(item) {
-    const bg = item.imageBg
-      ? ` style="background:${Kravon.esc(item.imageBg)}"`
-      : '';
+    const isUrl = item.image && (item.image.startsWith('http') || item.image.startsWith('/'));
 
     return `
       <div class="menu-card" data-item-id="${item.id}" role="article"
            aria-label="${Kravon.esc(item.name)}">
-        <div class="menu-card-img"${bg} aria-hidden="true">
-          ${item.image ? `<span class="menu-card-emoji">${Kravon.esc(item.image)}</span>` : ''}
-          ${ItemControls.badgeHTML(item)}
-        </div>
+        ${isUrl
+          ? `<div class="menu-card-img" aria-hidden="true">
+               <img src="${Kravon.esc(item.image)}" alt="" loading="lazy"
+                    onerror="this.parentElement.style.display='none'">
+               ${ItemControls.badgeHTML(item)}
+             </div>`
+          : `<div class="menu-card-img menu-card-img--no-image" aria-hidden="true">
+               ${ItemControls.badgeHTML(item)}
+             </div>`}
         <div class="menu-card-body">
           <div class="menu-card-name">${Kravon.esc(item.name)}</div>
           ${item.desc ? `<div class="menu-card-desc">${Kravon.esc(item.desc)}</div>` : ''}

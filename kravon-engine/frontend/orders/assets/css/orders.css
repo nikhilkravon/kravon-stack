@@ -359,6 +359,15 @@ body[data-error="true"] .orders-error { display: flex; }
   position: relative;
   border-radius: var(--r-lg) var(--r-lg) 0 0;
   overflow: hidden;
+  background: #1e1a12;
+}
+.item-img--no-image {
+  background: transparent;
+  aspect-ratio: unset;
+  height: 0;
+  min-height: 0;
+  padding: 0;
+  overflow: visible;
 }
 .item-img img {
   width: 100%;

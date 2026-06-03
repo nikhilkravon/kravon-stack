@@ -109,15 +109,13 @@
   function itemCardHTML(item) {
     const badge = ItemControls.badgeHTML(item);
 
-    const isFile = item.image && !(/\p{Emoji}/u).test(item.image) && item.image.length > 2;
-    const imgHTML = isFile
-      ? `<div class="item-img" style="padding:0;overflow:hidden;">
+    const isUrl = item.image && (item.image.startsWith('http') || item.image.startsWith('/'));
+    const imgHTML = isUrl
+      ? `<div class="item-img">
            <img src="${Kravon.esc(item.image)}" alt="${Kravon.esc(item.name)}" loading="lazy"
-                style="width:100%;height:100%;object-fit:cover;display:block;">${badge}
+                onerror="this.parentElement.style.display='none'">${badge}
          </div>`
-      : `<div class="item-img" style="background:${Kravon.esc(item.imageBg || '#1e1a12')};">
-           ${item.image || ''}${badge}
-         </div>`;
+      : `<div class="item-img item-img--no-image">${badge}</div>`;
 
     const action = item.customise ? 'open-modal' : 'add-item';
 
