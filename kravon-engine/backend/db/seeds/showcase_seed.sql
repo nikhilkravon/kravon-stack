@@ -136,8 +136,8 @@ INSERT INTO tenant.restaurants (
         'hours_display',      'Mon–Fri 12pm–3pm, 7pm–11pm · Sat–Sun 12pm–11pm',
         'open_until',         '11pm tonight',
         'delivery_zone',      'Nungambakkam, Alwarpet, Mylapore, T. Nagar',
-        'delivery_fee',       49,
-        'free_delivery_above',599,
+        'delivery_fee',       4900,
+        'free_delivery_above',59900,
         'review_threshold',   4,
         'google_review_url',  'https://g.page/r/avartana-chennai/review',
         'presence',           jsonb_build_object(
