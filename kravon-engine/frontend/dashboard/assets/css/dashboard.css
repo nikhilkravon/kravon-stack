@@ -473,6 +473,53 @@ tbody tr:hover td { background: var(--gray-50); }
 .order-item-price { font-weight: 500; color: var(--gray-900); }
 
 .order-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* Stale orders: pending/confirmed and older than 15 minutes */
+.order-row--stale { background: rgba(217, 119, 6, 0.04); }
+.order-row--stale td { border-top: 1px solid rgba(217, 119, 6, 0.15); }
+
+/* Table urgency indicators */
+.table-card--warning {
+  border-left: 3px solid var(--amber-600) !important;
+}
+.table-card--urgent {
+  border-left: 3px solid #dc2626 !important;
+  background: rgba(220, 38, 38, 0.03);
+}
+.table-urgency-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 100px;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+.table-urgency-badge--warn  { background: rgba(217,119,6,0.12); color: var(--amber-600); }
+.table-urgency-badge--urgent { background: rgba(220,38,38,0.12); color: #dc2626; }
+
+/* Kitchen live dot */
+@keyframes kitchen-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.75); }
+}
+@keyframes kitchen-refresh-flash {
+  0%   { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,0.4); }
+  100% { background: #22c55e; box-shadow: none; }
+}
+.kitchen-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  flex-shrink: 0;
+  animation: kitchen-pulse 2.4s ease infinite;
+}
+.kitchen-dot--pulse {
+  animation: kitchen-refresh-flash 0.6s ease forwards, kitchen-pulse 2.4s ease 0.6s infinite;
+}
+
 [hidden]        { display: none !important; }
 
 /* ── Inline add form (variants, options, covers) ──────────────────────────── */

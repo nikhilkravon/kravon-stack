@@ -152,7 +152,10 @@
     const cats = M.map((cat, i) =>
       `<button class="cat-btn${i === 0 ? ' active' : ''}"
                data-action="scroll-to-cat"
-               data-cat-id="${Kravon.esc(cat.id)}">${Kravon.esc(cat.name)}</button>`
+               data-cat-id="${Kravon.esc(cat.id)}">
+         ${Kravon.esc(cat.name)}
+         <span class="cat-btn-count">${cat.items.length}</span>
+       </button>`
     ).join('');
 
     const sections = M.map(cat => {
@@ -187,6 +190,9 @@
   function buildScreenCheckout() {
     const cfg       = C.tables || {};
     const isOffline = cfg.paymentMode === 'offline' || !cfg.razorpayKeyId;
+    const tableCtx  = TC.isDineIn && TC.tableName
+      ? `<div class="checkout-table-ctx" id="checkoutTableCtx">Ordering for Table ${Kravon.esc(TC.tableName)}</div>`
+      : '';
 
     const paymentBlock = isOffline
       ? `<div class="checkout-pay-offline">
@@ -223,6 +229,7 @@
         ${buildNav('Your Order')}
         <div class="checkout-wrap">
           <div class="checkout-main">
+            ${tableCtx}
 
             <section class="checkout-section" aria-labelledby="checkout-details-h">
               <h2 class="checkout-section-title" id="checkout-details-h">Your Details</h2>
@@ -288,7 +295,10 @@
             <div class="confirm-check" aria-hidden="true">
               <svg width="36" height="36"><use href="#icon-check"/></svg>
             </div>
-            <div class="confirm-heading">Order Placed!</div>
+            <div class="confirm-heading" id="confirmHeading">Order Placed!</div>
+            ${TC.isDineIn && TC.tableName
+              ? `<div class="confirm-table-ctx">Table ${Kravon.esc(TC.tableName)} · Session active</div>`
+              : ''}
             <div class="confirm-sub" id="confirmSub"></div>
             <div class="confirm-id" id="confirmOrderId"></div>
           </div>
@@ -393,6 +403,9 @@
               <input type="text" id="tablesSpecialInput" class="form-input"
                      placeholder="e.g. no pickles, extra sauce…"
                      maxlength="120" autocomplete="off">
+              <div class="special-input-meta">
+                <span id="tablesSpecialCharCount" class="char-count">120</span>
+              </div>
             </div>
           </div>
           <div class="modal-footer">

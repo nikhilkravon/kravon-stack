@@ -2,7 +2,10 @@
 
 const OrdersView = (() => {
 
-  let _state = { tab: 'all', page: 1, search: '' };
+  let _state     = { tab: 'all', page: 1, search: '' };
+  let _pollTimer = null;
+  let _lastCount = null; // last known total order count for new-order detection
+  const _origTitle = document.title;
 
   // State machines per fulfillment type — delivery is the only one with out_for_delivery.
   const STATUS_NEXT_DELIVERY = {
@@ -97,6 +100,12 @@ const OrdersView = (() => {
     return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
   }
 
+  function _isStale(iso, status) {
+    if (!['pending', 'confirmed'].includes(status)) return false;
+    const mins = Math.floor((Date.now() - new Date(iso)) / 60000);
+    return mins >= 15;
+  }
+
   function _badge(s) {
     const cls   = STATUS_BADGE[s]  || 'badge-placed';
     const label = STATUS_LABEL[s]  || s.replace(/_/g, ' ');
@@ -158,8 +167,13 @@ const OrdersView = (() => {
             })}
           </td></tr>`;
       } else {
-        tbody.innerHTML = orders.map(o => `
-          <tr class="order-main-row" data-id="${o.id}" style="cursor:pointer">
+        tbody.innerHTML = orders.map(o => {
+          const stale = _isStale(o.created_at, o.status);
+          const timeCell = stale
+            ? `<td class="td-muted" style="color:var(--amber-600,#e8a020);font-weight:600">${_ago(o.created_at)} ⚠</td>`
+            : `<td class="td-muted">${_ago(o.created_at)}</td>`;
+          return `
+          <tr class="order-main-row${stale ? ' order-row--stale' : ''}" data-id="${o.id}" style="cursor:pointer">
             <td class="text-sm text-muted">#${o.id.slice(-6).toUpperCase()}</td>
             <td class="text-sm">${_channel(o)}</td>
             <td>
@@ -168,7 +182,7 @@ const OrdersView = (() => {
             </td>
             <td class="text-right" style="font-weight:600">${_fmt(o.total_amount)}</td>
             <td>${_badge(o.status)}</td>
-            <td class="td-muted">${_ago(o.created_at)}</td>
+            ${timeCell}
             <td>
               <div class="order-actions">${_actionButtons(o)}</div>
             </td>
@@ -179,7 +193,8 @@ const OrdersView = (() => {
                 <div class="order-detail-loading text-sm text-muted">Loading items…</div>
               </div>
             </td>
-          </tr>`).join('');
+          </tr>`;
+        }).join('');
       }
 
       const total = data.total || 0;
@@ -189,6 +204,17 @@ const OrdersView = (() => {
       const nextBtn = el.querySelector('#orders-next');
       if (prevBtn) prevBtn.disabled = _state.page <= 1;
       if (nextBtn) nextBtn.disabled = _state.page >= pages;
+
+      // New-order detection: flash tab title when count grows
+      if (_lastCount !== null && total > _lastCount && _state.tab !== 'completed' && _state.tab !== 'cancelled') {
+        const diff = total - _lastCount;
+        document.title = `🔔 ${diff} New Order${diff > 1 ? 's' : ''} — Kravon`;
+        const badgeEl = el.querySelector('#orders-new-badge');
+        if (badgeEl) { badgeEl.textContent = `+${diff} new`; badgeEl.style.display = ''; }
+        // Reset title after 8 seconds
+        setTimeout(() => { document.title = _origTitle; }, 8000);
+      }
+      _lastCount = total;
 
       // Expand / collapse detail row on row click
       el.querySelectorAll('.order-main-row').forEach(row => {
@@ -267,7 +293,9 @@ const OrdersView = (() => {
   }
 
   function init(el) {
-    _state = { tab: 'all', page: 1, search: '' };
+    if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+    _state     = { tab: 'all', page: 1, search: '' };
+    _lastCount = null;
 
     el.innerHTML = `
       <div class="tab-bar">
@@ -279,7 +307,10 @@ const OrdersView = (() => {
       <div class="card">
         <div class="card-header">
           <input id="orders-search" class="search-input" type="search" placeholder="Search by name or phone…">
-          <span id="orders-page-info" class="text-sm text-muted"></span>
+          <div style="display:flex;align-items:center;gap:var(--sp-3)">
+            <span id="orders-new-badge" class="badge badge-placed" style="display:none"></span>
+            <span id="orders-page-info" class="text-sm text-muted"></span>
+          </div>
         </div>
         <div class="table-wrap">
           <table>
@@ -326,6 +357,20 @@ const OrdersView = (() => {
     el.querySelector('#orders-next').addEventListener('click', () => { _state.page++; _load(el); });
 
     _load(el);
+
+    // Auto-refresh every 30 seconds — same pattern as kitchen.js
+    _pollTimer = setInterval(() => _load(el), 30000);
+
+    // Stop polling when navigating away
+    const observer = new MutationObserver(() => {
+      if (!el.isConnected) {
+        clearInterval(_pollTimer);
+        _pollTimer = null;
+        document.title = _origTitle;
+        observer.disconnect();
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
   }
 
   return { init };

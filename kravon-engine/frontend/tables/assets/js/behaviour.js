@@ -35,6 +35,64 @@ function initTablesBehaviour() {
     document.body.style.overflow = '';
   }
 
+  /* ── Mobile cart label: first item name ──────────────────── */
+  function _updateMobileCartLabel() {
+    const labelEl = document.getElementById('mobileCartLabel');
+    if (!labelEl) return;
+    const items = TablesCart.getItems();
+    const count = items.reduce((sum, i) => sum + i.qty, 0);
+    if (items.length > 0) {
+      const firstName = items[0].name.length > 18
+        ? items[0].name.slice(0, 17) + '…'
+        : items[0].name;
+      const extra = count > 1 ? ` +${count - 1}` : '';
+      labelEl.textContent = firstName + extra;
+    } else {
+      labelEl.textContent = 'items in order';
+    }
+  }
+
+  /* ── Category sheet open/close ───────────────────────────── */
+  function openCatSheet() {
+    const sheet   = document.getElementById('catSheet');
+    const overlay = document.getElementById('catSheetOverlay');
+    const list    = document.getElementById('catSheetList');
+
+    // Populate list from MENU
+    if (list && window.MENU) {
+      list.innerHTML = window.MENU.map(cat => `
+        <button class="cat-sheet-item" data-action="jump-to-cat"
+                data-cat-id="${Kravon.esc(cat.id)}"
+                aria-label="Go to ${Kravon.esc(cat.name)}">
+          <span>${Kravon.esc(cat.name)}</span>
+          <span class="cat-sheet-item-count">${cat.items.length} items</span>
+        </button>`).join('');
+    }
+
+    if (sheet)   { sheet.classList.add('open');   sheet.setAttribute('aria-hidden', 'false'); }
+    if (overlay) { overlay.classList.add('open'); overlay.setAttribute('aria-hidden', 'false'); }
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeCatSheet() {
+    const sheet   = document.getElementById('catSheet');
+    const overlay = document.getElementById('catSheetOverlay');
+    if (sheet)   { sheet.classList.remove('open');   sheet.setAttribute('aria-hidden', 'true'); }
+    if (overlay) { overlay.classList.remove('open'); overlay.setAttribute('aria-hidden', 'true'); }
+    document.body.style.overflow = '';
+  }
+
+  /* ── Show/hide FAB based on current screen ───────────────── */
+  function _syncFab(screenId) {
+    const fab = document.getElementById('catFab');
+    if (!fab) return;
+    if (screenId === 'screenOrdering' && window.innerWidth <= 768) {
+      fab.classList.add('visible');
+    } else {
+      fab.classList.remove('visible');
+    }
+  }
+
   /* ── Category scroll ─────────────────────────────────────── */
   function scrollToCategory(catId) {
     const section = document.getElementById(`cat_${catId}`);
@@ -79,6 +137,7 @@ function initTablesBehaviour() {
         TablesCart.addItem(id, item.name, item.price);
         TablesRenderer.updateItemBtn(id);
         TablesRenderer.renderCartDrawer();
+        _updateMobileCartLabel();
         Kravon.toast(`${item.name} added`);
         break;
       }
@@ -125,6 +184,7 @@ function initTablesBehaviour() {
         if (confirmedId) {
           TablesRenderer.updateItemBtn(confirmedId);
           TablesRenderer.renderCartDrawer();
+          _updateMobileCartLabel();
           Kravon.toast('Added to order');
         }
         break;
@@ -144,6 +204,7 @@ function initTablesBehaviour() {
         }
         TablesRenderer.updateItemBtn(id);
         TablesRenderer.renderCartDrawer();
+        _updateMobileCartLabel();
         break;
       }
 
@@ -157,6 +218,7 @@ function initTablesBehaviour() {
         if (idxToRemove !== -1) TablesCart.changeQty(idxToRemove, -1);
         TablesRenderer.updateItemBtn(id);
         TablesRenderer.renderCartDrawer();
+        _updateMobileCartLabel();
         break;
       }
 
@@ -176,6 +238,7 @@ function initTablesBehaviour() {
         TablesCart.changeQty(idx, -1);
         if (itemBefore) TablesRenderer.updateItemBtn(itemBefore.id);
         TablesRenderer.renderCartDrawer();
+        _updateMobileCartLabel();
         break;
       }
 
@@ -187,6 +250,22 @@ function initTablesBehaviour() {
           TablesRenderer.updateItemBtn(item.id);
         }
         TablesRenderer.renderCartDrawer();
+        _updateMobileCartLabel();
+        break;
+      }
+
+      /* ── Floating category launcher ── */
+      case 'open-cat-sheet':
+        openCatSheet();
+        break;
+
+      case 'close-cat-sheet':
+        closeCatSheet();
+        break;
+
+      case 'jump-to-cat': {
+        closeCatSheet();
+        scrollToCategory(target.dataset.catId);
         break;
       }
 
@@ -196,6 +275,7 @@ function initTablesBehaviour() {
         closeCart();
         TablesRenderer.showScreen('screenCheckout');
         TablesRenderer.renderCheckoutSummary();
+        _syncFab('screenCheckout');
         window.scrollTo(0, 0);
         break;
       }
@@ -272,18 +352,32 @@ function initTablesBehaviour() {
   function updateActiveCat() {
     const sections = document.querySelectorAll('.menu-section');
     const navH = document.querySelector('.tables-nav')?.offsetHeight || 60;
-    const catH = document.querySelector('.cat-sidebar')?.offsetHeight || 0;
-    const offset = navH + catH + 24;
+    const offset = navH + 24;
 
     let activeId = null;
     sections.forEach(s => {
       if (s.getBoundingClientRect().top - offset < 0) activeId = s.id.replace('cat_', '');
     });
 
+    // When at the top (no section has scrolled past), keep first category active
+    if (!activeId && sections.length > 0) {
+      activeId = sections[0].id.replace('cat_', '');
+    }
+
     document.querySelectorAll('.cat-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.catId === activeId);
     });
   }
 
+  // Seed first category as active on load
+  requestAnimationFrame(() => {
+    const firstBtn = document.querySelector('.cat-btn');
+    if (firstBtn) firstBtn.classList.add('active');
+    _syncFab('screenOrdering');
+  });
+
   window.addEventListener('scroll', updateActiveCat, { passive: true });
+  window.addEventListener('resize', () => _syncFab(
+    document.getElementById('screenOrdering')?.style.display !== 'none' ? 'screenOrdering' : 'other'
+  ), { passive: true });
 }

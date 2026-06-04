@@ -8,6 +8,51 @@ const PresenceView = (() => {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  // ── Image upload helper ───────────────────────────────────────────────────
+  // Attaches a hidden file input + "Upload image" button next to a URL input.
+  // On upload success the URL input is populated and _set() is called.
+  function _attachUpload(el, inputId, contentPath) {
+    const urlInput = el.querySelector(`#${inputId}`);
+    if (!urlInput) return;
+
+    const fileInputId = `${inputId}-file`;
+    urlInput.insertAdjacentHTML('afterend', `
+      <div style="display:flex;align-items:center;gap:var(--sp-2);margin-top:4px">
+        <input type="file" id="${fileInputId}" accept="image/*" style="display:none">
+        <button class="btn btn-ghost btn-sm" id="${inputId}-upload-btn" type="button">
+          ↑ Upload image
+        </button>
+        <span id="${inputId}-upload-status" class="text-sm text-muted"></span>
+      </div>`);
+
+    const btn    = el.querySelector(`#${inputId}-upload-btn`);
+    const fileEl = el.querySelector(`#${fileInputId}`);
+    const status = el.querySelector(`#${inputId}-upload-status`);
+
+    btn.addEventListener('click', () => fileEl.click());
+
+    fileEl.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      btn.disabled = true;
+      btn.textContent = 'Uploading…';
+      status.textContent = '';
+      try {
+        const url = await Api.rUploadImage(file);
+        urlInput.value = url;
+        _set(contentPath, url);
+        status.textContent = 'Uploaded ✓';
+        setTimeout(() => { status.textContent = ''; }, 3000);
+      } catch (ex) {
+        DashUI.toast(ex.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '↑ Upload image';
+        fileEl.value = '';
+      }
+    });
+  }
+
   function _get(path) {
     return path.split('.').reduce((o, k) => (o && o[k] !== undefined ? o[k] : ''), _content);
   }
@@ -86,6 +131,8 @@ const PresenceView = (() => {
 
     el.querySelector('#br-logo').addEventListener('input', e => _set('branding.logoUrl',  e.target.value));
     el.querySelector('#br-hero').addEventListener('input', e => _set('branding.heroImage', e.target.value));
+    _attachUpload(el, 'br-logo', 'branding.logoUrl');
+    _attachUpload(el, 'br-hero', 'branding.heroImage');
     _bindSave(el, 'branding');
   }
 
@@ -255,6 +302,7 @@ const PresenceView = (() => {
     el.querySelector('#story-title').addEventListener('input', e => _set('story.title', e.target.value));
     el.querySelector('#story-body').addEventListener('input',  e => _set('story.body',  e.target.value));
     el.querySelector('#story-image').addEventListener('input', e => _set('story.image', e.target.value));
+    _attachUpload(el, 'story-image', 'story.image');
     _bindSave(el, 'story');
   }
 
@@ -277,7 +325,10 @@ const PresenceView = (() => {
           </div>
           <div class="form-group">
             <label>Image URL</label>
-            <input type="url" class="dish-img" value="${_esc(d.image || '')}" placeholder="https://…">
+            <div style="display:flex;gap:var(--sp-2);align-items:center">
+              <input type="url" class="dish-img" value="${_esc(d.image || '')}" placeholder="https://…" style="flex:1">
+              <button class="btn btn-ghost btn-sm dish-img-upload" type="button">↑ Upload</button>
+            </div>
           </div>
           <button class="btn btn-ghost btn-sm dish-remove" style="color:var(--red-500)">Remove</button>
         </div>`;
@@ -305,6 +356,24 @@ const PresenceView = (() => {
     list.addEventListener('click', e => {
       if (e.target.classList.contains('dish-remove')) {
         e.target.closest('.dish-row').remove(); _syncDishes();
+        return;
+      }
+      if (e.target.classList.contains('dish-img-upload')) {
+        const row = e.target.closest('.dish-row');
+        const imgInput = row.querySelector('.dish-img');
+        const fi = document.createElement('input');
+        fi.type = 'file'; fi.accept = 'image/*';
+        fi.addEventListener('change', async () => {
+          const file = fi.files[0]; if (!file) return;
+          const btn = e.target;
+          btn.disabled = true; btn.textContent = 'Uploading…';
+          try {
+            imgInput.value = await Api.rUploadImage(file);
+            _syncDishes();
+          } catch (ex) { DashUI.toast(ex.message, 'error'); }
+          finally { btn.disabled = false; btn.textContent = '↑ Upload'; }
+        });
+        fi.click();
       }
     });
     el.querySelector('#dish-add').addEventListener('click', () => {
@@ -327,6 +396,7 @@ const PresenceView = (() => {
       const rows = (g[key] || []).map((url, i) => `
         <div class="gallery-row" style="display:flex;gap:var(--sp-2);margin-bottom:var(--sp-2)" data-group="${key}" data-idx="${i}">
           <input type="url" class="gallery-url" data-group="${key}" data-idx="${i}" value="${_esc(url)}" placeholder="https://…" style="flex:1">
+          <button class="btn btn-ghost btn-sm gallery-upload" data-group="${key}" title="Upload image" type="button">↑</button>
           <button class="btn btn-ghost btn-sm gallery-remove" data-group="${key}" data-idx="${i}" title="Remove">✕</button>
         </div>`).join('');
       return `
@@ -360,6 +430,25 @@ const PresenceView = (() => {
     });
 
     cardBody.addEventListener('click', e => {
+      const uploadBtn = e.target.closest('.gallery-upload');
+      if (uploadBtn) {
+        const row     = uploadBtn.closest('.gallery-row');
+        const urlInp  = row.querySelector('.gallery-url');
+        const fi = document.createElement('input');
+        fi.type = 'file'; fi.accept = 'image/*';
+        fi.addEventListener('change', async () => {
+          const file = fi.files[0]; if (!file) return;
+          uploadBtn.disabled = true; uploadBtn.textContent = '…';
+          try {
+            urlInp.value = await Api.rUploadImage(file);
+            _syncGallery();
+          } catch (ex) { DashUI.toast(ex.message, 'error'); }
+          finally { uploadBtn.disabled = false; uploadBtn.textContent = '↑'; }
+        });
+        fi.click();
+        return;
+      }
+
       const addBtn = e.target.closest('.gallery-add');
       if (addBtn) {
         const group = addBtn.dataset.group;
@@ -368,6 +457,7 @@ const PresenceView = (() => {
         list.insertAdjacentHTML('beforeend', `
           <div class="gallery-row" style="display:flex;gap:var(--sp-2);margin-bottom:var(--sp-2)" data-group="${group}" data-idx="${idx}">
             <input type="url" class="gallery-url" data-group="${group}" data-idx="${idx}" value="" placeholder="https://…" style="flex:1">
+            <button class="btn btn-ghost btn-sm gallery-upload" data-group="${group}" title="Upload image" type="button">↑</button>
             <button class="btn btn-ghost btn-sm gallery-remove" data-group="${group}" data-idx="${idx}" title="Remove">✕</button>
           </div>`);
         if (!_content.gallery) _content.gallery = {};
@@ -408,7 +498,10 @@ const PresenceView = (() => {
           </div>
           <div class="form-group">
             <label>Image URL</label>
-            <input type="url" class="feat-img" value="${_esc(f.image || '')}" placeholder="https://…">
+            <div style="display:flex;gap:var(--sp-2);align-items:center">
+              <input type="url" class="feat-img" value="${_esc(f.image || '')}" placeholder="https://…" style="flex:1">
+              <button class="btn btn-ghost btn-sm feat-img-upload" type="button">↑ Upload</button>
+            </div>
           </div>
           <div class="form-row">
             <div class="form-group" style="flex:1">
@@ -450,6 +543,24 @@ const PresenceView = (() => {
     list.addEventListener('click', e => {
       if (e.target.classList.contains('feat-remove')) {
         e.target.closest('.feat-row').remove(); _syncFeatured();
+        return;
+      }
+      if (e.target.classList.contains('feat-img-upload')) {
+        const row = e.target.closest('.feat-row');
+        const imgInput = row.querySelector('.feat-img');
+        const fi = document.createElement('input');
+        fi.type = 'file'; fi.accept = 'image/*';
+        fi.addEventListener('change', async () => {
+          const file = fi.files[0]; if (!file) return;
+          const btn = e.target;
+          btn.disabled = true; btn.textContent = 'Uploading…';
+          try {
+            imgInput.value = await Api.rUploadImage(file);
+            _syncFeatured();
+          } catch (ex) { DashUI.toast(ex.message, 'error'); }
+          finally { btn.disabled = false; btn.textContent = '↑ Upload'; }
+        });
+        fi.click();
       }
     });
     el.querySelector('#feat-add').addEventListener('click', () => {

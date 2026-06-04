@@ -10,6 +10,28 @@
   from { background-position: -600px 0; }
   to   { background-position:  600px 0; }
 }
+
+/* ─── ADD-TO-CART ANIMATIONS ─── */
+@keyframes iqc-pop {
+  0%   { transform: scale(0.82); }
+  60%  { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+@keyframes cart-bar-pulse {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.04); }
+  70%  { transform: scale(0.98); }
+  100% { transform: scale(1); }
+}
+
+.iqc-pop {
+  animation: iqc-pop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.cart-bar-pulse {
+  animation: cart-bar-pulse 0.32s ease both;
+}
 .o-skeleton {
   background: linear-gradient(90deg,
     rgba(255,255,255,0.04) 25%,

@@ -16,7 +16,16 @@ const Modal = (() => {
     const container = document.getElementById('modalAddons');
     if (!container) return;
 
-    container.innerHTML = ADDONS.map(a => `
+    const addons  = window.ADDONS || [];
+    const section = container.closest('.modal-section');
+
+    if (!addons.length) {
+      if (section) section.style.display = 'none';
+      return;
+    }
+    if (section) section.style.display = '';
+
+    container.innerHTML = addons.map(a => `
       <div class="option-row">
         <div>
           <div class="option-label">${Kravon.esc(a.label)}</div>
@@ -40,7 +49,16 @@ const Modal = (() => {
     const container = document.getElementById('spiceOptions');
     if (!container) return;
 
-    container.innerHTML = SPICE_LEVELS.map((s, i) => `
+    const levels  = window.SPICE_LEVELS || [];
+    const section = container.closest('.modal-section');
+
+    if (!levels.length) {
+      if (section) section.style.display = 'none';
+      return;
+    }
+    if (section) section.style.display = '';
+
+    container.innerHTML = levels.map((s, i) => `
       <button class="spice-btn${i === 0 ? ' active' : ''}"
               data-action="set-spice"
               aria-pressed="${i === 0 ? 'true' : 'false'}">
@@ -53,6 +71,19 @@ const Modal = (() => {
   function open(itemId) {
     const item = _findMenuItem(itemId);
     if (!item) return;
+
+    // If exactly one cart entry exists for this item, edit it in place
+    // to prevent duplicate line items with conflicting customisations.
+    const cartItems    = Cart.getItems();
+    const matchIndices = cartItems.reduce((acc, ci, i) => {
+      if (String(ci.id) === String(itemId)) acc.push(i);
+      return acc;
+    }, []);
+
+    if (matchIndices.length === 1) {
+      openEdit(matchIndices[0]);
+      return;
+    }
 
     _editingIdx = -1;
     _modalItem  = { id: item.id, name: item.name, price: item.price };
@@ -105,9 +136,9 @@ const Modal = (() => {
         });
         /* Special instructions */
         const knownParts = [
-          ...ADDONS.map(a => a.label),
-          ...SPICE_LEVELS,
-          ...SPICE_LEVELS.map(s => 'Spice: ' + s),
+          ...(window.ADDONS || []).map(a => a.label),
+          ...(window.SPICE_LEVELS || []),
+          ...(window.SPICE_LEVELS || []).map(s => 'Spice: ' + s),
         ];
         if (!knownParts.includes(part)) {
           const specialInput = document.getElementById('specialInput');
@@ -161,8 +192,9 @@ const Modal = (() => {
 
   /* ── Confirm: add to cart or update existing ── */
   function confirm() {
+    const levels   = window.SPICE_LEVELS || [];
     const spiceBtn = document.querySelector('.spice-btn.active');
-    const spice = spiceBtn ? spiceBtn.textContent.trim() : SPICE_LEVELS[0];
+    const spice    = spiceBtn ? spiceBtn.textContent.trim() : (levels[0] || '');
 
     const extras  = [];
     let   addons  = 0;
@@ -175,7 +207,7 @@ const Modal = (() => {
 
     const special  = (document.getElementById('specialInput')?.value || '').trim();
     const noteParts = [
-      spice !== SPICE_LEVELS[0] ? 'Spice: ' + spice : '',
+      (spice && spice !== (levels[0] || '')) ? 'Spice: ' + spice : '',
       ...extras,
       special,
     ].filter(Boolean);
@@ -245,6 +277,18 @@ const Modal = (() => {
   function init() {
     buildAddons();
     buildSpice();
+
+    // Live char counter for special instructions
+    const specialInput = document.getElementById('specialInput');
+    const charCount    = document.getElementById('specialCharCount');
+    if (specialInput && charCount) {
+      const max = parseInt(specialInput.getAttribute('maxlength') || '120', 10);
+      specialInput.addEventListener('input', () => {
+        const remaining = max - specialInput.value.length;
+        charCount.textContent = remaining;
+        charCount.classList.toggle('char-count--warn', remaining < 20);
+      });
+    }
   }
 
   return {

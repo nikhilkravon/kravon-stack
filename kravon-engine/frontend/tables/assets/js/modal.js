@@ -75,6 +75,19 @@ const TablesModal = (() => {
     const item = _findMenuItem(itemId);
     if (!item) return;
 
+    // If exactly one cart entry exists for this item, edit it in place
+    // to prevent duplicate line items with conflicting customisations.
+    const cartItems    = TablesCart.getItems();
+    const matchIndices = cartItems.reduce((acc, ci, i) => {
+      if (String(ci.id) === String(itemId)) acc.push(i);
+      return acc;
+    }, []);
+
+    if (matchIndices.length === 1) {
+      openEdit(matchIndices[0]);
+      return;
+    }
+
     _editingIdx = -1;
     _modalItem  = { id: item.id, name: item.name, price: item.price };
     _modalQty   = 1;
@@ -268,6 +281,18 @@ const TablesModal = (() => {
   function init() {
     buildAddons();
     buildSpice();
+
+    // Live char counter for special instructions
+    const specialInput = document.getElementById('tablesSpecialInput');
+    const charCount    = document.getElementById('tablesSpecialCharCount');
+    if (specialInput && charCount) {
+      const max = parseInt(specialInput.getAttribute('maxlength') || '120', 10);
+      specialInput.addEventListener('input', () => {
+        const remaining = max - specialInput.value.length;
+        charCount.textContent = remaining;
+        charCount.classList.toggle('char-count--warn', remaining < 20);
+      });
+    }
   }
 
   return { init, open, openEdit, close, incQty, decQty, toggleAddon, setSpice, confirm };

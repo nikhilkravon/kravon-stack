@@ -137,7 +137,8 @@ const TablesCheckout = (() => {
           const btn  = document.getElementById('placeOrderBtn');
           const note = document.getElementById('placeOrderNote');
           if (btn) btn.disabled = false;
-          if (note) note.textContent = 'Payment was not completed.';
+          if (note) note.textContent = '';
+          Kravon.toast('Payment cancelled. You can try again.');
         }
       }
     };

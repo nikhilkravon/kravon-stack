@@ -30,6 +30,7 @@
         OrdersRenderer.updateItemBtn(item.id);
         UI.renderCart();
         UI.flashCartPanel();
+        UI.animateItemAdded(item.id);
         break;
       }
 
@@ -63,6 +64,7 @@
           OrdersRenderer.updateItemBtn(confirmedId);
           UI.renderCart();
           UI.flashCartPanel();
+          UI.animateItemAdded(confirmedId);
         }
         break;
       }
@@ -141,6 +143,15 @@
         Checkout.submitOrderFeedback();
         break;
 
+      case 'browse-menu':
+        UI.closeMobileCart();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        break;
+
+      case 'edit-order':
+        Checkout.editOrder();
+        break;
+
       case 'go-back':
         history.back();
         break;
@@ -192,6 +203,11 @@
     sections.forEach(s => {
       if (s.getBoundingClientRect().top - offset <= 0) activeId = s.id;
     });
+    // When no section has scrolled past the threshold, keep the first category active
+    if (!activeId) {
+      const firstSection = sections[0];
+      if (firstSection) activeId = firstSection.id;
+    }
     document.querySelectorAll('.cat-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.sectionId === activeId);
     });
@@ -212,6 +228,11 @@
     document.getElementById('screenOrdering')?.classList.add('active');
     // Seed initial history entry so the first Back press returns here
     history.replaceState({ screen: 'screenOrdering' }, '', window.location.href);
+    // Set first category active immediately — scroll spy only fires after scroll
+    requestAnimationFrame(() => {
+      const firstBtn = document.querySelector('.cat-btn');
+      if (firstBtn) firstBtn.classList.add('active');
+    });
     // Scroll to the ordering layout so the sticky cart panel is above the fold
     requestAnimationFrame(() => {
       const layout = document.querySelector('.ordering-layout');

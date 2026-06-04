@@ -317,6 +317,21 @@
 
 .min-order-note.warn { color: var(--amber); }
 
+.browse-menu-link {
+  background: none;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.browse-menu-link:hover { color: #d0e830; }
+
 /* ─── MOBILE CART BAR ─── */
 .mobile-cart-bar {
   display: none;

@@ -18,6 +18,14 @@ const TablesView = (() => {
     return `${Math.floor(mins / 60)}h ${mins % 60}m`;
   }
 
+  function _sessionUrgency(isoDate) {
+    if (!isoDate) return '';
+    const mins = Math.floor((Date.now() - new Date(isoDate)) / 60000);
+    if (mins >= 90) return 'table-card--urgent';
+    if (mins >= 60) return 'table-card--warning';
+    return '';
+  }
+
   function _qrUrl(table) {
     const base = window.KRAVON_FRONTEND_BASE || 'http://localhost:8000';
     const slug = Auth.state().slug;
@@ -28,8 +36,14 @@ const TablesView = (() => {
   function _tableCard(t) {
     const badge   = STATUS_BADGE[t.status] || `<span class="badge badge-pending">${t.status}</span>`;
     const session = t.session;
+    const urgency = session ? _sessionUrgency(session.opened_at) : '';
+    const urgencyLabel = urgency === 'table-card--urgent'
+      ? '<span class="table-urgency-badge table-urgency-badge--urgent">90+ min</span>'
+      : urgency === 'table-card--warning'
+      ? '<span class="table-urgency-badge table-urgency-badge--warn">60+ min</span>'
+      : '';
     return `
-      <div class="table-card table-card--${t.status}" data-table-id="${t.id}">
+      <div class="table-card table-card--${t.status}${urgency ? ' ' + urgency : ''}" data-table-id="${t.id}">
         <div class="table-card-header">
           <span class="table-card-name">${t.name}</span>
           <span class="table-card-cap">${t.capacity || '—'} pax</span>
@@ -38,7 +52,7 @@ const TablesView = (() => {
         ${session ? `
           <div class="table-session-info">
             <div class="table-session-row">
-              <span class="detail-label">Open</span> ${_dur(session.opened_at)}
+              <span class="detail-label">Open</span> ${_dur(session.opened_at)} ${urgencyLabel}
             </div>
             <div class="table-session-row">
               <span class="detail-label">Total</span> ${_fmt(session.total)}

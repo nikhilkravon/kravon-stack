@@ -2,7 +2,9 @@
 
 const KitchenView = (() => {
 
-  let _pollTimer = null;
+  let _pollTimer      = null;
+  let _tickTimer      = null;
+  let _lastLoadedAt   = null;
 
   function _dur(isoDate) {
     if (!isoDate) return '—';
@@ -57,7 +59,15 @@ const KitchenView = (() => {
       const data   = await Api.rGet('/dine-in/kitchen');
       const tables = data.tables || [];
 
-      if (lastSync) lastSync.textContent = `Last sync: ${new Date().toLocaleTimeString('en-IN')}`;
+      _lastLoadedAt = Date.now();
+      // Pulse the live dot on successful refresh
+      const dot = el.querySelector('#kitchen-live-dot');
+      if (dot) {
+        dot.classList.remove('kitchen-dot--pulse');
+        void dot.offsetWidth;
+        dot.classList.add('kitchen-dot--pulse');
+      }
+      if (lastSync) lastSync.textContent = 'Just now';
 
       if (!tables.length) {
         grid.innerHTML = DashUI.emptyState({
@@ -77,11 +87,14 @@ const KitchenView = (() => {
 
   function init(el) {
     if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+    if (_tickTimer) { clearInterval(_tickTimer); _tickTimer = null; }
+    _lastLoadedAt = null;
 
     el.innerHTML = `
       <div class="toolbar">
-        <div class="toolbar-left">
-          <span id="kitchen-sync" class="text-sm text-muted"></span>
+        <div class="toolbar-left" style="display:flex;align-items:center;gap:var(--sp-3)">
+          <span id="kitchen-live-dot" class="kitchen-live-dot"></span>
+          <span id="kitchen-sync" class="text-sm text-muted">Loading…</span>
         </div>
         <div class="toolbar-right">
           <button id="kitchen-refresh" class="btn btn-secondary btn-sm">↻ Refresh</button>
@@ -91,6 +104,18 @@ const KitchenView = (() => {
 
     el.querySelector('#kitchen-refresh').addEventListener('click', () => _load(el));
 
+    // Live "X seconds ago" counter
+    _tickTimer = setInterval(() => {
+      if (!_lastLoadedAt) return;
+      const secs = Math.floor((Date.now() - _lastLoadedAt) / 1000);
+      const syncEl = el.querySelector('#kitchen-sync');
+      if (syncEl) {
+        if (secs < 5)       syncEl.textContent = 'Just refreshed';
+        else if (secs < 60) syncEl.textContent = `Refreshed ${secs}s ago`;
+        else                syncEl.textContent = `Refreshed ${Math.floor(secs / 60)}m ago`;
+      }
+    }, 1000);
+
     _load(el);
     // Auto-refresh every 30 seconds
     _pollTimer = setInterval(() => _load(el), 30000);
@@ -98,8 +123,8 @@ const KitchenView = (() => {
     // Stop polling when navigating away
     const observer = new MutationObserver(() => {
       if (!document.getElementById('kitchen-grid')) {
-        clearInterval(_pollTimer);
-        _pollTimer = null;
+        clearInterval(_pollTimer); _pollTimer = null;
+        clearInterval(_tickTimer); _tickTimer = null;
         observer.disconnect();
       }
     });

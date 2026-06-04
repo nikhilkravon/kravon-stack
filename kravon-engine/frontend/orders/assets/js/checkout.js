@@ -21,6 +21,9 @@ const Checkout = (() => {
   let _confirmedOrderId     = null;   // stored for review submission
   let _reviewStars          = 0;
 
+  // Preserved form values so back-navigation doesn't clear the form
+  let _savedForm = { name: '', phone: '', address: '', locality: '', landmark: '' };
+
   /* ── Build delivery options from config ── */
   function buildDeliveryOptions() {
     const container = document.getElementById('deliveryOptions');
@@ -139,6 +142,27 @@ const Checkout = (() => {
     _selectedDeliveryType = 'standard';
   }
 
+  function editOrder() {
+    // Save form state before going back so it's restored on return
+    _savedForm = {
+      name:     _val('fieldName'),
+      phone:    _val('fieldPhone'),
+      address:  _val('fieldAddress'),
+      locality: _val('fieldLocality'),
+      landmark: _val('fieldLandmark'),
+    };
+    UI.showScreen('screenOrdering');
+  }
+
+  function _restoreForm() {
+    if (!_savedForm.name && !_savedForm.phone) return;
+    const fields = ['name', 'phone', 'address', 'locality', 'landmark'];
+    fields.forEach(k => {
+      const el = document.getElementById('field' + k.charAt(0).toUpperCase() + k.slice(1));
+      if (el && _savedForm[k]) el.value = _savedForm[k];
+    });
+  }
+
   function goToCheckout() {
     const totals = Cart.getTotals();
     if (totals.belowMin) return;
@@ -251,7 +275,8 @@ const Checkout = (() => {
       modal: {
         ondismiss: function() {
           const btn = document.querySelector('[data-action="place-order"]');
-          if (btn) { btn.disabled = false; btn.textContent = 'Place Order'; }
+          if (btn) { btn.disabled = false; btn.textContent = 'Place Order →'; }
+          UI.showToast('Payment cancelled. You can try again.');
         },
       },
     };
@@ -379,6 +404,6 @@ const Checkout = (() => {
     buildPaymentOptions();
   }
 
-  return { init, selectDelivery, selectPayment, goToCheckout, placeOrder, trackOrder, newOrder, handleOrderRating, submitOrderFeedback };
+  return { init, selectDelivery, selectPayment, goToCheckout, editOrder, placeOrder, trackOrder, newOrder, handleOrderRating, submitOrderFeedback };
 
 })();

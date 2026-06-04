@@ -252,6 +252,26 @@
 }
 .form-input::placeholder { color: rgba(255, 255, 255, 0.15); }
 
+/* ─── SPECIAL INPUT META ─── */
+.special-input-meta {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.char-count {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.2);
+  transition: color 0.15s;
+}
+
+.char-count--warn {
+  color: var(--amber);
+  font-weight: 700;
+}
+
 /* ─── RESPONSIVE ─── */
 @media (max-width: 480px) {
   .modal-header,

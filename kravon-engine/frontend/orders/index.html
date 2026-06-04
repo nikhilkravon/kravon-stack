@@ -109,7 +109,7 @@
     <button class="mobile-cart-bar-inner" data-action="open-mobile-cart" aria-label="Open cart">
       <div class="mobile-cart-left">
         <span class="mobile-cart-count" id="mobileCartCount">0</span>
-        <span class="mobile-cart-label">items in cart</span>
+        <span class="mobile-cart-label" id="mobileCartLabel">items in cart</span>
       </div>
       <span class="mobile-cart-total" id="mobileCartTotal">₹0</span>
     </button>
@@ -143,6 +143,9 @@
           <input type="text" id="specialInput" class="form-input"
                  placeholder="e.g. no pickles, extra sauce…"
                  maxlength="120" autocomplete="off">
+          <div class="special-input-meta">
+            <span id="specialCharCount" class="char-count">120</span>
+          </div>
         </div>
       </div>
       <div class="modal-footer">

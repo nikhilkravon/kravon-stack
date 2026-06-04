@@ -356,4 +356,32 @@ router.patch('/', requireRestaurantAuth, async (req, res, next) => {
   }
 });
 
+// ── Image upload ──────────────────────────────────────────────────────────────
+const multer = require('multer');
+const { uploadImage } = require('../../lib/s3');
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) {
+      return cb(new Error('Only image files allowed'));
+    }
+    cb(null, true);
+  },
+});
+
+router.post('/images', requireRestaurantAuth, upload.single('file'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file provided' });
+    const url = await uploadImage(
+      req.file,
+      `restaurants/${req.tenant.tenant_id}/${req.tenant.slug}/images`
+    );
+    res.json({ ok: true, url });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

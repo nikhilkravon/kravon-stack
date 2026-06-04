@@ -327,7 +327,7 @@
       <div class="screen" id="screenCheckout">
         <div class="checkout-layout wrap">
           <div class="checkout-main">
-            <button class="back-btn" data-action="go-back" aria-label="Back to menu">← Back</button>
+            <button class="back-btn" data-action="edit-order" aria-label="Back to menu">← Edit Order</button>
             <h2 class="checkout-heading">Checkout</h2>
 
             <div class="checkout-section" aria-labelledby="delivery-heading">

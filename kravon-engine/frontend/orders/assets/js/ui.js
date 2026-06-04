@@ -91,7 +91,7 @@ const UI = (function () {
       const noteEl = _$('minOrderNote');
       if (noteEl) {
         if (totals.belowMin) {
-          noteEl.textContent = `Add ₹${totals.toMin} more to place your order`;
+          noteEl.innerHTML = `Add ₹${totals.toMin} more to place your order &nbsp;·&nbsp; <button class="browse-menu-link" data-action="browse-menu">Browse Menu</button>`;
           noteEl.classList.add('warn');
         } else if (totals.toFreeDelivery > 0) {
           noteEl.textContent = `Add ₹${totals.toFreeDelivery} more for free delivery`;
@@ -122,6 +122,18 @@ const UI = (function () {
       bar.style.display = 'flex';
       _setText('mobileCartCount', count);
       _setText('mobileCartTotal', Cart.fmt(total));
+
+      // Show first item name + overflow count for ambient cart awareness
+      const items    = Cart.getItems();
+      const labelEl  = _$('mobileCartLabel');
+      if (labelEl && items.length > 0) {
+        const firstName = items[0].name.length > 18
+          ? items[0].name.slice(0, 17) + '…'
+          : items[0].name;
+        const extra = count > 1 ? ` +${count - 1}` : '';
+        labelEl.textContent = firstName + extra;
+      }
+
       document.body.style.paddingBottom = '64px';
     } else {
       bar.style.display = 'none';
@@ -178,6 +190,27 @@ const UI = (function () {
     setTimeout(() => { p.style.boxShadow = ''; }, 600);
   }
 
+  /* ── Item added feedback ──────────────────────────────── */
+  function animateItemAdded(itemId) {
+    // Pop the qty stepper that just appeared in the card
+    const ctrl = document.getElementById('itembtn-' + itemId);
+    if (ctrl) {
+      const stepper = ctrl.querySelector('.item-qty-ctrl');
+      if (stepper) {
+        stepper.classList.remove('iqc-pop');
+        void stepper.offsetWidth; // force reflow to restart animation
+        stepper.classList.add('iqc-pop');
+      }
+    }
+    // Pulse the mobile cart bar
+    const bar = _$('mobileCartBar');
+    if (bar && bar.style.display !== 'none') {
+      bar.classList.remove('cart-bar-pulse');
+      void bar.offsetWidth;
+      bar.classList.add('cart-bar-pulse');
+    }
+  }
+
   /* ── Screen transitions ───────────────────────────────── */
   function showScreen(id, pushState) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -232,6 +265,7 @@ const UI = (function () {
   return {
     renderCart,
     flashCartPanel,
+    animateItemAdded,
     showScreen,
     scrollToSection,
     showToast,

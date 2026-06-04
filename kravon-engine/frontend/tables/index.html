@@ -93,10 +93,28 @@
     <button class="mobile-cart-bar-inner" data-action="open-cart" aria-label="Open cart">
       <div class="mobile-cart-left">
         <span class="mobile-cart-count" id="mobileCartCount">0</span>
-        <span class="mobile-cart-label">items in order</span>
+        <span class="mobile-cart-label" id="mobileCartLabel">items in order</span>
       </div>
       <span class="mobile-cart-total" id="mobileCartTotal">₹0</span>
     </button>
+  </div>
+
+  <!-- Floating category launcher (mobile, ordering screen only) -->
+  <button class="cat-fab" id="catFab" style="display:none"
+          data-action="open-cat-sheet" aria-label="Browse categories">
+    ☰
+  </button>
+
+  <!-- Category sheet (full-screen list of categories) -->
+  <div class="cat-sheet-overlay" id="catSheetOverlay" aria-hidden="true"
+       data-action="close-cat-sheet"></div>
+  <div class="cat-sheet" id="catSheet" role="dialog" aria-modal="true"
+       aria-label="Menu categories" aria-hidden="true">
+    <div class="cat-sheet-head">
+      <span class="cat-sheet-title">Browse Menu</span>
+      <button class="cat-sheet-close" data-action="close-cat-sheet" aria-label="Close">✕</button>
+    </div>
+    <div class="cat-sheet-list" id="catSheetList"></div>
   </div>
 
   <!-- Cart overlay -->
