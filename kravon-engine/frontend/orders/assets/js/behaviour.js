@@ -180,6 +180,24 @@
   /* ── Resize ───────────────────────────────────────────── */
   window.addEventListener('resize', UI.onResize);
 
+  /* ── Category scroll spy ──────────────────────────────── */
+  // Highlights the sidebar cat-btn matching the section currently in view.
+  function _updateActiveCat() {
+    const navH = parseInt(
+      getComputedStyle(document.documentElement).getPropertyValue('--nav-height'), 10
+    ) || 60;
+    const offset = navH + 24;
+    const sections = document.querySelectorAll('.menu-cat-section');
+    let activeId = null;
+    sections.forEach(s => {
+      if (s.getBoundingClientRect().top - offset <= 0) activeId = s.id;
+    });
+    document.querySelectorAll('.cat-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.sectionId === activeId);
+    });
+  }
+  window.addEventListener('scroll', _updateActiveCat, { passive: true });
+
   /* ── Browser back/forward ─────────────────────────────── */
   window.addEventListener('popstate', function (e) {
     const screen = e.state?.screen || 'screenOrdering';

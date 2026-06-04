@@ -237,35 +237,35 @@
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Cart footer -->
-          <div class="cart-footer" id="cartFooter" style="display:none">
-            <div class="cart-totals">
-              <div class="cart-totals-row">
-                <span>Subtotal</span>
-                <span id="cartSubtotal">₹0</span>
-              </div>
-              <div class="cart-totals-row">
-                <span>Delivery</span>
-                <span id="cartDelivery">₹49</span>
-              </div>
-              ${O.gstRate > 0 ? `
-              <div class="cart-totals-row">
-                <span id="cartGstLabel">GST (${Math.round(O.gstRate * 100)}%)</span>
-                <span id="cartTax">₹0</span>
-              </div>` : ''}
-              <div class="cart-totals-row cart-total-line">
-                <span>Total</span>
-                <span id="cartTotal">₹0</span>
-              </div>
+        <!-- Cart footer — outside scroll body so it stays pinned -->
+        <div class="cart-footer" id="cartFooter" style="display:none">
+          <div class="cart-totals">
+            <div class="cart-totals-row">
+              <span>Subtotal</span>
+              <span id="cartSubtotal">₹0</span>
             </div>
-            <p class="min-order-note" id="minOrderNote"></p>
-            <button class="btn-primary checkout-btn" id="checkoutBtn"
-                    data-action="go-to-checkout" aria-label="Proceed to checkout">
-              Proceed to Checkout →
-            </button>
-            <p class="terms-note" id="termsNote">${Kravon.esc(O.termsNote)}</p>
+            <div class="cart-totals-row">
+              <span>Delivery</span>
+              <span id="cartDelivery">₹49</span>
+            </div>
+            ${O.gstRate > 0 ? `
+            <div class="cart-totals-row">
+              <span id="cartGstLabel">GST (${Math.round(O.gstRate * 100)}%)</span>
+              <span id="cartTax">₹0</span>
+            </div>` : ''}
+            <div class="cart-totals-row cart-total-line">
+              <span>Total</span>
+              <span id="cartTotal">₹0</span>
+            </div>
           </div>
+          <p class="min-order-note" id="minOrderNote"></p>
+          <button class="btn-primary checkout-btn" id="checkoutBtn"
+                  data-action="go-to-checkout" aria-label="Proceed to checkout">
+            Proceed to Checkout →
+          </button>
+          <p class="terms-note" id="termsNote">${Kravon.esc(O.termsNote)}</p>
         </div>
       </aside>`;
   }
