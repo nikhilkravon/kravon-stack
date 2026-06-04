@@ -34,7 +34,7 @@ const Modal = (() => {
     if (section) section.style.display = '';
 
     container.innerHTML = addons.map(a => `
-      <div class="option-row">
+      <div class="option-row" data-action="toggle-addon">
         <div>
           <div class="option-label">${Kravon.esc(a.label)}</div>
         </div>
@@ -301,7 +301,11 @@ const Modal = (() => {
 
   /* ── Addon toggle (called from delegated click in main.js) ── */
   function toggleAddon(btn) {
-    btn.classList.toggle('checked');
+    const row = btn.closest('.option-row');
+    if (!row) return;
+    const toggle = row.querySelector('.option-toggle');
+    if (!toggle) return;
+    toggle.classList.toggle('checked');
     _updateBtn();
   }
 
