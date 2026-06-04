@@ -42,6 +42,11 @@ const ALLOWED_SETTINGS_KEYS = new Set([
   'review_threshold',    // star gate (integer 1–5)
   'google_review_url',   // redirect URL after positive review
 
+  // ── GST configuration ───────────────────────────────────────────────────
+  // Shape: { enabled, gstin, cgst_rate, sgst_rate, inclusive }
+  // Stored as a nested object; entire subtree is replaced on write.
+  'gst',
+
   // ── Presence content (Phase 5 consolidated owner) ───────────────────────
   // Shape: { story: { headline, body[], facts[] }, timeline[], signature_dishes[] }
   'presence',

@@ -113,6 +113,35 @@ const OverviewView = (() => {
       </div>`;
   }
 
+  function _tonightPanel(t) {
+    const o = t.orders   || {};
+    const s = t.sessions || {};
+    return `
+      <div class="card" style="margin-bottom:var(--sp-4)">
+        <div class="card-header">
+          <span class="card-title">Tonight</span>
+          <span class="text-sm text-muted">since midnight</span>
+        </div>
+        <div class="stat-grid" style="padding:var(--sp-4);gap:var(--sp-3)">
+          <div class="stat-card" style="padding:var(--sp-3)">
+            <div class="stat-label">Open tables</div>
+            <div class="stat-value" style="font-size:1.6rem">${Number(s.open_tables || 0)}</div>
+            <div class="stat-sub">${Number(s.covers || 0)} covers seated</div>
+          </div>
+          <div class="stat-card" style="padding:var(--sp-3)">
+            <div class="stat-label">Live orders</div>
+            <div class="stat-value" style="font-size:1.6rem">${Number(o.live_orders || 0)}</div>
+            <div class="stat-sub">${Number(o.order_count || 0)} total tonight</div>
+          </div>
+          <div class="stat-card" style="padding:var(--sp-3)">
+            <div class="stat-label">Revenue tonight</div>
+            <div class="stat-value" style="font-size:1.6rem">${_fmt(o.revenue)}</div>
+            <div class="stat-sub">confirmed orders only</div>
+          </div>
+        </div>
+      </div>`;
+  }
+
   async function init(el) {
     el.innerHTML = `
       <div class="stat-grid">
@@ -128,12 +157,14 @@ const OverviewView = (() => {
       </div>`;
 
     try {
-      const [summary, ordersData] = await Promise.all([
+      const [summary, ordersData, tonight] = await Promise.all([
         Api.rGet('/insights/summary'),
         Api.rGet('/orders?limit=5'),
+        Api.rGet('/insights/tonight').catch(() => null),
       ]);
 
       el.innerHTML = `
+        ${tonight ? _tonightPanel(tonight) : ''}
         ${_statCards(summary)}
         <div class="card">
           <div class="card-header">

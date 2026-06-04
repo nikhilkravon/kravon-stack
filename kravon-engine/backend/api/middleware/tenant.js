@@ -82,6 +82,9 @@ function buildTenant(tenantRow, locationRow, integrations, contactLinks, seoRow,
     razorpay_key_secret: razorpay?.config?.key_secret || s.razorpay_key_secret || null,
     webhook_url: webhook?.config?.url || s.webhook_url || null,
 
+    // GST configuration — full object from settings.gst
+    gst: s.gst || null,
+
     // Operational config — settings JSONB
     delivery_fee:        s.delivery_fee        ?? null,
     free_delivery_above: s.free_delivery_above ?? null,

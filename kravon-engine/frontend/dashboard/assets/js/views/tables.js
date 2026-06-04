@@ -335,7 +335,11 @@ const TablesView = (() => {
   }
 
   // ── Init ──────────────────────────────────────────────────────────────────
+  let _pollTimer = null;
+
   function init(el) {
+    if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+
     el.innerHTML = `
       <div class="toolbar">
         <div class="toolbar-left">
@@ -349,6 +353,20 @@ const TablesView = (() => {
 
     el.querySelector('#add-table-btn').addEventListener('click', () => _openTableModal());
     _load(el);
+
+    _pollTimer = setInterval(() => {
+      // Silent refresh — only re-render if grid is still mounted
+      if (el.isConnected) _load(el);
+      else { clearInterval(_pollTimer); _pollTimer = null; }
+    }, 15000);
+
+    const observer = new MutationObserver(() => {
+      if (!el.isConnected) {
+        clearInterval(_pollTimer); _pollTimer = null;
+        observer.disconnect();
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
   }
 
   return { init };

@@ -57,13 +57,104 @@ const ReservationsView = (() => {
       btns.push(`<button class="btn btn-primary btn-sm res-action" data-id="${res.id}" data-status="confirmed">Confirm</button>`);
       btns.push(`<button class="btn btn-ghost btn-sm res-action" data-id="${res.id}" data-status="cancelled">Cancel</button>`);
     } else if (res.status === 'confirmed') {
-      btns.push(`<button class="btn btn-primary btn-sm res-action" data-id="${res.id}" data-status="seated">Seat</button>`);
+      btns.push(`<button class="btn btn-primary btn-sm res-action" data-id="${res.id}" data-status="seated" data-party-size="${res.party_size || ''}" data-table-id="${res.table_id || ''}">Seat</button>`);
       btns.push(`<button class="btn btn-ghost btn-sm res-action" data-id="${res.id}" data-status="no_show">No-show</button>`);
       btns.push(`<button class="btn btn-ghost btn-sm res-action" data-id="${res.id}" data-status="cancelled">Cancel</button>`);
     } else if (res.status === 'seated') {
       btns.push(`<button class="btn btn-primary btn-sm res-action" data-id="${res.id}" data-status="completed">Complete</button>`);
     }
     return btns.join(' ');
+  }
+
+  async function _seatReservation(el, btn) {
+    btn.disabled = true;
+    btn.textContent = 'Loading…';
+
+    let tables;
+    try {
+      const data = await Api.rGet('/tables');
+      tables = (data.tables || []).filter(t => t.status === 'available');
+    } catch (err) {
+      DashUI.toast('Could not load tables. Please try again.', 'error');
+      btn.disabled = false;
+      btn.textContent = 'Seat';
+      return;
+    }
+
+    const resId    = btn.dataset.id;
+    const covers   = parseInt(btn.dataset.partySize, 10) || null;
+    const preselId = btn.dataset.tableId || null;
+
+    if (!tables.length) {
+      DashUI.toast('No available tables right now.', 'error');
+      btn.disabled = false;
+      btn.textContent = 'Seat';
+      return;
+    }
+
+    // Build picker modal
+    const optionsHtml = tables.map(t => {
+      const cap     = t.capacity ? ` · ${t.capacity} pax` : '';
+      const floor   = t.floor    ? ` · ${t.floor}`        : '';
+      const sel     = t.id === preselId ? ' selected' : '';
+      return `<option value="${t.id}"${sel}>${t.name}${cap}${floor}</option>`;
+    }).join('');
+
+    document.body.insertAdjacentHTML('beforeend', `
+      <div class="modal-overlay" id="seat-modal">
+        <div class="modal" style="max-width:360px">
+          <div class="modal-header">
+            <span class="modal-title">Select table</span>
+            <button class="modal-close" id="seat-modal-close">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label>Available tables</label>
+              <select id="seat-table-select" style="width:100%">${optionsHtml}</select>
+            </div>
+            <p id="seat-modal-error" class="form-error" hidden></p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" id="seat-modal-cancel">Cancel</button>
+            <button class="btn btn-primary" id="seat-modal-confirm">Seat guest</button>
+          </div>
+        </div>
+      </div>`);
+
+    const overlay   = document.getElementById('seat-modal');
+    const errEl     = overlay.querySelector('#seat-modal-error');
+    const confirmEl = overlay.querySelector('#seat-modal-confirm');
+    const close     = () => {
+      overlay.remove();
+      btn.disabled    = false;
+      btn.textContent = 'Seat';
+    };
+
+    overlay.querySelector('#seat-modal-close').onclick  = close;
+    overlay.querySelector('#seat-modal-cancel').onclick = close;
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+    confirmEl.addEventListener('click', async () => {
+      const tableId = overlay.querySelector('#seat-table-select').value;
+      if (!tableId) return;
+
+      confirmEl.disabled    = true;
+      confirmEl.textContent = 'Seating…';
+      errEl.hidden          = true;
+
+      try {
+        await Api.rPost('/dine-in/session/open', { table_id: tableId, covers: covers ?? undefined });
+        await Api.rPatch(`/dine-in/reservations/${resId}`, { status: 'seated' });
+        overlay.remove();
+        DashUI.toast('Guest seated and session opened.', 'success');
+        _load(el);
+      } catch (err) {
+        errEl.textContent    = err.message || 'Could not seat guest. Please try again.';
+        errEl.hidden         = false;
+        confirmEl.disabled    = false;
+        confirmEl.textContent = 'Seat guest';
+      }
+    });
   }
 
   async function _load(el) {
@@ -139,13 +230,17 @@ const ReservationsView = (() => {
       el.querySelectorAll('.res-action').forEach(btn => {
         btn.addEventListener('click', async (e) => {
           e.stopPropagation();
-          btn.disabled = true;
-          try {
-            await Api.rPatch(`/dine-in/reservations/${btn.dataset.id}`, { status: btn.dataset.status });
-            _load(el);
-          } catch (err) {
-            DashUI.toast('Could not update reservation. Please try again.', 'error');
-            btn.disabled = false;
+          if (btn.dataset.status === 'seated') {
+            await _seatReservation(el, btn);
+          } else {
+            btn.disabled = true;
+            try {
+              await Api.rPatch(`/dine-in/reservations/${btn.dataset.id}`, { status: btn.dataset.status });
+              _load(el);
+            } catch (err) {
+              DashUI.toast('Could not update reservation. Please try again.', 'error');
+              btn.disabled = false;
+            }
           }
         });
       });

@@ -47,9 +47,9 @@ const App = (() => {
   const $ = id => document.getElementById(id);
 
   function _showAuth() {
-    $('auth-gate').hidden  = false;
-    $('dashboard').hidden  = true;
-    _bindLoginForm();
+    $('auth-gate').hidden = false;
+    $('dashboard').hidden = true;
+    _bindAuthForms();
   }
 
   function _showDashboard() {
@@ -112,20 +112,39 @@ const App = (() => {
     }
   }
 
-  // ── Login form ─────────────────────────────────────────────────────────────
-  function _bindLoginForm() {
-    const form = document.getElementById('login-form');
-    if (!form || form._bound) return;
-    form._bound = true;
+  // ── Auth forms ─────────────────────────────────────────────────────────────
+  function _authPanel(show) {
+    $('auth-login').hidden  = show !== 'login';
+    $('auth-forgot').hidden = show !== 'forgot';
+    $('auth-reset').hidden  = show !== 'reset';
+  }
 
-    form.addEventListener('submit', async (e) => {
+  function _bindAuthForms() {
+    // Deduplicate — only bind once
+    if (document.getElementById('login-form')?._bound) return;
+
+    const BASE = () => window.KRAVON_API_BASE || 'http://localhost:3000';
+
+    // Check URL for reset token — show reset panel immediately if present
+    const params     = new URLSearchParams(location.search);
+    const resetToken = params.get('reset');
+    const resetSlug  = params.get('slug');
+    if (resetToken && resetSlug) {
+      _authPanel('reset');
+    } else {
+      _authPanel('login');
+    }
+
+    // ── Login ──────────────────────────────────────────────────────────────
+    const loginForm = document.getElementById('login-form');
+    loginForm._bound = true;
+    loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const fd  = new FormData(form);
-      const btn = document.getElementById('login-btn');
-      const err = document.getElementById('login-error');
+      const fd  = new FormData(loginForm);
+      const btn = $('login-btn');
+      const err = $('login-error');
       err.hidden = true;
       btn.disabled = true; btn.textContent = 'Signing in…';
-
       try {
         await Auth.login(fd.get('slug'), fd.get('email'), fd.get('password'));
         _showDashboard();
@@ -133,6 +152,92 @@ const App = (() => {
         err.textContent = ex.message;
         err.hidden = false;
         btn.disabled = false; btn.textContent = 'Sign in';
+      }
+    });
+
+    // ── Forgot password link ───────────────────────────────────────────────
+    $('forgot-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      // Pre-fill slug/email from login form if already typed
+      const loginSlug  = $('login-slug')?.value.trim();
+      const loginEmail = $('login-email')?.value.trim();
+      if (loginSlug)  $('forgot-slug').value  = loginSlug;
+      if (loginEmail) $('forgot-email').value = loginEmail;
+      _authPanel('forgot');
+    });
+
+    $('back-to-login').addEventListener('click', (e) => {
+      e.preventDefault();
+      _authPanel('login');
+    });
+
+    // ── Forgot form ────────────────────────────────────────────────────────
+    const forgotForm = document.getElementById('forgot-form');
+    forgotForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd      = new FormData(forgotForm);
+      const btn     = $('forgot-btn');
+      const err     = $('forgot-error');
+      const success = $('forgot-success');
+      err.hidden = true;
+      success.style.display = 'none';
+      btn.disabled = true; btn.textContent = 'Sending…';
+
+      try {
+        const res = await fetch(`${BASE()}/v1/auth/forgot-password`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ slug: fd.get('slug'), email: fd.get('email') }),
+        });
+        // Always show success — never reveal whether the account exists
+        success.style.display = 'block';
+        forgotForm.reset();
+      } catch {
+        success.style.display = 'block'; // same message even on network error
+      } finally {
+        btn.disabled = false; btn.textContent = 'Send reset link';
+      }
+    });
+
+    // ── Reset password form ────────────────────────────────────────────────
+    const resetForm = document.getElementById('reset-form');
+    resetForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd  = new FormData(resetForm);
+      const btn = $('reset-btn');
+      const err = $('reset-error');
+      err.hidden = true;
+
+      const newPw  = fd.get('new_password');
+      const confirm = fd.get('confirm_password');
+      if (newPw !== confirm) {
+        err.textContent = 'Passwords do not match.';
+        err.hidden = false;
+        return;
+      }
+
+      btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        const res = await fetch(`${BASE()}/v1/auth/reset-password`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ token: resetToken, new_password: newPw }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Could not reset password.');
+
+        // Clear token from URL, show login with success message
+        history.replaceState(null, '', location.pathname);
+        _authPanel('login');
+        const loginErr = $('login-error');
+        loginErr.textContent = 'Password updated. Please sign in.';
+        loginErr.style.color = 'var(--green-700)';
+        loginErr.hidden = false;
+        if (resetSlug) $('login-slug').value = resetSlug;
+      } catch (ex) {
+        err.textContent = ex.message;
+        err.hidden = false;
+        btn.disabled = false; btn.textContent = 'Set new password';
       }
     });
   }

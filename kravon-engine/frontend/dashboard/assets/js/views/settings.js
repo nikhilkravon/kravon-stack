@@ -58,6 +58,53 @@ const SettingsView = (() => {
           </form>
         </div>
 
+        <!-- GST -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">GST</span></div>
+          <form id="settings-gst">
+            <div class="card-body">
+              <div class="form-group">
+                <label style="display:flex;align-items:center;gap:var(--sp-2);cursor:pointer">
+                  <input type="checkbox" name="gst_enabled" id="gst-enabled-toggle" ${config.gst?.enabled ? 'checked' : ''}>
+                  <span>GST enabled</span>
+                </label>
+              </div>
+              <div id="gst-fields" style="display:${config.gst?.enabled ? 'block' : 'none'}">
+                <div class="form-group">
+                  <label>GSTIN</label>
+                  <input name="gstin" type="text" value="${_esc(config.gst?.gstin || '')}" maxlength="15" placeholder="27ABCDE1234F1Z5" style="text-transform:uppercase">
+                  <span class="text-sm text-muted" style="margin-top:4px">15-character GST Identification Number</span>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>CGST rate (%)</label>
+                    <input name="cgst_rate" type="number" min="0" max="14" step="0.5" value="${config.gst?.cgst_rate ?? 2.5}" placeholder="2.5">
+                  </div>
+                  <div class="form-group">
+                    <label>SGST rate (%)</label>
+                    <input name="sgst_rate" type="number" min="0" max="14" step="0.5" value="${config.gst?.sgst_rate ?? 2.5}" placeholder="2.5">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label style="display:flex;align-items:center;gap:var(--sp-2);cursor:pointer">
+                    <input type="radio" name="gst_mode" value="inclusive" ${config.gst?.inclusive !== false ? 'checked' : ''}>
+                    <span>Inclusive — menu prices already include GST</span>
+                  </label>
+                  <label style="display:flex;align-items:center;gap:var(--sp-2);cursor:pointer;margin-top:var(--sp-2)">
+                    <input type="radio" name="gst_mode" value="exclusive" ${config.gst?.inclusive === false ? 'checked' : ''}>
+                    <span>Exclusive — GST added on top of menu prices</span>
+                  </label>
+                  <span class="text-sm text-muted" style="margin-top:var(--sp-2);display:block">Inclusive is standard for Indian restaurants.</span>
+                </div>
+              </div>
+              <p id="gst-error" class="form-error" hidden></p>
+            </div>
+            <div style="display:flex;justify-content:flex-end;padding:12px 20px;border-top:1px solid var(--gray-100)">
+              <button type="submit" class="btn btn-primary" id="gst-save">Save</button>
+            </div>
+          </form>
+        </div>
+
         <!-- Reviews -->
         <div class="card">
           <div class="card-header"><span class="card-title">Reviews</span></div>
@@ -192,6 +239,56 @@ const SettingsView = (() => {
 
     _bindForm('settings-delivery', 'delivery-save', ['delivery_fee','free_delivery_above']);
     _bindForm('settings-reviews',  'reviews-save',  ['review_threshold','google_review_url']);
+
+    // GST — toggle show/hide fields
+    const gstToggle = el.querySelector('#gst-enabled-toggle');
+    const gstFields = el.querySelector('#gst-fields');
+    if (gstToggle && gstFields) {
+      gstToggle.addEventListener('change', () => {
+        gstFields.style.display = gstToggle.checked ? 'block' : 'none';
+      });
+    }
+
+    // GST form submit
+    el.querySelector('#settings-gst').addEventListener('submit', async e => {
+      e.preventDefault();
+      const fd    = new FormData(e.target);
+      const btn   = el.querySelector('#gst-save');
+      const errEl = el.querySelector('#gst-error');
+      errEl.hidden = true;
+
+      const enabled   = gstToggle.checked;
+      const gstin     = fd.get('gstin')?.trim().toUpperCase() || null;
+      const cgst_rate = parseFloat(fd.get('cgst_rate'));
+      const sgst_rate = parseFloat(fd.get('sgst_rate'));
+      const inclusive = fd.get('gst_mode') === 'inclusive';
+
+      if (enabled) {
+        if (gstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(gstin)) {
+          errEl.textContent = 'Invalid GSTIN format. Must be 15 characters (e.g. 27ABCDE1234F1Z5).';
+          errEl.hidden = false;
+          return;
+        }
+        if (isNaN(cgst_rate) || isNaN(sgst_rate)) {
+          errEl.textContent = 'Enter valid CGST and SGST rates.';
+          errEl.hidden = false;
+          return;
+        }
+      }
+
+      btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        await Api.rPatch('/config', {
+          gst: { enabled, gstin: gstin || null, cgst_rate: cgst_rate || 0, sgst_rate: sgst_rate || 0, inclusive },
+        });
+        DashUI.toast('GST settings saved.', 'success');
+      } catch (ex) {
+        errEl.textContent = ex.message || 'Could not save GST settings.';
+        errEl.hidden = false;
+      } finally {
+        btn.disabled = false; btn.textContent = 'Save';
+      }
+    });
 
     // Security — change password
     el.querySelector('#settings-security').addEventListener('submit', async e => {

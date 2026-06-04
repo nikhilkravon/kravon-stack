@@ -450,7 +450,7 @@ router.get('/reservations', requireRestaurantAuth, async (req, res, next) => {
       query(
         `SELECT r.id, r.party_size, r.reservation_time, r.status,
                 r.occasion, r.dietary_notes, r.confirmation_code,
-                r.source, r.created_at,
+                r.source, r.created_at, r.table_id,
                 c.name  AS customer_name,
                 c.phone AS customer_phone,
                 c.email AS customer_email,
@@ -602,12 +602,17 @@ router.get('/bill', requireRestaurantAuth, async (req, res, next) => {
          s.closed_at,
          json_agg(
            json_build_object(
-             'order_id', o.id,
-             'total',    o.total_amount,
-             'items',    oi.items_agg
-           )
+             'order_id',  o.id,
+             'subtotal',  o.subtotal_amount,
+             'total',     o.total_amount,
+             'tax',       o.tax_amount,
+             'gst',       o.metadata->'gst',
+             'items',     oi.items_agg
+           ) ORDER BY o.created_at
          ) AS orders,
-         SUM(o.total_amount) AS grand_total
+         SUM(o.subtotal_amount) AS subtotal,
+         SUM(o.total_amount)    AS grand_total,
+         SUM(o.tax_amount)      AS total_tax
        FROM dining.sessions s
        JOIN dining.tables t ON t.id = s.table_id
        JOIN orders.orders o
@@ -635,7 +640,65 @@ router.get('/bill', requireRestaurantAuth, async (req, res, next) => {
       return res.status(404).json({ error: 'Session not found or has no billable orders.' });
     }
 
-    res.json({ ok: true, bill: result.rows[0] });
+    const row    = result.rows[0];
+    const orders = row.orders || [];
+
+    // ── GST snapshot consistency check ──────────────────────────────────────
+    // Each order carries its own snapshot. Verify they all agree — if GST
+    // settings changed mid-session, the bill cannot be rendered cleanly and
+    // accounting must review manually.
+    const snapshots = orders
+      .map(o => o.gst)
+      .filter(g => g && g.cgst_rate != null);
+
+    let gst_snapshot     = null;
+    let gst_inconsistent = false;
+
+    if (snapshots.length > 0) {
+      gst_snapshot = snapshots[0];
+      gst_inconsistent = snapshots.some(g =>
+        g.cgst_rate  !== gst_snapshot.cgst_rate  ||
+        g.sgst_rate  !== gst_snapshot.sgst_rate  ||
+        g.inclusive  !== gst_snapshot.inclusive  ||
+        g.gstin      !== gst_snapshot.gstin
+      );
+    }
+
+    // ── Bill totals ─────────────────────────────────────────────────────────
+    const subtotal      = parseFloat(row.subtotal   || 0);
+    const grand_total   = parseFloat(row.grand_total || 0);
+    const total_tax     = parseFloat(row.total_tax   || 0);
+    const taxable_amount = gst_snapshot?.inclusive
+      ? parseFloat((subtotal - total_tax).toFixed(2))
+      : subtotal;
+
+    const cgst_amount = gst_snapshot
+      ? parseFloat((total_tax * gst_snapshot.cgst_rate / (gst_snapshot.cgst_rate + gst_snapshot.sgst_rate)).toFixed(2))
+      : 0;
+    const sgst_amount = gst_snapshot
+      ? parseFloat((total_tax - cgst_amount).toFixed(2))
+      : 0;
+
+    const bill = {
+      session_id:       row.session_id,
+      table_name:       row.table_name,
+      covers:           row.covers,
+      opened_at:        row.opened_at,
+      closed_at:        row.closed_at,
+      orders,
+      // Structured totals matching invoice layout
+      subtotal,
+      taxable_amount,
+      cgst_amount,
+      sgst_amount,
+      total_tax,
+      grand_total,
+      // GST metadata
+      gst_snapshot,
+      gst_inconsistent,   // true = accounting warning; bill UI should flag this
+    };
+
+    res.json({ ok: true, bill });
   } catch (err) {
     next(err);
   }

@@ -64,7 +64,43 @@ async function createOrder(tenant, data) {
         : (subtotal >= freeAt ? 0 : stdFee);
     }
 
-    const total = subtotal + deliveryFee;
+    /* ── 2a. GST calculation + immutable snapshot ────────────────────────── */
+    const gstCfg     = tenant.gst;
+    const gstEnabled = gstCfg?.enabled && ((gstCfg.cgst_rate ?? 0) + (gstCfg.sgst_rate ?? 0)) > 0;
+    let   taxAmount  = 0;
+    let   gstSnapshot = null;
+
+    if (gstEnabled) {
+      const cgst      = Number(gstCfg.cgst_rate);
+      const sgst      = Number(gstCfg.sgst_rate);
+      const totalRate = cgst + sgst;          // e.g. 5 for 2.5+2.5
+
+      if (gstCfg.inclusive) {
+        // Tax already baked into subtotal: extract it back out
+        taxAmount = parseFloat((subtotal * totalRate / (100 + totalRate)).toFixed(2));
+      } else {
+        // Tax added on top of subtotal
+        taxAmount = parseFloat((subtotal * totalRate / 100).toFixed(2));
+      }
+
+      const cgstAmt = parseFloat((taxAmount * cgst / totalRate).toFixed(2));
+      const sgstAmt = parseFloat((taxAmount - cgstAmt).toFixed(2));   // remainder avoids rounding gap
+
+      // Snapshot locked at time of order — bills render this, never re-read settings
+      gstSnapshot = {
+        gstin:      gstCfg.gstin  || null,
+        cgst_rate:  cgst,
+        sgst_rate:  sgst,
+        inclusive:  !!gstCfg.inclusive,
+        tax_amount: taxAmount,
+        cgst_amount: cgstAmt,
+        sgst_amount: sgstAmt,
+      };
+    }
+
+    const total = gstEnabled && !gstCfg.inclusive
+      ? subtotal + deliveryFee + taxAmount
+      : subtotal + deliveryFee;
 
     /* ── 3. Order status ─────────────────────────────────────────────────── */
     const needsRazorpay      = ['razorpay', 'upi', 'card'].includes(data.payment_method);
@@ -98,6 +134,8 @@ async function createOrder(tenant, data) {
       delivery_locality: data.delivery_locality || null,
       delivery_landmark: data.delivery_landmark || null,
       payment_method:    data.payment_method,
+      // Immutable GST snapshot — bills must read this, never current settings
+      gst: gstSnapshot,
     };
 
     const orderRes = await client.query(`
@@ -106,7 +144,7 @@ async function createOrder(tenant, data) {
         subtotal_amount, delivery_charge, tax_amount, discount_amount,
         tip_amount, packaging_charge, total_amount,
         special_instructions, metadata
-      ) VALUES ($1,$2,'web',$3,$4,$5,$6,0,0,0,0,$7,$8,$9)
+      ) VALUES ($1,$2,'web',$3,$4,$5,$6,$7,0,0,0,$8,$9,$10)
       RETURNING id
     `, [
       tenant.tenant_id,
@@ -115,6 +153,7 @@ async function createOrder(tenant, data) {
       orderStatus,
       subtotal,
       deliveryFee,
+      taxAmount,
       total,
       data.special_notes || null,
       JSON.stringify(orderMeta),

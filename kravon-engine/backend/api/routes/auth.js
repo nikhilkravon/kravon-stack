@@ -20,6 +20,7 @@ const crypto     = require('crypto');
 const { z }      = require('zod');
 const rateLimit  = require('express-rate-limit');
 const { query }  = require('../../db/pool');
+const email      = require('../../utils/email');
 
 const router = express.Router();
 
@@ -256,6 +257,136 @@ router.post('/change-password', async (req, res, next) => {
       `UPDATE tenant.staff_sessions SET revoked_at = NOW()
        WHERE staff_id = $1 AND revoked_at IS NULL`,
       [staff.id]
+    );
+
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+/* ── POST /v1/auth/forgot-password ────────────────────────────────────── */
+// Always responds 200 — never reveals whether the email exists.
+// Rate-limited to the same authLimiter (10 req/min per IP).
+const ForgotSchema = z.object({
+  slug:  z.string().min(1).max(80),
+  email: z.string().email().max(120),
+});
+
+router.post('/forgot-password', authLimiter, async (req, res, next) => {
+  try {
+    const parsed = ForgotSchema.safeParse(req.body);
+    if (!parsed.success) {
+      // Still 200 — don't leak schema details
+      return res.json({ ok: true });
+    }
+
+    const { slug, email: staffEmail } = parsed.data;
+
+    const tenantRes = await query(
+      'SELECT id FROM tenant.restaurants WHERE slug = $1 AND deleted_at IS NULL LIMIT 1',
+      [slug]
+    );
+    if (!tenantRes.rows.length) return res.json({ ok: true });
+
+    const tenantId = tenantRes.rows[0].id;
+
+    const staffRes = await query(
+      `SELECT id, name, email FROM tenant.staff
+       WHERE tenant_id = $1 AND email = $2 AND is_active = TRUE AND deleted_at IS NULL
+       LIMIT 1`,
+      [tenantId, staffEmail]
+    );
+    if (!staffRes.rows.length) return res.json({ ok: true });
+
+    const staff = staffRes.rows[0];
+
+    // Generate a short-lived token: 32 random bytes, stored as SHA-256 hash
+    const rawToken    = crypto.randomBytes(32).toString('hex');
+    const hashedToken = sha256(rawToken);
+    const expiresAt   = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    // Invalidate any existing unused reset tokens for this staff member
+    await query(
+      `UPDATE tenant.staff_sessions
+       SET revoked_at = NOW()
+       WHERE staff_id = $1 AND device_info->>'type' = 'password_reset' AND revoked_at IS NULL`,
+      [staff.id]
+    );
+
+    // Store the reset token reusing staff_sessions with a typed device_info marker
+    await query(
+      `INSERT INTO tenant.staff_sessions (tenant_id, staff_id, session_token, device_info, expires_at)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [tenantId, staff.id, hashedToken, JSON.stringify({ type: 'password_reset' }), expiresAt]
+    );
+
+    // Send email — fire and forget errors so timing doesn't reveal account existence
+    email.sendPasswordReset({
+      to:    staff.email,
+      name:  staff.name,
+      token: rawToken,
+      slug,
+    }).catch(err => {
+      console.error(JSON.stringify({ level: 'error', event: 'password_reset.email_failed',
+        staffId: staff.id, message: err.message }));
+    });
+
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+/* ── POST /v1/auth/reset-password ─────────────────────────────────────── */
+const ResetSchema = z.object({
+  token:        z.string().length(64),
+  new_password: z.string().min(8).max(200),
+});
+
+router.post('/reset-password', authLimiter, async (req, res, next) => {
+  try {
+    const parsed = ResetSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid request.', details: parsed.error.flatten() });
+    }
+
+    const { token, new_password } = parsed.data;
+    const hashedToken = sha256(token);
+
+    const sessionRes = await query(
+      `SELECT ss.id, ss.staff_id, ss.tenant_id
+       FROM tenant.staff_sessions ss
+       WHERE ss.session_token = $1
+         AND ss.device_info->>'type' = 'password_reset'
+         AND ss.revoked_at IS NULL
+         AND ss.expires_at > NOW()
+       LIMIT 1`,
+      [hashedToken]
+    );
+
+    if (!sessionRes.rows.length) {
+      return res.status(400).json({ error: 'This reset link is invalid or has expired.' });
+    }
+
+    const { id: sessionId, staff_id, tenant_id } = sessionRes.rows[0];
+
+    const newHash = await bcrypt.hash(new_password, 12);
+
+    // Update password
+    await query(
+      `UPDATE tenant.staff SET password_hash = $1, updated_at = NOW()
+       WHERE id = $2 AND tenant_id = $3`,
+      [newHash, staff_id, tenant_id]
+    );
+
+    // Consume the reset token — mark it revoked so it can't be reused
+    await query(
+      `UPDATE tenant.staff_sessions SET revoked_at = NOW() WHERE id = $1`,
+      [sessionId]
+    );
+
+    // Revoke all active login sessions — forces re-login everywhere
+    await query(
+      `UPDATE tenant.staff_sessions SET revoked_at = NOW()
+       WHERE staff_id = $1 AND revoked_at IS NULL AND device_info->>'type' IS DISTINCT FROM 'password_reset'`,
+      [staff_id]
     );
 
     res.json({ ok: true });

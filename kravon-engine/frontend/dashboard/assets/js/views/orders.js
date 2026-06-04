@@ -2,12 +2,13 @@
 
 const OrdersView = (() => {
 
-  let _state     = { tab: 'all', page: 1, search: '' };
-  let _pollTimer = null;
-  let _lastCount = null; // last known total order count for new-order detection
+  let _state       = { tab: 'all', page: 1, search: '' };
+  let _pollTimer   = null;
+  let _lastCount   = null;
+  let _newCount    = 0;       // cumulative unseen new orders since last badge clear
+  let _expandedId  = null;    // order id whose detail row is currently open
   const _origTitle = document.title;
 
-  // State machines per fulfillment type — delivery is the only one with out_for_delivery.
   const STATUS_NEXT_DELIVERY = {
     pending:          ['confirmed', 'cancelled'],
     confirmed:        ['preparing', 'cancelled'],
@@ -29,9 +30,8 @@ const OrdersView = (() => {
   };
 
   function _statusNext(fulfillmentType) {
-    if (fulfillmentType === 'delivery')        return STATUS_NEXT_DELIVERY;
-    if (fulfillmentType === 'catering')        return STATUS_NEXT_CATERING;
-    // dine_in, pickup, qr, or anything else — no out_for_delivery
+    if (fulfillmentType === 'delivery') return STATUS_NEXT_DELIVERY;
+    if (fulfillmentType === 'catering') return STATUS_NEXT_CATERING;
     return STATUS_NEXT_DINE_IN;
   }
 
@@ -78,19 +78,19 @@ const OrdersView = (() => {
   };
 
   const CHANNEL_LABEL = {
-    dine_in:  'Dine-in',
-    delivery: 'Delivery',
-    pickup:   'Pickup',
-    catering: 'Catering',
+    dine_in:          'Dine-in',
+    delivery:         'Delivery',
+    pickup:           'Pickup',
+    catering:         'Catering',
     dine_in_takeaway: 'Takeaway',
-    qr:       'QR Table',
-    web:      'Online',
-    whatsapp: 'WhatsApp',
-    pos:      'POS',
-    phone:    'Phone',
+    qr:               'QR Table',
+    web:              'Online',
+    whatsapp:         'WhatsApp',
+    pos:              'POS',
+    phone:            'Phone',
   };
 
-  function _fmt(n)   { return '₹ ' + Number(n || 0).toLocaleString('en-IN'); }
+  function _fmt(n) { return '₹ ' + Number(n || 0).toLocaleString('en-IN'); }
 
   function _ago(iso) {
     const diff = Math.floor((Date.now() - new Date(iso)) / 1000);
@@ -101,9 +101,10 @@ const OrdersView = (() => {
   }
 
   function _isStale(iso, status) {
-    if (!['pending', 'confirmed'].includes(status)) return false;
     const mins = Math.floor((Date.now() - new Date(iso)) / 60000);
-    return mins >= 15;
+    if (['pending', 'confirmed'].includes(status)) return mins >= 15;
+    if (status === 'preparing')                    return mins >= 20;
+    return false;
   }
 
   function _badge(s) {
@@ -141,12 +142,66 @@ const OrdersView = (() => {
     return `/orders?${params}`;
   }
 
+  function _renderDetail(ord, itemsRes) {
+    const meta    = ord.metadata || {};
+    const address = meta.delivery_address || meta.address || ord.special_instructions || null;
+    const items   = itemsRes?.items || [];
+    const phone   = ord.customer_phone;
+
+    let html = '<div class="order-detail-grid">';
+    if (ord.fulfillment_type) html += `<div><span class="detail-label">Type</span> ${CHANNEL_LABEL[ord.fulfillment_type] || ord.fulfillment_type.replace(/_/g,' ')}</div>`;
+    if (ord.channel)          html += `<div><span class="detail-label">Channel</span> ${CHANNEL_LABEL[ord.channel] || ord.channel}</div>`;
+    if (address)              html += `<div><span class="detail-label">Address</span> ${address}</div>`;
+    if (phone)                html += `<div><span class="detail-label">Phone</span> <a href="tel:${phone}" style="color:inherit">${phone}</a></div>`;
+    const note = ord.special_instructions;
+    if (note && note !== address) html += `<div><span class="detail-label">Note</span> ${note}</div>`;
+    html += '</div>';
+
+    if (items.length) {
+      html += '<div class="order-items-list">';
+      items.forEach(it => {
+        html += `<div class="order-item-line">
+          <span class="order-item-name">${it.item_name} × ${it.quantity}</span>
+          <span class="order-item-price">${_fmt(it.total_price)}</span>
+        </div>`;
+      });
+      html += '</div>';
+    }
+
+    return html;
+  }
+
+  async function _openDetail(el, id) {
+    el.querySelectorAll('.order-detail-row').forEach(r => r.classList.remove('open'));
+    const detailRow = el.querySelector(`.order-detail-row[data-for="${id}"]`);
+    if (!detailRow) return;
+    detailRow.classList.add('open');
+    _expandedId = id;
+
+    const inner = detailRow.querySelector('.order-detail');
+    if (inner.querySelector('.order-detail-loading')) {
+      try {
+        const [d, itemsRes] = await Promise.all([
+          Api.rGet(`/orders/${id}`),
+          Api.rGet(`/orders/${id}/items`).catch(() => null),
+        ]);
+        inner.innerHTML = _renderDetail(d.order, itemsRes);
+      } catch (err) {
+        inner.innerHTML = `<div class="text-sm text-muted">Could not load details.</div>`;
+      }
+    }
+  }
+
   async function _load(el) {
     const tbody = el.querySelector('#orders-tbody');
     const info  = el.querySelector('#orders-page-info');
     if (!tbody) return;
 
-    tbody.innerHTML = `<tr><td colspan="7"><div class="skeleton skeleton-line" style="margin:12px 0"></div></td></tr>`;
+    // Don't skeleton-flash on background polls — only on tab/page change
+    const isBackground = _lastCount !== null;
+    if (!isBackground) {
+      tbody.innerHTML = `<tr><td colspan="7"><div class="skeleton skeleton-line" style="margin:12px 0"></div></td></tr>`;
+    }
 
     try {
       const data = await Api.rGet(_buildUrl(_state.tab, _state.page));
@@ -195,6 +250,11 @@ const OrdersView = (() => {
             </td>
           </tr>`;
         }).join('');
+
+        // Re-expand previously open row after reload
+        if (_expandedId && el.querySelector(`.order-detail-row[data-for="${_expandedId}"]`)) {
+          _openDetail(el, _expandedId);
+        }
       }
 
       const total = data.total || 0;
@@ -205,43 +265,30 @@ const OrdersView = (() => {
       if (prevBtn) prevBtn.disabled = _state.page <= 1;
       if (nextBtn) nextBtn.disabled = _state.page >= pages;
 
-      // New-order detection: flash tab title when count grows
+      // New-order detection: accumulate count, badge stays until manually cleared
       if (_lastCount !== null && total > _lastCount && _state.tab !== 'completed' && _state.tab !== 'cancelled') {
         const diff = total - _lastCount;
-        document.title = `🔔 ${diff} New Order${diff > 1 ? 's' : ''} — Kravon`;
+        _newCount += diff;
+        document.title = `(${_newCount}) New Order${_newCount > 1 ? 's' : ''} — Kravon`;
         const badgeEl = el.querySelector('#orders-new-badge');
-        if (badgeEl) { badgeEl.textContent = `+${diff} new`; badgeEl.style.display = ''; }
-        // Reset title after 8 seconds
-        setTimeout(() => { document.title = _origTitle; }, 8000);
+        if (badgeEl) {
+          badgeEl.textContent = `+${_newCount} new`;
+          badgeEl.style.display = '';
+        }
       }
       _lastCount = total;
 
-      // Expand / collapse detail row on row click
+      // Row expand/collapse
       el.querySelectorAll('.order-main-row').forEach(row => {
         row.addEventListener('click', async (e) => {
           if (e.target.closest('button')) return;
-          const id        = row.dataset.id;
-          const detailRow = el.querySelector(`.order-detail-row[data-for="${id}"]`);
-          if (!detailRow) return;
-
-          const isOpen = detailRow.classList.contains('open');
-          el.querySelectorAll('.order-detail-row').forEach(r => r.classList.remove('open'));
-          if (isOpen) return;
-
-          detailRow.classList.add('open');
-
-          const inner = detailRow.querySelector('.order-detail');
-          if (inner.querySelector('.order-detail-loading')) {
-            try {
-              const [d, itemsRes] = await Promise.all([
-                Api.rGet(`/orders/${id}`),
-                Api.rGet(`/orders/${id}/items`).catch(() => null),
-              ]);
-              inner.innerHTML = _renderDetail(d.order, itemsRes);
-            } catch (err) {
-              inner.innerHTML = `<div class="text-sm text-muted">Could not load details.</div>`;
-            }
+          const id = row.dataset.id;
+          if (_expandedId === id) {
+            el.querySelectorAll('.order-detail-row').forEach(r => r.classList.remove('open'));
+            _expandedId = null;
+            return;
           }
+          _openDetail(el, id);
         });
       });
 
@@ -265,37 +312,12 @@ const OrdersView = (() => {
     }
   }
 
-  function _renderDetail(ord, itemsRes) {
-    const meta    = ord.metadata || {};
-    const address = meta.delivery_address || meta.address || ord.special_instructions || null;
-    const items   = itemsRes?.items || [];
-
-    let html = '<div class="order-detail-grid">';
-    if (ord.fulfillment_type) html += `<div><span class="detail-label">Type</span> ${CHANNEL_LABEL[ord.fulfillment_type] || ord.fulfillment_type.replace(/_/g,' ')}</div>`;
-    if (ord.channel)          html += `<div><span class="detail-label">Channel</span> ${CHANNEL_LABEL[ord.channel] || ord.channel}</div>`;
-    if (address)              html += `<div><span class="detail-label">Address</span> ${address}</div>`;
-    const note = ord.special_instructions;
-    if (note && note !== address) html += `<div><span class="detail-label">Note</span> ${note}</div>`;
-    html += '</div>';
-
-    if (items.length) {
-      html += '<div class="order-items-list">';
-      items.forEach(it => {
-        html += `<div class="order-item-line">
-          <span class="order-item-name">${it.item_name} × ${it.quantity}</span>
-          <span class="order-item-price">${_fmt(it.total_price)}</span>
-        </div>`;
-      });
-      html += '</div>';
-    }
-
-    return html;
-  }
-
   function init(el) {
     if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
-    _state     = { tab: 'all', page: 1, search: '' };
-    _lastCount = null;
+    _state      = { tab: 'all', page: 1, search: '' };
+    _lastCount  = null;
+    _newCount   = 0;
+    _expandedId = null;
 
     el.innerHTML = `
       <div class="tab-bar">
@@ -308,7 +330,7 @@ const OrdersView = (() => {
         <div class="card-header">
           <input id="orders-search" class="search-input" type="search" placeholder="Search by name or phone…">
           <div style="display:flex;align-items:center;gap:var(--sp-3)">
-            <span id="orders-new-badge" class="badge badge-placed" style="display:none"></span>
+            <button id="orders-new-badge" class="badge badge-placed" style="display:none;cursor:pointer" title="Click to dismiss">+0 new</button>
             <span id="orders-page-info" class="text-sm text-muted"></span>
           </div>
         </div>
@@ -333,12 +355,21 @@ const OrdersView = (() => {
         </div>
       </div>`;
 
+    // Clicking the badge clears it
+    el.querySelector('#orders-new-badge').addEventListener('click', () => {
+      _newCount = 0;
+      document.title = _origTitle;
+      const badgeEl = el.querySelector('#orders-new-badge');
+      if (badgeEl) badgeEl.style.display = 'none';
+    });
+
     el.querySelectorAll('.tab').forEach(tab => {
       tab.addEventListener('click', () => {
         el.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         _state.tab  = tab.dataset.tab;
         _state.page = 1;
+        _expandedId = null;
         _load(el);
       });
     });
@@ -349,19 +380,18 @@ const OrdersView = (() => {
       _searchTimer = setTimeout(() => {
         _state.search = e.target.value;
         _state.page   = 1;
+        _expandedId   = null;
         _load(el);
       }, 300);
     });
 
-    el.querySelector('#orders-prev').addEventListener('click', () => { _state.page--; _load(el); });
-    el.querySelector('#orders-next').addEventListener('click', () => { _state.page++; _load(el); });
+    el.querySelector('#orders-prev').addEventListener('click', () => { _state.page--; _expandedId = null; _load(el); });
+    el.querySelector('#orders-next').addEventListener('click', () => { _state.page++; _expandedId = null; _load(el); });
 
     _load(el);
 
-    // Auto-refresh every 30 seconds — same pattern as kitchen.js
-    _pollTimer = setInterval(() => _load(el), 30000);
+    _pollTimer = setInterval(() => _load(el), 10000);
 
-    // Stop polling when navigating away
     const observer = new MutationObserver(() => {
       if (!el.isConnected) {
         clearInterval(_pollTimer);

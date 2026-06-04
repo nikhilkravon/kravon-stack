@@ -2,9 +2,9 @@
 
 const KitchenView = (() => {
 
-  let _pollTimer      = null;
-  let _tickTimer      = null;
-  let _lastLoadedAt   = null;
+  let _pollTimer    = null;
+  let _tickTimer    = null;
+  let _lastLoadedAt = null;
 
   function _dur(isoDate) {
     if (!isoDate) return '—';
@@ -13,29 +13,81 @@ const KitchenView = (() => {
     return `${Math.floor(mins / 60)}h ${mins % 60}m`;
   }
 
+  function _orderAge(isoDate) {
+    if (!isoDate) return '';
+    const mins = Math.floor((Date.now() - new Date(isoDate)) / 60000);
+    const secs = Math.floor((Date.now() - new Date(isoDate)) / 1000) % 60;
+    if (mins === 0) return `${secs}s`;
+    return `${mins}m ago`;
+  }
+
+  function _orderAgeClass(isoDate, status) {
+    if (!isoDate) return '';
+    const mins = Math.floor((Date.now() - new Date(isoDate)) / 60000);
+    if (status === 'confirmed' && mins >= 10) return 'order-age--urgent';
+    if (status === 'preparing' && mins >= 20) return 'order-age--urgent';
+    if (mins >= 5) return 'order-age--warn';
+    return '';
+  }
+
   const STATUS_BADGE = {
     confirmed: '<span class="badge badge-placed">Confirmed</span>',
     preparing: '<span class="badge badge-preparing">Preparing</span>',
     pending:   '<span class="badge badge-pending">Pending</span>',
   };
 
-  function _tableCard(t) {
-    const orders = t.orders || [];
-    const orderHtml = orders.length ? orders.map(o => {
-      const items = (o.items || []).map(i => `
-        <div class="order-item-line">
-          <span class="order-item-name">${i.name} × ${i.qty}${i.note ? ` <em style="color:var(--amber-600)">(${i.note})</em>` : ''}</span>
-          ${STATUS_BADGE[o.status] || ''}
-        </div>`).join('');
-      return `
-        <div style="margin-bottom:var(--sp-3);padding-bottom:var(--sp-3);border-bottom:1px solid var(--gray-100)">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-2)">
-            <span class="text-sm text-muted">#${o.order_id.slice(-6).toUpperCase()}</span>
+  // Kitchen staff own confirmed→preparing and preparing→ready
+  const KITCHEN_NEXT = {
+    confirmed: { status: 'preparing', label: 'Start Preparing' },
+    preparing: { status: 'ready',     label: 'Mark Ready' },
+  };
+
+  async function _updateOrderStatus(orderId, status, cardEl) {
+    try {
+      await Api.rPatch(`/orders/${orderId}`, { status });
+      // Optimistic: immediately refresh
+      const gridEl = document.getElementById('kitchen-grid');
+      if (gridEl) _load(document.getElementById('kitchen-grid').closest('[id]') || document.body);
+    } catch (err) {
+      DashUI.toast('Could not update order: ' + err.message, 'error');
+    }
+  }
+
+  function _orderCard(o) {
+    const ageClass = _orderAgeClass(o.created_at, o.status);
+    const ageLabel = _orderAge(o.created_at);
+    const next     = KITCHEN_NEXT[o.status];
+
+    const items = (o.items || []).map(i => `
+      <div class="order-item-line">
+        <span class="order-item-name">${i.name} × ${i.qty}${i.note ? ` <em style="color:var(--amber-600)">(${i.note})</em>` : ''}</span>
+      </div>`).join('');
+
+    return `
+      <div class="kitchen-order-card" data-order-id="${o.order_id}">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-2)">
+          <span class="text-sm text-muted">#${o.order_id.slice(-6).toUpperCase()}</span>
+          <div style="display:flex;align-items:center;gap:var(--sp-2)">
+            <span class="text-sm ${ageClass}" style="font-weight:600">${ageLabel}</span>
             ${STATUS_BADGE[o.status] || ''}
           </div>
-          ${items}
-        </div>`;
-    }).join('') : `<div class="text-sm text-muted" style="padding:var(--sp-2) 0">No active orders</div>`;
+        </div>
+        ${items}
+        ${next ? `
+          <div style="margin-top:var(--sp-3)">
+            <button class="btn btn-primary btn-sm kitchen-order-action"
+              data-order-id="${o.order_id}" data-next-status="${next.status}">
+              ${next.label}
+            </button>
+          </div>` : ''}
+      </div>`;
+  }
+
+  function _tableCard(t) {
+    const orders    = t.orders || [];
+    const orderHtml = orders.length
+      ? orders.map(_orderCard).join('')
+      : `<div class="text-sm text-muted" style="padding:var(--sp-2) 0">No active orders</div>`;
 
     return `
       <div class="kitchen-card">
@@ -51,8 +103,8 @@ const KitchenView = (() => {
   }
 
   async function _load(el) {
-    const grid      = el.querySelector('#kitchen-grid');
-    const lastSync  = el.querySelector('#kitchen-sync');
+    const grid     = el.querySelector('#kitchen-grid');
+    const lastSync = el.querySelector('#kitchen-sync');
     if (!grid) return;
 
     try {
@@ -60,7 +112,7 @@ const KitchenView = (() => {
       const tables = data.tables || [];
 
       _lastLoadedAt = Date.now();
-      // Pulse the live dot on successful refresh
+
       const dot = el.querySelector('#kitchen-live-dot');
       if (dot) {
         dot.classList.remove('kitchen-dot--pulse');
@@ -79,6 +131,22 @@ const KitchenView = (() => {
       }
 
       grid.innerHTML = tables.map(_tableCard).join('');
+
+      // Kitchen action buttons — status changes without leaving this view
+      grid.querySelectorAll('.kitchen-order-action').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          btn.disabled    = true;
+          btn.textContent = 'Updating…';
+          try {
+            await Api.rPatch(`/orders/${btn.dataset.orderId}`, { status: btn.dataset.nextStatus });
+            _load(el);
+          } catch (err) {
+            DashUI.toast('Could not update order: ' + err.message, 'error');
+            btn.disabled    = false;
+            btn.textContent = btn.dataset.nextStatus === 'preparing' ? 'Start Preparing' : 'Mark Ready';
+          }
+        });
+      });
 
     } catch (err) {
       grid.innerHTML = DashUI.errorState(err.message);
@@ -104,10 +172,9 @@ const KitchenView = (() => {
 
     el.querySelector('#kitchen-refresh').addEventListener('click', () => _load(el));
 
-    // Live "X seconds ago" counter
     _tickTimer = setInterval(() => {
       if (!_lastLoadedAt) return;
-      const secs = Math.floor((Date.now() - _lastLoadedAt) / 1000);
+      const secs  = Math.floor((Date.now() - _lastLoadedAt) / 1000);
       const syncEl = el.querySelector('#kitchen-sync');
       if (syncEl) {
         if (secs < 5)       syncEl.textContent = 'Just refreshed';
@@ -117,10 +184,8 @@ const KitchenView = (() => {
     }, 1000);
 
     _load(el);
-    // Auto-refresh every 30 seconds
-    _pollTimer = setInterval(() => _load(el), 30000);
+    _pollTimer = setInterval(() => _load(el), 10000);
 
-    // Stop polling when navigating away
     const observer = new MutationObserver(() => {
       if (!document.getElementById('kitchen-grid')) {
         clearInterval(_pollTimer); _pollTimer = null;

@@ -173,6 +173,14 @@ router.get('/', async (req, res, next) => {
         googleReviewUrl: r.google_review_url || null,
       } : null,
 
+      gst: r.gst ? {
+        enabled:   !!r.gst.enabled,
+        gstin:     r.gst.gstin     || null,
+        cgst_rate: r.gst.cgst_rate ?? 0,
+        sgst_rate: r.gst.sgst_rate ?? 0,
+        inclusive: !!r.gst.inclusive,
+      } : null,
+
       order: {
         currency:           '₹',
         minOrder:           0,
@@ -320,6 +328,14 @@ router.get('/', async (req, res, next) => {
 });
 
 /* ── PATCH /config — update restaurant settings (admin) ──────────────────── */
+const GstSchema = z.object({
+  enabled:   z.boolean(),
+  gstin:     z.string().regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, 'Invalid GSTIN format').optional().nullable(),
+  cgst_rate: z.number().min(0).max(14),
+  sgst_rate: z.number().min(0).max(14),
+  inclusive: z.boolean(),
+});
+
 const SettingsUpdateSchema = z.object({
   name:                z.string().min(1).max(150).optional(),
   tagline:             z.string().max(300).optional(),
@@ -338,6 +354,7 @@ const SettingsUpdateSchema = z.object({
   map_url:             z.string().url().max(500).optional(),
   razorpay_key_id:     z.string().max(40).optional(),
   razorpay_key_secret: z.string().max(200).optional(),
+  gst:                 GstSchema.optional(),
 });
 
 router.patch('/', requireRestaurantAuth, async (req, res, next) => {

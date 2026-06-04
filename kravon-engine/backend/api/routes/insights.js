@@ -105,6 +105,44 @@ router.get('/summary', async (req, res, next) => {
   }
 });
 
+/* ── Tonight — from midnight local time until now ───────────────────────── */
+router.get('/tonight', async (req, res, next) => {
+  try {
+    const id = req.tenant.tenant_id;
+
+    const [ordersRes, sessionsRes] = await Promise.all([
+      query(`
+        SELECT
+          COUNT(*) FILTER (WHERE status NOT IN ('cancelled','refunded')) AS order_count,
+          COUNT(*) FILTER (WHERE status IN ('pending','confirmed','preparing','ready','out_for_delivery')) AS live_orders,
+          COALESCE(SUM(total_amount) FILTER (WHERE status NOT IN ('cancelled','refunded','pending')), 0) AS revenue
+        FROM orders.orders
+        WHERE tenant_id = $1
+          AND deleted_at IS NULL
+          AND created_at >= DATE_TRUNC('day', NOW())
+      `, [id]),
+      query(`
+        SELECT
+          COUNT(*) AS open_tables,
+          COALESCE(SUM(covers), 0) AS covers
+        FROM dining.sessions s
+        JOIN dining.tables t ON t.id = s.table_id
+        WHERE s.tenant_id = $1
+          AND s.deleted_at IS NULL
+          AND s.closed_at IS NULL
+      `, [id]),
+    ]);
+
+    res.json({
+      ok: true,
+      orders:   ordersRes.rows[0],
+      sessions: sessionsRes.rows[0],
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 /* ── Orders by day ───────────────────────────────────────────────────────── */
 router.get('/orders', async (req, res, next) => {
   try {
