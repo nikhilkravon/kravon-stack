@@ -50,6 +50,8 @@
   display: flex;
   flex-direction: column;
   border-left: 1px solid var(--border);
+  overflow: hidden;
+  min-width: 0;
 }
 
 .cart-header {

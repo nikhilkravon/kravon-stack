@@ -960,6 +960,7 @@ body[data-error="true"] .orders-error { display: flex; }
 
 .checkout-btn {
   width: 100%;
+  box-sizing: border-box;
   justify-content: center;
 }
 
