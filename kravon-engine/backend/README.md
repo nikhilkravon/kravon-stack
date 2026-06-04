@@ -42,3 +42,13 @@ npm run dev
 
 See `.env.example` for required variables.
 `ENCRYPTION_KEY` must be a 64-char hex string: `openssl rand -hex 32`
+
+## Railway deployment notes
+
+- In Railway, set the following Environment Variables (Project > Variables) before deploying:
+	- `DATABASE_URL` — your Postgres connection string
+	- `JWT_SECRET`, `ADMIN_API_KEY`, `ENCRYPTION_KEY` — secrets used by the app
+	- `ACCESS_KEY_ID`, `SECRET_ACCESS_KEY`, `BUCKET`, `ENDPOINT`, `REGION` (or `AWS_REGION`) — for S3-compatible image uploads
+	- `PORT` is optional; Railway sets it automatically
+
+After adding variables, click **Deploy Changes**. Check the server logs for the startup line that contains `[s3] resolved region=` to confirm S3 config.

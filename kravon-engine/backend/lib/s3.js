@@ -2,9 +2,14 @@
 
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 
+const resolvedRegion = process.env.REGION || process.env.AWS_REGION || 'us-east-1';
+const resolvedEndpoint = process.env.ENDPOINT || undefined;
+
+console.info('[s3] resolved region=%s endpoint=%s bucket=%s', resolvedRegion, resolvedEndpoint || 'none', process.env.BUCKET ? 'set' : 'unset');
+
 const s3 = new S3Client({
-  region: process.env.REGION || process.env.AWS_REGION || 'us-east-1',
-  endpoint: process.env.ENDPOINT,
+  region: resolvedRegion,
+  endpoint: resolvedEndpoint,
   credentials: {
     accessKeyId:     process.env.ACCESS_KEY_ID,
     secretAccessKey: process.env.SECRET_ACCESS_KEY,
