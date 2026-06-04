@@ -91,6 +91,58 @@ const TablesModal = (() => {
     document.body.style.overflow = 'hidden';
   }
 
+  /* ── Open modal to edit an existing cart entry ── */
+  function openEdit(idx) {
+    const cartItems = TablesCart.getItems();
+    const entry     = cartItems[idx];
+    if (!entry) return;
+
+    const menuItem  = _findMenuItem(entry.id);
+    const basePrice = menuItem ? menuItem.price : entry.price;
+
+    _editingIdx = idx;
+    _modalItem  = { id: entry.id, name: entry.name, price: basePrice };
+    _modalQty   = entry.qty;
+
+    _setHeader(entry.name, basePrice);
+    _resetOptions();
+
+    if (entry.note) {
+      const levels = window.SPICE_LEVELS || [];
+      entry.note.split(' · ').forEach(part => {
+        document.querySelectorAll('#tablesCustomModal .spice-btn').forEach(b => {
+          if (b.textContent.trim() === part.replace('Spice: ', '')) {
+            document.querySelectorAll('#tablesCustomModal .spice-btn').forEach(x => {
+              x.classList.remove('active'); x.setAttribute('aria-pressed', 'false');
+            });
+            b.classList.add('active'); b.setAttribute('aria-pressed', 'true');
+          }
+        });
+        document.querySelectorAll('#tablesCustomModal .option-toggle').forEach(t => {
+          const label = t.closest('.option-row')?.querySelector('.option-label')?.textContent.trim();
+          if (label === part) t.classList.add('checked');
+        });
+        const knownParts = [
+          ...(window.ADDONS || []).map(a => a.label),
+          ...(window.SPICE_LEVELS || []),
+          ...(window.SPICE_LEVELS || []).map(s => 'Spice: ' + s),
+        ];
+        if (!knownParts.includes(part)) {
+          const si = document.getElementById('tablesSpecialInput');
+          if (si) si.value = part;
+        }
+      });
+    }
+
+    const qtyEl = document.getElementById('tablesModalQty');
+    if (qtyEl) qtyEl.textContent = _modalQty;
+    _updateBtn();
+
+    const modal = document.getElementById('tablesCustomModal');
+    if (modal) { modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
+    document.body.style.overflow = 'hidden';
+  }
+
   /* ── Close modal ── */
   function close() {
     _editingIdx = -1;
@@ -158,7 +210,12 @@ const TablesModal = (() => {
     const note      = noteParts.join(' · ');
     const unitPrice = _modalItem.price + addons;
 
-    TablesCart.upsertItem(_modalItem.id, _modalItem.name, unitPrice, _modalQty, note);
+    if (_editingIdx >= 0) {
+      TablesCart.replaceItem(_editingIdx, { id: _modalItem.id, name: _modalItem.name, price: unitPrice, qty: _modalQty, note });
+    } else {
+      TablesCart.upsertItem(_modalItem.id, _modalItem.name, unitPrice, _modalQty, note);
+    }
+    _editingIdx = -1;
     close();
     return _modalItem.id;
   }
@@ -195,7 +252,8 @@ const TablesModal = (() => {
   function _updateBtn() {
     const btn = document.getElementById('tablesModalAddBtn');
     if (!btn) return;
-    btn.textContent = `Add to Order — ${TablesCart.fmt(_calcModalPrice())}`;
+    const label = _editingIdx >= 0 ? 'Update Order' : 'Add to Order';
+    btn.textContent = `${label} — ${TablesCart.fmt(_calcModalPrice())}`;
   }
 
   function _findMenuItem(id) {
@@ -212,6 +270,6 @@ const TablesModal = (() => {
     buildSpice();
   }
 
-  return { init, open, close, incQty, decQty, toggleAddon, setSpice, confirm };
+  return { init, open, openEdit, close, incQty, decQty, toggleAddon, setSpice, confirm };
 
 })();

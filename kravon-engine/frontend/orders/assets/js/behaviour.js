@@ -212,6 +212,14 @@
     document.getElementById('screenOrdering')?.classList.add('active');
     // Seed initial history entry so the first Back press returns here
     history.replaceState({ screen: 'screenOrdering' }, '', window.location.href);
+    // Scroll to the ordering layout so the sticky cart panel is above the fold
+    requestAnimationFrame(() => {
+      const layout = document.querySelector('.ordering-layout');
+      if (layout) {
+        const navH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--nav-height'), 10) || 60;
+        window.scrollTo({ top: layout.getBoundingClientRect().top + window.scrollY - navH, behavior: 'instant' });
+      }
+    });
   };
 
 })();

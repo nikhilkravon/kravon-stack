@@ -89,6 +89,12 @@ function initTablesBehaviour() {
         break;
       }
 
+      /* ── Edit item in cart ── */
+      case 'edit-cart-item': {
+        TablesModal.openEdit(parseInt(target.dataset.idx, 10));
+        break;
+      }
+
       /* ── Modal: close ── */
       case 'tables-close-modal':
         TablesModal.close();

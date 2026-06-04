@@ -504,7 +504,11 @@
       listEl.innerHTML = `<div class="cart-empty">Your order is empty</div>`;
       if (footerEl) footerEl.style.display = 'none';
     } else {
-      listEl.innerHTML = items.map((item, idx) => `
+      listEl.innerHTML = items.map((item, idx) => {
+        const isCustomisable = (window.MENU || []).some(cat =>
+          cat.items.some(i => String(i.id) === String(item.id) && (i.customise || i.is_customizable))
+        );
+        return `
         <div class="cart-item" aria-label="${Kravon.esc(item.name)}, ₹${item.price * item.qty}">
           <div class="cart-item-info">
             <span class="cart-item-name">${Kravon.esc(item.name)}</span>
@@ -520,9 +524,10 @@
                       data-idx="${idx}" aria-label="Add one">+</button>
             </div>
             <span class="cart-item-price">₹${item.price * item.qty}</span>
+            ${isCustomisable ? `<button class="edit-btn" data-action="edit-cart-item" data-idx="${idx}" aria-label="Edit ${Kravon.esc(item.name)}">Edit</button>` : ''}
           </div>
-        </div>`
-      ).join('');
+        </div>`;
+      }).join('');
 
       if (footerEl) {
         footerEl.style.display = '';

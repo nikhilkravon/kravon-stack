@@ -97,6 +97,7 @@ router.get('/', async (req, res, next) => {
           badgeStyle:      null,
           badgeClass:      '',
           is_customizable: row.is_customizable,
+          customise:       row.is_customizable, // alias expected by orders/tables renderer
           has_variants:    row.has_variants,
           food_type:       row.food_type,
           tags:            row.tags || [],
