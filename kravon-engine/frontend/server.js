@@ -43,6 +43,7 @@ const CACHE = {
 };
 
 const REDIRECTS = {
+  '/':          '/presence/',
   '/presence':  '/presence/',
   '/tables':    '/tables/',
   '/orders':    '/orders/',

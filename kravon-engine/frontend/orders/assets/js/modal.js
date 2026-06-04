@@ -7,9 +7,17 @@
 const Modal = (() => {
 
   /* ── Private state ── */
+  const API_BASE = typeof KRAVON_API_URL !== 'undefined'
+    ? KRAVON_API_URL
+    : (new URLSearchParams(window.location.search).get('api') || 'http://localhost:3000');
+  const SLUG = typeof RESTAURANT_SLUG_ENV !== 'undefined'
+    ? RESTAURANT_SLUG_ENV
+    : (new URLSearchParams(window.location.search).get('slug') || '');
+
   let _editingIdx = -1;
   let _modalQty   = 1;
   let _modalItem  = { id: '', name: '', price: 0 };
+  let _currentItem = null;
 
   /* ── Build add-on rows from ADDONS config ── */
   function buildAddons() {
@@ -67,8 +75,83 @@ const Modal = (() => {
     ).join('');
   }
 
+  function buildVariants(item) {
+    const container = document.getElementById('modalVariants');
+    const section   = document.getElementById('modalVariantsSection');
+    if (!container || !section) return;
+
+    const variants = item?.variants || [];
+    if (!variants.length) {
+      section.style.display = 'none';
+      return;
+    }
+
+    section.style.display = '';
+    container.innerHTML = variants.map((v, i) => `
+      <div class="option-row">
+        <label>
+          <input type="radio" name="variant" value="${Kravon.esc(v.id)}"
+                 data-name="${Kravon.esc(v.name)}"
+                 data-price="${v.price}"
+                 ${i === 0 ? 'checked' : ''}>
+          <span class="option-label">${Kravon.esc(v.name)}</span>
+        </label>
+        <span class="option-price">₹${v.price}</span>
+      </div>`).join('');
+  }
+
+  function buildCustomizations(item) {
+    const container = document.getElementById('modalCustomizations');
+    const section   = document.getElementById('modalCustomizationsSection');
+    if (!container || !section) return;
+
+    const groups = item?.customizations || [];
+    if (!groups.length) {
+      section.style.display = 'none';
+      return;
+    }
+
+    section.style.display = '';
+    container.innerHTML = groups.map(group => {
+      const isRadio   = group.group_type === 'radio';
+      const inputType = isRadio ? 'radio' : 'checkbox';
+      const name      = `custom-${group.id}`;
+
+      const options = (group.options || []).map(opt => `
+        <div class="option-row">
+          <label>
+            <input type="${inputType}" name="${name}" value="${Kravon.esc(opt.id)}"
+                   data-name="${Kravon.esc(opt.name)}"
+                   data-price="${opt.price_modifier || 0}"
+                   ${opt.is_default ? 'checked' : ''}>
+            <span class="option-label">${Kravon.esc(opt.name)}</span>
+          </label>
+          <span class="option-price">${opt.price_modifier ? `+₹${opt.price_modifier}` : '₹0'}</span>
+        </div>`).join('');
+
+      return `
+        <div class="modal-group">
+          <div class="modal-group-label">
+            ${Kravon.esc(group.name)}${group.is_required ? ' *' : ''}
+          </div>
+          ${options}
+        </div>`;
+    }).join('');
+  }
+
+  async function _fetchItemDetails(itemId) {
+    try {
+      const response = await fetch(`${API_BASE}/v1/restaurants/${SLUG}/menu/items/${itemId}`);
+      if (!response.ok) throw new Error('Failed to fetch item details');
+      return await response.json();
+    } catch (err) {
+      console.error('[orders modal] Failed to fetch item details:', err.message);
+      return null;
+    }
+  }
+
   /* ── Open modal for a new add ── */
-  function open(itemId) {
+  async function open(itemId) {
     const item = _findMenuItem(itemId);
     if (!item) return;
 
@@ -86,10 +169,23 @@ const Modal = (() => {
     }
 
     _editingIdx = -1;
-    _modalItem  = { id: item.id, name: item.name, price: item.price };
     _modalQty   = 1;
+    _currentItem = item;
 
-    _setHeader(item.name, item.price);
+    if (item.has_variants || item.customise || item.is_customizable) {
+      const fullItem = await _fetchItemDetails(item.id);
+      if (fullItem) {
+        _currentItem = { ...item, ...fullItem };
+      }
+    }
+
+    _modalItem  = { id: _currentItem.id, name: _currentItem.name, price: _currentItem.price };
+
+    _setHeader(_currentItem.name, _currentItem.price);
+    buildVariants(_currentItem);
+    buildCustomizations(_currentItem);
+    buildAddons();
+    buildSpice();
     _resetOptions();
     _updateBtn();
 
@@ -98,7 +194,7 @@ const Modal = (() => {
   }
 
   /* ── Open modal to edit an existing cart entry ── */
-  function openEdit(idx) {
+  async function openEdit(idx) {
     const cartItems = Cart.getItems();
     const entry     = cartItems[idx];
     if (!entry) return;
@@ -108,15 +204,35 @@ const Modal = (() => {
     const basePrice = menuItem ? menuItem.price : entry.price;
 
     _editingIdx = idx;
-    _modalItem  = { id: entry.id, name: entry.name, price: basePrice };
     _modalQty   = entry.qty;
+    _currentItem = menuItem || { id: entry.id, name: entry.name, price: basePrice };
+
+    if (_currentItem.has_variants || _currentItem.customise || _currentItem.is_customizable) {
+      const fullItem = await _fetchItemDetails(entry.id);
+      if (fullItem) {
+        _currentItem = { ..._currentItem, ...fullItem };
+      }
+    }
+
+    _modalItem  = { id: entry.id, name: entry.name, price: basePrice };
 
     _setHeader(entry.name, basePrice);
+    buildVariants(_currentItem);
+    buildCustomizations(_currentItem);
+    buildAddons();
+    buildSpice();
     _resetOptions();
 
     /* Re-apply saved note parts */
     if (entry.note) {
-      entry.note.split(' · ').forEach(part => {
+      const parts = entry.note.split(' · ');
+      parts.forEach(part => {
+        /* Variant match */
+        document.querySelectorAll('input[name="variant"]').forEach(input => {
+          if (input.dataset.name && input.dataset.name.trim() === part) {
+            input.checked = true;
+          }
+        });
         /* Spice match */
         document.querySelectorAll('.spice-btn').forEach(b => {
           if (b.textContent.trim() === part.replace('Spice: ', '')) {
@@ -134,11 +250,21 @@ const Modal = (() => {
             ?.querySelector('.option-label')?.textContent.trim();
           if (label === part) t.classList.add('checked');
         });
+        /* Customization match */
+        document.querySelectorAll('#modalCustomizations input[name^="custom-"]').forEach(input => {
+          if (input.dataset.name && input.dataset.name.trim() === part) {
+            input.checked = true;
+          }
+        });
         /* Special instructions */
         const knownParts = [
           ...(window.ADDONS || []).map(a => a.label),
           ...(window.SPICE_LEVELS || []),
           ...(window.SPICE_LEVELS || []).map(s => 'Spice: ' + s),
+          ...Array.from(document.querySelectorAll('#modalCustomizations input[name^="custom-"]'))
+                 .map(input => input.dataset.name?.trim()).filter(Boolean),
+          ...Array.from(document.querySelectorAll('input[name="variant"]'))
+                 .map(input => input.dataset.name?.trim()).filter(Boolean),
         ];
         if (!knownParts.includes(part)) {
           const specialInput = document.getElementById('specialInput');
@@ -198,6 +324,19 @@ const Modal = (() => {
 
     const extras  = [];
     let   addons  = 0;
+    const variantRadio = document.querySelector('input[name="variant"]:checked');
+    const variant = variantRadio ? {
+      id:    variantRadio.value,
+      name:  variantRadio.dataset.name || '',
+      price: parseFloat(variantRadio.dataset.price || '0'),
+    } : null;
+
+    document.querySelectorAll('#modalCustomizations input[name^="custom-"]:checked').forEach(input => {
+      const label = input.dataset.name || input.value;
+      if (label) extras.push(label);
+      addons += parseFloat(input.dataset.price || '0');
+    });
+
     document.querySelectorAll('.option-toggle.checked').forEach(t => {
       const row   = t.closest('.option-row');
       const label = row ? row.querySelector('.option-label')?.textContent.trim() : '';
@@ -207,12 +346,13 @@ const Modal = (() => {
 
     const special  = (document.getElementById('specialInput')?.value || '').trim();
     const noteParts = [
+      variant ? variant.name : '',
       (spice && spice !== (levels[0] || '')) ? 'Spice: ' + spice : '',
       ...extras,
       special,
     ].filter(Boolean);
     const note      = noteParts.join(' · ');
-    const unitPrice = _modalItem.price + addons;
+    const unitPrice = (variant ? variant.price : _modalItem.price) + addons;
 
     if (_editingIdx >= 0) {
       Cart.replaceItem(_editingIdx, {
@@ -245,6 +385,12 @@ const Modal = (() => {
       b.classList.toggle('active', i === 0);
       b.setAttribute('aria-pressed', i === 0 ? 'true' : 'false');
     });
+    document.querySelectorAll('input[name="variant"]').forEach((input, i) => {
+      input.checked = i === 0;
+    });
+    document.querySelectorAll('#modalCustomizations input[name^="custom-"]').forEach(input => {
+      input.checked = input.defaultChecked || false;
+    });
     const specialInput = document.getElementById('specialInput');
     if (specialInput) specialInput.value = '';
     document.getElementById('modalQty').textContent = '1';
@@ -252,10 +398,16 @@ const Modal = (() => {
 
   function _calcModalPrice() {
     let addons = 0;
+    const variantRadio = document.querySelector('input[name="variant"]:checked');
+    const basePrice = variantRadio ? parseFloat(variantRadio.dataset.price || '0') : _modalItem.price;
+
+    document.querySelectorAll('#modalCustomizations input[name^="custom-"]:checked').forEach(input => {
+      addons += parseFloat(input.dataset.price || '0');
+    });
     document.querySelectorAll('.option-toggle.checked').forEach(t => {
       addons += parseInt(t.dataset.price || '0', 10);
     });
-    return (_modalItem.price + addons) * _modalQty;
+    return (basePrice + addons) * _modalQty;
   }
 
   function _updateBtn() {
@@ -289,6 +441,14 @@ const Modal = (() => {
         charCount.classList.toggle('char-count--warn', remaining < 20);
       });
     }
+
+    document.addEventListener('change', (event) => {
+      const target = event.target;
+      if (!target.closest('#customModal')) return;
+      if (target.matches('input[name="variant"], #modalCustomizations input[name^="custom-"]')) {
+        _updateBtn();
+      }
+    });
   }
 
   return {
