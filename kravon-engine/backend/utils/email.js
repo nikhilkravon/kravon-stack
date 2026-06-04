@@ -2,14 +2,27 @@
 
 const { Resend } = require('resend');
 
-const _client  = new Resend(process.env.RESEND_API_KEY);
+let _client = null;
 const FROM     = process.env.EMAIL_FROM || 'noreply@kravon.in';
 const BASE_URL = process.env.KRAVON_FRONTEND_URL || 'https://kravon.in';
+
+function _getClient() {
+  if (_client) return _client;
+  if (!process.env.RESEND_API_KEY) return null;
+  _client = new Resend(process.env.RESEND_API_KEY);
+  return _client;
+}
 
 async function sendPasswordReset({ to, name, token, slug }) {
   const resetUrl = `${BASE_URL}/dashboard/?reset=${token}&slug=${encodeURIComponent(slug)}`;
 
-  await _client.emails.send({
+  const client = _getClient();
+  if (!client) {
+    console.log(`[email:dev] password_reset TO=${to} SLUG=${slug}`);
+    return;
+  }
+
+  await client.emails.send({
     from:    `Kravon <${FROM}>`,
     to:      [to],
     subject: 'Reset your Kravon password',
