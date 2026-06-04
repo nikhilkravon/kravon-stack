@@ -142,7 +142,7 @@
         break;
 
       case 'go-back':
-        UI.showScreen('screenOrdering');
+        history.back();
         break;
 
       case 'nav-cart':
@@ -180,12 +180,20 @@
   /* ── Resize ───────────────────────────────────────────── */
   window.addEventListener('resize', UI.onResize);
 
+  /* ── Browser back/forward ─────────────────────────────── */
+  window.addEventListener('popstate', function (e) {
+    const screen = e.state?.screen || 'screenOrdering';
+    UI.showScreen(screen, false);
+  });
+
   /* ── Init — called by boot.js after loadConfig() ─────── */
   window.initBehaviour = function () {
     Modal.init();
     Checkout.init();
     UI.renderCart();
     document.getElementById('screenOrdering')?.classList.add('active');
+    // Seed initial history entry so the first Back press returns here
+    history.replaceState({ screen: 'screenOrdering' }, '', window.location.href);
   };
 
 })();

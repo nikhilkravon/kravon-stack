@@ -196,8 +196,7 @@ function initTablesBehaviour() {
 
       /* ── Back to menu ── */
       case 'back-to-menu':
-        TablesRenderer.showScreen('screenOrdering');
-        window.scrollTo(0, 0);
+        history.back();
         break;
 
       /* ── Place order ── */
@@ -254,6 +253,13 @@ function initTablesBehaviour() {
         closeCart();
       }
     }
+  });
+
+  /* ── Browser back/forward ─────────────────────────────── */
+  window.addEventListener('popstate', function (e) {
+    const screen = e.state?.screen || 'screenOrdering';
+    TablesRenderer.showScreen(screen, false);
+    window.scrollTo(0, 0);
   });
 
   /* ── Category sticky scroll highlighting ───────────────── */

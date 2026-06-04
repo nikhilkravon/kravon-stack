@@ -434,9 +434,12 @@ const CheckoutPresence = (() => {
       await KravonAPI.loadConfig();
       _config = window.CONFIG;
 
-      // Restore cart from sessionStorage
+      // Restore cart from sessionStorage, then immediately remove it so stale
+      // data cannot bleed into a subsequent checkout session.
       const savedCart = sessionStorage.getItem('kravon_presence_cart');
       if (savedCart) {
+        sessionStorage.removeItem('kravon_presence_cart');
+        EnhancedCart.clear();
         const cartItems = JSON.parse(savedCart);
         cartItems.forEach(item => {
           EnhancedCart.add({

@@ -179,12 +179,15 @@ const UI = (function () {
   }
 
   /* ── Screen transitions ───────────────────────────────── */
-  function showScreen(id) {
+  function showScreen(id, pushState) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     const target = document.getElementById(id);
     if (target) target.classList.add('active');
     window.scrollTo(0, 0);
     closeMobileCart();
+    if (pushState !== false) {
+      history.pushState({ screen: id }, '', window.location.href);
+    }
 
     const isOrdering = id === 'screenOrdering';
     const isConfirm  = id === 'screenConfirm';

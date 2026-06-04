@@ -40,7 +40,8 @@ async function getAllowedOrigins() {
 
 const KRAVON_DOMAIN  = (process.env.KRAVON_DOMAIN || 'kravon.in').toLowerCase();
 // Matches any subdomain of kravon.in: https://spice-of-india.kravon.in
-const KRAVON_SUBDOMAIN_RE = new RegExp(`^https?://[a-z0-9-]+\\.${KRAVON_DOMAIN.replace('.', '\\.')}$`);
+// Use global replace so multi-dot domains (e.g. kravon.co.in) escape correctly.
+const KRAVON_SUBDOMAIN_RE = new RegExp(`^https?://[a-z0-9-]+\\.${KRAVON_DOMAIN.replace(/\./g, '\\.')}$`);
 
 // Extra origins allowed via env var — comma-separated, e.g. Railway preview URLs
 const EXTRA_ORIGINS = new Set(

@@ -458,11 +458,9 @@
       buildCustomModal(),
     ].join('');
 
-    if (isDineIn) {
-      showScreen('screenOrdering');
-    } else {
-      showScreen('screenChoice');
-    }
+    const initialScreen = isDineIn ? 'screenOrdering' : 'screenChoice';
+    showScreen(initialScreen, false);
+    history.replaceState({ screen: initialScreen }, '', window.location.href);
 
     Kravon.renderFooter(C.brand, C.contact, C.footer);
     Kravon.renderDemoBanner(C.demo);
@@ -470,7 +468,7 @@
   }
 
   /* ── Screen management ───────────────────────────────────── */
-  function showScreen(id) {
+  function showScreen(id, pushState) {
     const screens = ['screenChoice', 'screenOrdering', 'screenCheckout', 'screenConfirm'];
     screens.forEach(s => {
       const el = document.getElementById(s);
@@ -478,6 +476,9 @@
     });
     const mobileBar = document.getElementById('mobileCartBar');
     if (mobileBar) mobileBar.style.display = id === 'screenOrdering' ? '' : 'none';
+    if (pushState !== false) {
+      history.pushState({ screen: id }, '', window.location.href);
+    }
   }
 
   /* ── Item button state update ────────────────────────────── */

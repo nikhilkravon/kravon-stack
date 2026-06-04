@@ -90,6 +90,12 @@ const authRoutes      = require('./api/routes/auth');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
+/* ── Trust Railway / Heroku / Render proxy ─────────────────────────────────── */
+// Railway terminates TLS and forwards requests via a reverse proxy.
+// Without this, req.ip is always the proxy IP, breaking rate limiting and
+// IP-based features. '1' means trust one hop (the Railway load balancer).
+app.set('trust proxy', 1);
+
 /* ── Request ID — attach to every request for log correlation ──────────────── */
 app.use((req, _res, next) => {
   req.id = req.headers['x-request-id'] || crypto.randomUUID();
@@ -119,7 +125,10 @@ app.use(cookieParser());
 app.use(helmet());
 
 /* ── CORS — per-restaurant origin whitelist ────────────────────────────────── */
+// Must be before rate limiting so OPTIONS preflight requests are answered
+// immediately without consuming rate limit budget.
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 /* ── Rate limiting ─────────────────────────────────────────────────────────── */
 app.use('/v1', rateLimit({
@@ -127,6 +136,8 @@ app.use('/v1', rateLimit({
   max:             120,
   standardHeaders: true,
   legacyHeaders:   false,
+  // Railway proxies set X-Forwarded-For; trust proxy (set above) makes req.ip correct.
+  keyGenerator:    (req) => req.ip,
   message: { error: 'Too many requests. Please slow down.' },
 }));
 

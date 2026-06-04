@@ -313,6 +313,7 @@
     const payOpts = O.paymentMethods.map((m, i) => `
       <div class="pay-opt${i === 0 ? ' selected' : ''}"
            data-action="select-payment"
+           data-payment-id="${Kravon.esc(m.id)}"
            role="radio" aria-checked="${i === 0 ? 'true' : 'false'}" tabindex="${i === 0 ? 0 : -1}">
         <div class="radio-circle" aria-hidden="true"><div class="radio-fill"></div></div>
         <div class="pay-opt-icon">${Kravon.esc(m.icon)}</div>
