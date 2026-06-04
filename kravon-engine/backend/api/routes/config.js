@@ -175,17 +175,18 @@ router.get('/', async (req, res, next) => {
       order: {
         currency:           '₹',
         minOrder:           0,
-        deliveryFee:        r.delivery_fee        ?? null,
-        freeDeliveryAbove:  r.free_delivery_above ?? null,
+        deliveryFee:        r.delivery_fee        != null ? r.delivery_fee / 100        : null,
+        freeDeliveryAbove:  r.free_delivery_above != null ? r.free_delivery_above / 100 : null,
         footnote:           '',
       },
 
       // orders — used by the Orders standalone product module
       orders: {
-        // Dynamic: delivery pricing from tenant config
-        deliveryStandard:   r.delivery_fee        ?? 39,
-        deliveryExpress:    (r.delivery_fee ?? 39) * 2,
-        freeDeliveryAt:     r.free_delivery_above ?? 399,
+        // delivery_fee and free_delivery_above are stored in paise in the DB;
+        // divide by 100 to convert to rupees for the frontend cart engine.
+        deliveryStandard:   r.delivery_fee        != null ? r.delivery_fee / 100        : 39,
+        deliveryExpress:    r.delivery_fee        != null ? (r.delivery_fee / 100) * 2  : 78,
+        freeDeliveryAt:     r.free_delivery_above != null ? r.free_delivery_above / 100 : 399,
         gstRate:            0,   // inclusive pricing; set >0 if you add GST line
 
         // Payment methods — offer Razorpay only when keys are configured
