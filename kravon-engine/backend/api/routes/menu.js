@@ -469,6 +469,11 @@ router.post('/items/:id/variants', requireRestaurantAuth, async (req, res, next)
        RETURNING id, name, price, food_type, is_available, sort_order`,
       [tenantId, req.params.id, d.name, d.price, d.food_type ?? null, d.is_available ?? true, d.sort_order ?? 0]
     );
+    await query(
+      `UPDATE menu.menu_items SET has_variants = TRUE, is_customizable = TRUE, updated_at = NOW()
+       WHERE id = $1 AND tenant_id = $2`,
+      [req.params.id, tenantId]
+    );
     const v = result.rows[0];
     res.status(201).json({ ok: true, variant: { ...v, price: Number(v.price) } });
   } catch (err) { next(err); }
@@ -510,12 +515,31 @@ router.put('/items/:id/variants/:vid', requireRestaurantAuth, async (req, res, n
 /* DELETE /items/:id/variants/:vid */
 router.delete('/items/:id/variants/:vid', requireRestaurantAuth, async (req, res, next) => {
   try {
+    const tenantId = req.tenant.tenant_id;
     const result = await query(
       `UPDATE menu.item_variants SET deleted_at = NOW()
        WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL RETURNING id`,
-      [req.params.vid, req.tenant.tenant_id]
+      [req.params.vid, tenantId]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Variant not found' });
+    // If no variants remain, clear has_variants (keep is_customizable if groups exist)
+    const remaining = await query(
+      `SELECT COUNT(*) FROM menu.item_variants
+       WHERE menu_item_id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
+      [req.params.id, tenantId]
+    );
+    if (Number(remaining.rows[0].count) === 0) {
+      const groups = await query(
+        `SELECT COUNT(*) FROM menu.customization_groups
+         WHERE menu_item_id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
+        [req.params.id, tenantId]
+      );
+      await query(
+        `UPDATE menu.menu_items SET has_variants = FALSE, is_customizable = $1, updated_at = NOW()
+         WHERE id = $2 AND tenant_id = $3`,
+        [Number(groups.rows[0].count) > 0, req.params.id, tenantId]
+      );
+    }
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
@@ -570,13 +594,19 @@ router.post('/items/:id/customizations/groups', requireRestaurantAuth, async (re
   if (!parsed.success) return validationError(res, parsed.error.issues);
 
   try {
+    const tenantId = req.tenant.tenant_id;
     const d = parsed.data;
     const result = await query(
       `INSERT INTO menu.customization_groups
          (tenant_id, menu_item_id, name, group_type, is_required, min_select, max_select, is_free, position)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        RETURNING id, name, group_type, is_required, min_select, max_select, is_free, position`,
-      [req.tenant.tenant_id, req.params.id, d.name, d.group_type, d.is_required, d.min_select, d.max_select, d.is_free, d.position]
+      [tenantId, req.params.id, d.name, d.group_type, d.is_required, d.min_select, d.max_select, d.is_free, d.position]
+    );
+    await query(
+      `UPDATE menu.menu_items SET is_customizable = TRUE, updated_at = NOW()
+       WHERE id = $1 AND tenant_id = $2`,
+      [req.params.id, tenantId]
     );
     res.status(201).json({ ok: true, group: { ...result.rows[0], options: [] } });
   } catch (err) { next(err); }
@@ -597,6 +627,24 @@ router.delete('/items/:id/customizations/groups/:gid', requireRestaurantAuth, as
       [req.params.gid, tenantId]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Group not found' });
+    // If no groups remain, reset is_customizable (keep TRUE if variants still exist)
+    const remaining = await query(
+      `SELECT COUNT(*) FROM menu.customization_groups
+       WHERE menu_item_id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
+      [req.params.id, tenantId]
+    );
+    if (Number(remaining.rows[0].count) === 0) {
+      const variants = await query(
+        `SELECT COUNT(*) FROM menu.item_variants
+         WHERE menu_item_id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
+        [req.params.id, tenantId]
+      );
+      await query(
+        `UPDATE menu.menu_items SET is_customizable = $1, updated_at = NOW()
+         WHERE id = $2 AND tenant_id = $3`,
+        [Number(variants.rows[0].count) > 0, req.params.id, tenantId]
+      );
+    }
     res.json({ ok: true });
   } catch (err) { next(err); }
 });

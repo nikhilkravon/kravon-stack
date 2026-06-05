@@ -221,6 +221,7 @@ const Checkout = (() => {
 
     try {
       const orderPayload = {
+        order_surface:    'orders',
         customer_name:    _val('fieldName'),
         customer_phone:   _val('fieldPhone').replace(/\D/g, ''),
         delivery_address: _val('fieldAddress'),

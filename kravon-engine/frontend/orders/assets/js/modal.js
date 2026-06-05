@@ -141,7 +141,7 @@ const Modal = (() => {
 
   async function _fetchItemDetails(itemId) {
     try {
-      const response = await fetch(`${API_BASE}/v1/restaurants/${SLUG}/menu/items/${itemId}`);
+      const response = await fetch(`${API_BASE}/v1/restaurants/${SLUG}/config/items/${itemId}`);
       if (!response.ok) throw new Error('Failed to fetch item details');
       return await response.json();
     } catch (err) {

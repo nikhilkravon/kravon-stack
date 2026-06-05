@@ -168,9 +168,9 @@ async function createOrder(tenant, data) {
         INSERT INTO orders.order_items (
           tenant_id, order_id, menu_item_id,
           item_name, unit_price, quantity,
-          base_price, addons_total, total_price,
-          special_note, metadata
-        ) VALUES ($1,$2,$3::uuid,$4,$5,$6,$7,$8,$9,$10,$11)
+          addons_total, total_price,
+          special_note
+        ) VALUES ($1,$2,$3::uuid,$4,$5,$6,$7,$8,$9)
       `, [
         tenant.tenant_id,
         orderId,
@@ -178,11 +178,9 @@ async function createOrder(tenant, data) {
         item.name,
         item.price,
         item.qty,
-        item.price * item.qty,
         addonsTotal,
         item.price * item.qty + addonsTotal,
         item.note || null,
-        item.addons?.length ? JSON.stringify({ addons: item.addons }) : null,
       ]);
     }
 

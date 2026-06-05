@@ -17,6 +17,109 @@ const { validateSettingsPatch } = require('../../db/settingsSchema');
 const audit   = require('../../utils/audit');
 
 const router = express.Router();
+const https  = require('https');
+const http   = require('http');
+
+/**
+ * Parse lat/lng from any Google Maps URL an owner might paste.
+ *
+ * Handles:
+ *   https://maps.google.com/?q=19.0654,72.8343
+ *   https://www.google.com/maps/place/Name/@19.0654,72.8343,17z
+ *   https://maps.google.com/maps?ll=19.0654,72.8343
+ *   https://www.google.com/maps/place/Address/data=...  (no coords — geocode place name)
+ *   https://maps.app.goo.gl/abc123  (shortened — follow redirect first)
+ *
+ * Returns { lat, lng } or null.
+ */
+async function _parseGoogleMapsCoords(rawUrl) {
+  let url = rawUrl;
+
+  // Follow redirect for shortened links (goo.gl, maps.app.goo.gl)
+  if (/goo\.gl/.test(url)) {
+    try {
+      url = await new Promise(resolve => {
+        const mod = url.startsWith('https') ? https : http;
+        const req = mod.get(url, { timeout: 4000 }, res => {
+          resolve(res.headers.location || url);
+          res.destroy();
+        });
+        req.on('error', () => resolve(url));
+        req.on('timeout', () => { req.destroy(); resolve(url); });
+      });
+    } catch { /* keep original */ }
+  }
+
+  try {
+    const u = new URL(url);
+
+    // Format 1: @lat,lng,zoom in the path  (/maps/place/Name/@19.06,72.83,17z)
+    const atMatch = u.pathname.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (atMatch) return { lat: parseFloat(atMatch[1]), lng: parseFloat(atMatch[2]) };
+
+    // Format 2: ?q=lat,lng
+    const q = u.searchParams.get('q');
+    if (q) {
+      const qm = q.match(/^(-?\d+\.\d+),(-?\d+\.\d+)$/);
+      if (qm) return { lat: parseFloat(qm[1]), lng: parseFloat(qm[2]) };
+    }
+
+    // Format 3: ?ll=lat,lng
+    const ll = u.searchParams.get('ll');
+    if (ll) {
+      const lm = ll.match(/^(-?\d+\.\d+),(-?\d+\.\d+)$/);
+      if (lm) return { lat: parseFloat(lm[1]), lng: parseFloat(lm[2]) };
+    }
+
+    // Format 4: ?center=lat,lng
+    const center = u.searchParams.get('center');
+    if (center) {
+      const cm = center.match(/^(-?\d+\.\d+),(-?\d+\.\d+)$/);
+      if (cm) return { lat: parseFloat(cm[1]), lng: parseFloat(cm[2]) };
+    }
+
+    // Format 5: /maps/place/Address/data=... — no coords, geocode the place name
+    const placeMatch = u.pathname.match(/\/maps\/place\/([^/]+)/);
+    if (placeMatch) {
+      const placeName = decodeURIComponent(placeMatch[1].replace(/\+/g, ' '));
+      return await _nominatimGeocode(placeName);
+    }
+  } catch { /* invalid URL */ }
+
+  return null;
+}
+
+/**
+ * Geocode a place name using Nominatim (OpenStreetMap).
+ * Rate-limit safe: only called on settings save, not on every request.
+ */
+function _nominatimGeocode(query) {
+  return new Promise(resolve => {
+    const encoded = encodeURIComponent(query);
+    const options = {
+      hostname: 'nominatim.openstreetmap.org',
+      path:     `/search?q=${encoded}&format=json&limit=1`,
+      headers:  { 'User-Agent': 'kravon-platform/1.0 (settings save)' },
+      timeout:  5000,
+    };
+    const req = https.get(options, res => {
+      let body = '';
+      res.on('data', c => body += c);
+      res.on('end', () => {
+        try {
+          const results = JSON.parse(body);
+          if (results[0]) {
+            resolve({ lat: parseFloat(results[0].lat), lng: parseFloat(results[0].lon) });
+          } else {
+            resolve(null);
+          }
+        } catch { resolve(null); }
+      });
+    });
+    req.on('error',   () => resolve(null));
+    req.on('timeout', () => { req.destroy(); resolve(null); });
+  });
+}
 
 // 60-second per-tenant config cache — matches the Cache-Control max-age.
 // Prevents the full menu JOIN running on every concurrent request.
@@ -45,6 +148,8 @@ router.get('/', async (req, res, next) => {
     }
 
     // Fetch categories + items in one pass (v12 column names)
+    // has_variants and is_customizable are derived live from child rows so they
+    // stay accurate even if the flags on menu_items were never backfilled.
     const menuRes = await query(`
       SELECT
         c.id          AS cat_id,
@@ -56,8 +161,14 @@ router.get('/', async (req, res, next) => {
         i.price       AS item_price,
         i.description AS item_desc,
         i.image_url   AS image,
-        i.is_customizable,
-        i.has_variants,
+        i.is_customizable OR EXISTS (
+          SELECT 1 FROM menu.customization_groups g
+          WHERE g.menu_item_id = i.id AND g.tenant_id = i.tenant_id AND g.deleted_at IS NULL
+        ) AS is_customizable,
+        i.has_variants OR EXISTS (
+          SELECT 1 FROM menu.item_variants v
+          WHERE v.menu_item_id = i.id AND v.tenant_id = i.tenant_id AND v.deleted_at IS NULL
+        ) AS has_variants,
         i.sort_order  AS item_sort,
         i.tags,
         i.food_type
@@ -284,6 +395,8 @@ router.get('/', async (req, res, next) => {
         pinName:  r.name || '',
         pinSub:   r.city || '',
         mapUrl:   r.map_url || null,
+        lat:      r.loc_lat  ? Number(r.loc_lat)  : null,
+        lng:      r.loc_lng  ? Number(r.loc_lng)  : null,
         rows:     locationRows,
       },
 
@@ -420,6 +533,28 @@ router.patch('/', requireRestaurantAuth, async (req, res, next) => {
       }
     }
 
+    // ── 2b. Extract lat/lng from map_url and persist to tenant.locations ────────
+    if (d.map_url) {
+      const coords = await _parseGoogleMapsCoords(d.map_url);
+      if (coords) {
+        const locRow = await query(
+          'SELECT id FROM tenant.locations WHERE tenant_id = $1 AND is_active = TRUE LIMIT 1',
+          [tenantId]
+        );
+        if (locRow.rows.length) {
+          await query(
+            'UPDATE tenant.locations SET lat = $1, lng = $2, updated_at = NOW() WHERE id = $3',
+            [coords.lat, coords.lng, locRow.rows[0].id]
+          );
+        } else {
+          await query(
+            'INSERT INTO tenant.locations (tenant_id, name, lat, lng, is_active) VALUES ($1, $2, $3, $4, true)',
+            [tenantId, 'Main', coords.lat, coords.lng]
+          );
+        }
+      }
+    }
+
     // ── 3. Update WhatsApp contact link ──────────────────────────────────────
     if (wa_number !== undefined) {
       const waUrl = `https://wa.me/${wa_number}`;
@@ -462,8 +597,9 @@ router.patch('/', requireRestaurantAuth, async (req, res, next) => {
       }
     }
 
-    // ── Bust cache + audit ───────────────────────────────────────────────────
+    // ── Bust both caches ─────────────────────────────────────────────────────
     _configCache.delete(tenantId);
+    require('../middleware/tenant').clearTenantCache(req.tenant.slug);
     audit.log(null, {
       tenantId, actorId: req.auth?.staffId, actorType: 'staff',
       action: 'config.update', entityType: 'tenant.restaurant', entityId: tenantId,

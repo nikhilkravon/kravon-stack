@@ -10,9 +10,71 @@ const TablesModal = (() => {
   'use strict';
 
   /* ── Private state ── */
-  let _editingIdx = -1;
-  let _modalQty   = 1;
-  let _modalItem  = { id: '', name: '', price: 0 };
+  let _editingIdx  = -1;
+  let _modalQty    = 1;
+  let _modalItem   = { id: '', name: '', price: 0 };
+  let _currentItem = null;
+
+  const API_BASE = typeof KRAVON_API_URL !== 'undefined'
+    ? KRAVON_API_URL
+    : (new URLSearchParams(window.location.search).get('api') || 'http://localhost:3000');
+  const SLUG = typeof RESTAURANT_SLUG_ENV !== 'undefined'
+    ? RESTAURANT_SLUG_ENV
+    : (new URLSearchParams(window.location.search).get('slug') || '');
+
+  async function _fetchItemDetails(itemId) {
+    try {
+      const res = await fetch(`${API_BASE}/v1/restaurants/${SLUG}/config/items/${itemId}`);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch { return null; }
+  }
+
+  function _buildVariants(item) {
+    const container = document.getElementById('tablesModalVariants');
+    const section   = document.getElementById('tablesModalVariantsSection');
+    if (!container || !section) return;
+    const variants = item?.variants || [];
+    if (!variants.length) { section.style.display = 'none'; return; }
+    section.style.display = '';
+    container.innerHTML = variants.map((v, i) => `
+      <div class="option-row">
+        <label>
+          <input type="radio" name="tables-variant" value="${Kravon.esc(v.id)}"
+                 data-name="${Kravon.esc(v.name)}" data-price="${v.price}" ${i === 0 ? 'checked' : ''}>
+          <span class="option-label">${Kravon.esc(v.name)}</span>
+        </label>
+        <span class="option-price">₹${v.price}</span>
+      </div>`).join('');
+  }
+
+  function _buildCustomizations(item) {
+    const container = document.getElementById('tablesModalCustomizations');
+    const section   = document.getElementById('tablesModalCustomizationsSection');
+    if (!container || !section) return;
+    const groups = item?.customizations || [];
+    if (!groups.length) { section.style.display = 'none'; return; }
+    section.style.display = '';
+    container.innerHTML = groups.map(group => {
+      const inputType = group.group_type === 'radio' ? 'radio' : 'checkbox';
+      const name = `tables-custom-${group.id}`;
+      const options = (group.options || []).map(opt => `
+        <div class="option-row">
+          <label>
+            <input type="${inputType}" name="${name}" value="${Kravon.esc(opt.id)}"
+                   data-name="${Kravon.esc(opt.name)}" data-price="${opt.price_modifier || 0}"
+                   ${opt.is_default ? 'checked' : ''}>
+            <span class="option-label">${Kravon.esc(opt.name)}</span>
+          </label>
+          <span class="option-price">${opt.price_modifier ? `+₹${opt.price_modifier}` : '₹0'}</span>
+        </div>`).join('');
+      return `
+        <div class="modal-group">
+          <div class="modal-group-label">${Kravon.esc(group.name)}${group.is_required ? ' *' : ''}</div>
+          ${options}
+        </div>`;
+    }).join('');
+  }
 
   /* ── Build add-on rows ── */
   function buildAddons() {
@@ -71,36 +133,38 @@ const TablesModal = (() => {
   }
 
   /* ── Open modal for a new add ── */
-  function open(itemId) {
+  async function open(itemId) {
     const item = _findMenuItem(itemId);
     if (!item) return;
 
     // If exactly one cart entry exists for this item, edit it in place
-    // to prevent duplicate line items with conflicting customisations.
     const cartItems    = TablesCart.getItems();
     const matchIndices = cartItems.reduce((acc, ci, i) => {
       if (String(ci.id) === String(itemId)) acc.push(i);
       return acc;
     }, []);
+    if (matchIndices.length === 1) { openEdit(matchIndices[0]); return; }
 
-    if (matchIndices.length === 1) {
-      openEdit(matchIndices[0]);
-      return;
+    _editingIdx  = -1;
+    _modalQty    = 1;
+    _currentItem = item;
+
+    if (item.has_variants || item.customise || item.is_customizable) {
+      const full = await _fetchItemDetails(item.id);
+      if (full) _currentItem = { ...item, ...full };
     }
 
-    _editingIdx = -1;
-    _modalItem  = { id: item.id, name: item.name, price: item.price };
-    _modalQty   = 1;
-
-    _setHeader(item.name, item.price);
+    _modalItem = { id: _currentItem.id, name: _currentItem.name, price: _currentItem.price };
+    _setHeader(_currentItem.name, _currentItem.price);
+    _buildVariants(_currentItem);
+    _buildCustomizations(_currentItem);
+    buildAddons();
+    buildSpice();
     _resetOptions();
     _updateBtn();
 
     const modal = document.getElementById('tablesCustomModal');
-    if (modal) {
-      modal.classList.add('open');
-      modal.setAttribute('aria-hidden', 'false');
-    }
+    if (modal) { modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
     document.body.style.overflow = 'hidden';
   }
 
@@ -207,6 +271,23 @@ const TablesModal = (() => {
 
     const extras = [];
     let   addons = 0;
+
+    // Variant selection
+    const variantRadio = document.querySelector('#tablesCustomModal input[name="tables-variant"]:checked');
+    const variant = variantRadio ? {
+      id: variantRadio.value, name: variantRadio.dataset.name || '',
+      price: parseFloat(variantRadio.dataset.price || '0'),
+    } : null;
+    if (variant) extras.push(variant.name);
+
+    // Customization groups
+    document.querySelectorAll('#tablesModalCustomizations input[name^="tables-custom-"]:checked').forEach(input => {
+      const label = input.dataset.name || input.value;
+      if (label) extras.push(label);
+      addons += parseFloat(input.dataset.price || '0');
+    });
+
+    // Add-on toggles
     document.querySelectorAll('#tablesCustomModal .option-toggle.checked').forEach(t => {
       const row   = t.closest('.option-row');
       const label = row ? row.querySelector('.option-label')?.textContent.trim() : '';
@@ -216,12 +297,13 @@ const TablesModal = (() => {
 
     const special   = (document.getElementById('tablesSpecialInput')?.value || '').trim();
     const noteParts = [
-      (spice && spice !== levels[0]) ? 'Spice: ' + spice : '',
-      ...extras,
+      variant ? variant.name : '',
+      (spice && spice !== (levels[0] || '')) ? 'Spice: ' + spice : '',
+      ...extras.filter(e => e !== (variant?.name || '')),
       special,
     ].filter(Boolean);
     const note      = noteParts.join(' · ');
-    const unitPrice = _modalItem.price + addons;
+    const unitPrice = (variant ? variant.price : _modalItem.price) + addons;
 
     if (_editingIdx >= 0) {
       TablesCart.replaceItem(_editingIdx, { id: _modalItem.id, name: _modalItem.name, price: unitPrice, qty: _modalQty, note });
@@ -248,6 +330,12 @@ const TablesModal = (() => {
       b.classList.toggle('active', i === 0);
       b.setAttribute('aria-pressed', i === 0 ? 'true' : 'false');
     });
+    document.querySelectorAll('#tablesCustomModal input[name="tables-variant"]').forEach((r, i) => {
+      r.checked = i === 0;
+    });
+    document.querySelectorAll('#tablesModalCustomizations input[name^="tables-custom-"]').forEach(r => {
+      r.checked = r.defaultChecked || false;
+    });
     const si = document.getElementById('tablesSpecialInput');
     if (si) si.value = '';
     const qtyEl = document.getElementById('tablesModalQty');
@@ -256,10 +344,15 @@ const TablesModal = (() => {
 
   function _calcModalPrice() {
     let addons = 0;
+    const variantRadio = document.querySelector('#tablesCustomModal input[name="tables-variant"]:checked');
+    const basePrice = variantRadio ? parseFloat(variantRadio.dataset.price || '0') : _modalItem.price;
+    document.querySelectorAll('#tablesModalCustomizations input[name^="tables-custom-"]:checked').forEach(i => {
+      addons += parseFloat(i.dataset.price || '0');
+    });
     document.querySelectorAll('#tablesCustomModal .option-toggle.checked').forEach(t => {
       addons += parseInt(t.dataset.price || '0', 10);
     });
-    return (_modalItem.price + addons) * _modalQty;
+    return (basePrice + addons) * _modalQty;
   }
 
   function _updateBtn() {
@@ -282,7 +375,7 @@ const TablesModal = (() => {
     buildAddons();
     buildSpice();
 
-    // Live char counter for special instructions
+    // Live char counter
     const specialInput = document.getElementById('tablesSpecialInput');
     const charCount    = document.getElementById('tablesSpecialCharCount');
     if (specialInput && charCount) {
@@ -293,6 +386,14 @@ const TablesModal = (() => {
         charCount.classList.toggle('char-count--warn', remaining < 20);
       });
     }
+
+    // Update price button when variant or customization inputs change
+    document.addEventListener('change', e => {
+      if (!e.target.closest('#tablesCustomModal')) return;
+      if (e.target.matches('input[name="tables-variant"], input[name^="tables-custom-"]')) {
+        _updateBtn();
+      }
+    });
   }
 
   return { init, open, openEdit, close, incQty, decQty, toggleAddon, setSpice, confirm };

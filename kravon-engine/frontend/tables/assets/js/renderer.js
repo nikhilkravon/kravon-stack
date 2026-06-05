@@ -390,6 +390,14 @@
                     aria-label="Close">✕</button>
           </div>
           <div class="modal-body">
+            <div class="modal-section" id="tablesModalVariantsSection" style="display:none">
+              <span class="modal-section-label">Options</span>
+              <div id="tablesModalVariants"></div>
+            </div>
+            <div class="modal-section" id="tablesModalCustomizationsSection" style="display:none">
+              <span class="modal-section-label">Customizations</span>
+              <div id="tablesModalCustomizations"></div>
+            </div>
             <div class="modal-section">
               <span class="modal-section-label">Add-ons</span>
               <div id="tablesModalAddons"></div>

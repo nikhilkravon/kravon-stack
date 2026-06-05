@@ -71,6 +71,8 @@ function buildTenant(tenantRow, locationRow, integrations, contactLinks, seoRow,
     address:  loc.address || s.address || null,
     city:     loc.city    || s.city    || null,
     email:    s.email     || loc.metadata?.email || null,
+    loc_lat:  loc.lat     || null,
+    loc_lng:  loc.lng     || null,
     wa_number,
 
     // SEO / brand
@@ -185,7 +187,7 @@ async function resolveRestaurant(req, res, next) {
 
     const [locRes, integRes, contactRes, seoRes, assetRes, annRes] = await Promise.all([
       query(
-        `SELECT phone, address, city, state, metadata
+        `SELECT phone, address, city, state, lat, lng, metadata
          FROM tenant.locations
          WHERE tenant_id = $1 AND is_active = TRUE AND deleted_at IS NULL
          ORDER BY created_at LIMIT 1`,
@@ -250,4 +252,8 @@ async function resolveRestaurant(req, res, next) {
   }
 }
 
-module.exports = { resolveRestaurant, buildTenant };
+function clearTenantCache(slug) {
+  _cache.delete(slug);
+}
+
+module.exports = { resolveRestaurant, buildTenant, clearTenantCache };

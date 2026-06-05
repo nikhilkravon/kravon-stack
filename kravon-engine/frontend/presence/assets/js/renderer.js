@@ -329,6 +329,7 @@
     return section;
   }
 
+
   /* ── CONTACT ─────────────────────────────────────────── */
   function renderContact() {
     const pc  = {};
@@ -368,13 +369,42 @@
     section.innerHTML = `
       <div class="p-container">
         <div class="p-location-grid">
-          <div class="p-location-map reveal" role="img" aria-label="${Kravon.esc(C.brand.name)} location">
-            <div class="p-location-map-grid" aria-hidden="true"></div>
-            <div class="p-location-pin">
-              <div class="p-location-pin-pulse" aria-hidden="true">📍</div>
-              <div class="p-location-pin-name">${Kravon.esc(C.brand.name)}</div>
-              <div class="p-location-pin-sub">${Kravon.esc(C.contact?.city || '')}</div>
-            </div>
+          <div class="p-location-map reveal">
+            ${(() => {
+              // Use coords from config if provided, otherwise fall back to city-level geocode
+              const lat  = loc.lat  || C.contact?.lat  || null;
+              const lon  = loc.lon  || C.contact?.lon  || null;
+              const link = mapUrl || '#';
+
+              if (lat && lon) {
+                const dLon = 0.006;  // ~550m east-west
+                const dLat = 0.005;  // ~550m north-south, pin sits upper-third
+                const bbox = `${lon - dLon},${lat - dLat * 1.4},${lon + dLon},${lat + dLat * 0.6}`;
+                const osmSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lon}`;
+                return `
+                  <a class="p-location-map-link" href="${Kravon.esc(link)}" target="_blank" rel="noopener noreferrer" aria-label="Open ${Kravon.esc(C.brand.name)} location in maps">
+                    <iframe
+                      class="p-location-map-iframe"
+                      src="${osmSrc}"
+                      loading="lazy"
+                      title="${Kravon.esc(C.brand.name)} on map"
+                      aria-hidden="true"
+                      tabindex="-1">
+                    </iframe>
+                    <div class="p-location-map-overlay">
+                      <span class="p-location-map-cta">Open in Maps ↗</span>
+                    </div>
+                  </a>`;
+              }
+              // No coords — fall back to CSS placeholder
+              return `
+                <div class="p-location-map-grid" aria-hidden="true"></div>
+                <div class="p-location-pin">
+                  <div class="p-location-pin-pulse" aria-hidden="true">📍</div>
+                  <div class="p-location-pin-name">${Kravon.esc(C.brand.name)}</div>
+                  <div class="p-location-pin-sub">${Kravon.esc(C.contact?.city || '')}</div>
+                </div>`;
+            })()}
           </div>
           <div class="p-location-info">
             <div>
