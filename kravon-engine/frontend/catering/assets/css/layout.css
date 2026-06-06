@@ -672,6 +672,11 @@ footer {
 
 /* ─── RESPONSIVE ─── */
 
+/* Tablet (≤1024px) */
+@media (max-width: 1024px) {
+  .form-layout   { grid-template-columns: 1fr; gap: var(--s40); }
+}
+
 /* Tablet (≤900px) */
 @media (max-width: 900px) {
   .hero          { padding: 60px 0 0; }

@@ -285,7 +285,21 @@
       "Bash(node -e \"process.stdin.resume\\(\\);let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const c=JSON.parse\\(d\\).config;console.log\\('lat:',c.location?.lat,'lng:',c.location?.lng,'mapUrl:',c.location?.mapUrl\\);}\\);\")",
       "Bash(node -e \"process.stdin.resume\\(\\);let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const c=JSON.parse\\(d\\).config;console.log\\('lat:',c.location?.lat,'lng:',c.location?.lng\\);}\\);\")",
       "Bash(node -e \"process.stdin.resume\\(\\);let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const c=JSON.parse\\(d\\).config; console.log\\('lat:',c.location?.lat,'lng:',c.location?.lng,'mapUrl:',c.location?.mapUrl?.slice\\(0,60\\)\\);}\\);\")",
-      "Bash(node -e \"process.stdin.resume\\(\\);let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const c=JSON.parse\\(d\\).config; console.log\\('lat:',c.location?.lat,'lng:',c.location?.lng\\);}\\);\")"
+      "Bash(node -e \"process.stdin.resume\\(\\);let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const c=JSON.parse\\(d\\).config; console.log\\('lat:',c.location?.lat,'lng:',c.location?.lng\\);}\\);\")",
+      "Bash(npx pm2 *)",
+      "Bash(npx http-server *)",
+      "PowerShell(Get-Process node -ErrorAction SilentlyContinue | Where-Object {$_.Id -eq 28744} | Select-Object Id, HasExited, ExitCode)",
+      "PowerShell($env:DATABASE_URL = \"postgresql://postgres:WqKFsUkWJrPYFKYvMVWnHTsMTjBkFcXk@autorack.proxy.rlwy.net:37421/railway\"; node -e \"const s = require\\('c:/Users/Nikhil/KravonSAAS/kravon-stack/kravon-engine/backend/server.js'\\)\" 2>&1 | Select-Object -First 20)",
+      "PowerShell(Get-ChildItem \"c:\\\\Users\\\\Nikhil\\\\KravonSAAS\\\\kravon-stack\\\\kravon-engine\" | Where-Object {!$_.PSIsContainer} | Select-Object Name)",
+      "Bash(node -e \"const d=require\\('fs'\\).readFileSync\\('/dev/stdin','utf8'\\); const j=JSON.parse\\(d\\); console.log\\('OK, brand:', j.config?.brand?.name\\)\")",
+      "Bash(node)",
+      "Bash(xargs grep -l \"catering\")",
+      "Bash(node -e \"require\\('dotenv'\\).config\\({path:'kravon-engine/backend/api/.env'}\\); const {query}=require\\('./kravon-engine/backend/db/pool'\\); query\\('SELECT slug, name, has_catering FROM tenant.restaurants WHERE deleted_at IS NULL'\\).then\\(r=>{console.log\\(r.rows\\);process.exit\\(\\)}\\).catch\\(e=>{console.error\\(e.message\\);process.exit\\(1\\)}\\)\")",
+      "Bash(node -e \"require\\('dotenv'\\).config\\({path:'.env'}\\); const {query}=require\\('./db/pool'\\); query\\('SELECT slug, name, has_catering FROM tenant.restaurants WHERE deleted_at IS NULL'\\).then\\(r=>{console.log\\(r.rows\\);process.exit\\(\\)}\\).catch\\(e=>{console.error\\(e.message\\);process.exit\\(1\\)}\\)\")",
+      "Bash(node -e \"require\\('dotenv'\\).config\\({path:'.env'}\\); const {query}=require\\('./db/pool'\\); query\\('SELECT slug, name, has_catering, settings FROM tenant.restaurants WHERE slug=\\\\$1', ['royal-tandoor']\\).then\\(r=>{const row=r.rows[0]; console.log\\('has_catering:', row.has_catering\\); console.log\\('catering in settings:', !!\\(row.settings && row.settings.catering\\)\\); process.exit\\(\\)}\\).catch\\(e=>{console.error\\(e.message\\);process.exit\\(1\\)}\\)\")",
+      "Bash(node db/seeds/seed-catering-royal-tandoor.js)",
+      "Bash(node -e \"require\\('dotenv'\\).config\\({path:'.env'}\\); const {query}=require\\('./db/pool'\\); query\\('SELECT \\(settings->>'catering'\\)::text IS NOT NULL as has_catering_data FROM tenant.restaurants WHERE slug=\\\\$1', ['royal-tandoor']\\).then\\(r=>{console.log\\('Has catering data:', r.rows[0].has_catering_data\\);process.exit\\(\\)}\\).catch\\(e=>{console.error\\(e.message\\);process.exit\\(1\\)}\\)\")",
+      "Bash(node -e \"require\\('dotenv'\\).config\\({path:'.env'}\\); const {query}=require\\('./db/pool'\\); query\\(\\\\\"SELECT \\(settings->>'catering'\\)::text IS NOT NULL as has_catering_data FROM tenant.restaurants WHERE slug='royal-tandoor'\\\\\"\\).then\\(r=>{console.log\\('Has catering data:', r.rows[0].has_catering_data\\);process.exit\\(\\)}\\).catch\\(e=>{console.error\\(e.message\\);process.exit\\(1\\)}\\)\")"
     ],
     "additionalDirectories": [
       "\\tmp",
