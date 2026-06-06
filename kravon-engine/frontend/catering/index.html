@@ -9,8 +9,9 @@
   <!-- Inline config — must precede deferred scripts -->
   <script>
     const _q = new URLSearchParams(window.location.search);
-    const KRAVON_API_URL      = '%%KRAVON_API_URL%%'  || _q.get('api')  || 'http://localhost:3000';
-    const RESTAURANT_SLUG_ENV = '%%RESTAURANT_SLUG%%' || _q.get('slug');
+    const _kp = s => !s || s.startsWith('%%');
+    const KRAVON_API_URL      = _kp('%%KRAVON_API_URL%%')  ? (_q.get('api')  || 'http://localhost:3000') : '%%KRAVON_API_URL%%';
+    const RESTAURANT_SLUG_ENV = _kp('%%RESTAURANT_SLUG%%') ? _q.get('slug') : '%%RESTAURANT_SLUG%%';
   </script>
 
   <!-- Fonts: non-blocking load -->

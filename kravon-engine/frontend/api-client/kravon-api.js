@@ -13,13 +13,17 @@
 
 const KravonAPI = (() => {
 
-  const API_BASE = typeof KRAVON_API_URL !== 'undefined'
-    ? KRAVON_API_URL
-    : 'http://localhost:3000';
+  const _rawApi  = typeof KRAVON_API_URL      !== 'undefined' ? KRAVON_API_URL      : '';
+  const _rawSlug = typeof RESTAURANT_SLUG_ENV !== 'undefined' ? RESTAURANT_SLUG_ENV : '';
+  const _isPlaceholder = s => !s || s.startsWith('%%');
 
-  const RESTAURANT_SLUG = typeof RESTAURANT_SLUG_ENV !== 'undefined'
-    ? RESTAURANT_SLUG_ENV
-    : (() => { throw new Error('RESTAURANT_SLUG is not defined'); })();
+  const API_BASE = _isPlaceholder(_rawApi)
+    ? (() => { const q = new URLSearchParams(window.location.search); return q.get('api') || 'http://localhost:3000'; })()
+    : _rawApi;
+
+  const RESTAURANT_SLUG = _isPlaceholder(_rawSlug)
+    ? (() => { const q = new URLSearchParams(window.location.search); const s = q.get('slug'); if (!s) throw new Error('RESTAURANT_SLUG is not defined'); return s; })()
+    : _rawSlug;
 
   let _config = null;
 

@@ -6,8 +6,9 @@
   <title>Kravon Dashboard</title>
   <link rel="stylesheet" href="assets/css/dashboard.css">
   <script>
-    window.KRAVON_API_BASE      = '%%KRAVON_API_URL%%'      || 'http://localhost:3000';
-    window.KRAVON_FRONTEND_BASE = '%%KRAVON_FRONTEND_URL%%' || 'http://localhost:8000';
+    const _kp = s => !s || s.startsWith('%%');
+    window.KRAVON_API_BASE      = _kp('%%KRAVON_API_URL%%')      ? 'http://localhost:3000' : '%%KRAVON_API_URL%%';
+    window.KRAVON_FRONTEND_BASE = _kp('%%KRAVON_FRONTEND_URL%%') ? 'http://localhost:8000' : '%%KRAVON_FRONTEND_URL%%';
   </script>
 </head>
 <body>
