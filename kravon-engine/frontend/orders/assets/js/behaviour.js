@@ -1,250 +1,384 @@
 /* ═══════════════════════════════════════════════════════════
    ORDERS — BEHAVIOUR.JS
-   Single delegated click handler + keyboard + resize.
-   Loaded last — renderer, cart, modal, checkout, ui all ready.
+   Single event delegation layer. Delegates to OrdersCart,
+   OrdersRenderer, OrdersCheckout, OrdersModal.
    ═══════════════════════════════════════════════════════════ */
 
-(function () {
+function initOrdersBehaviour() {
   'use strict';
 
   function _findMenuItem(id) {
-    for (const cat of window.MENU) {
+    for (const cat of (window.MENU || [])) {
       const item = cat.items.find(i => String(i.id) === String(id));
       if (item) return item;
     }
     return null;
   }
 
-  /* ── Single delegated click ───────────────────────────── */
-  document.addEventListener('click', function (e) {
-    const btn = e.target.closest('[data-action]');
-    if (!btn) return;
-    const action = btn.dataset.action;
+  /* ── Cart open/close ──────────────────────────────────────── */
+  function openCart() {
+    const drawer  = document.getElementById('cartDrawer');
+    const overlay = document.getElementById('cartOverlay');
+    OrdersRenderer.renderCartDrawer();
+    if (drawer)  { drawer.style.display = ''; drawer.setAttribute('aria-hidden', 'false'); }
+    if (overlay) { overlay.style.display = ''; overlay.setAttribute('aria-hidden', 'false'); }
+    document.body.style.overflow = 'hidden';
+    drawer?.querySelector('.cart-close-btn')?.focus();
+  }
+
+  function closeCart() {
+    const drawer  = document.getElementById('cartDrawer');
+    const overlay = document.getElementById('cartOverlay');
+    if (drawer)  { drawer.style.display = 'none'; drawer.setAttribute('aria-hidden', 'true'); }
+    if (overlay) { overlay.style.display = 'none'; overlay.setAttribute('aria-hidden', 'true'); }
+    document.body.style.overflow = '';
+  }
+
+  /* ── Mobile cart label: first item name ──────────────────── */
+  function _updateMobileCartLabel() {
+    const labelEl = document.getElementById('mobileCartLabel');
+    if (!labelEl) return;
+    const items = OrdersCart.getItems();
+    const count = items.reduce((sum, i) => sum + i.qty, 0);
+    if (items.length > 0) {
+      const firstName = items[0].name.length > 18
+        ? items[0].name.slice(0, 17) + '…'
+        : items[0].name;
+      const extra = count > 1 ? ` +${count - 1}` : '';
+      labelEl.textContent = firstName + extra;
+    } else {
+      labelEl.textContent = 'items in cart';
+    }
+  }
+
+  /* ── Category sheet open/close ───────────────────────────── */
+  function openCatSheet() {
+    const sheet   = document.getElementById('catSheet');
+    const overlay = document.getElementById('catSheetOverlay');
+    const list    = document.getElementById('catSheetList');
+
+    if (list && window.MENU) {
+      list.innerHTML = window.MENU.map(cat => `
+        <button class="cat-sheet-item" data-action="jump-to-cat"
+                data-cat-id="${Kravon.esc(cat.id)}"
+                aria-label="Go to ${Kravon.esc(cat.name)}">
+          <span>${Kravon.esc(cat.name)}</span>
+          <span class="cat-sheet-item-count">${cat.items.length} items</span>
+        </button>`).join('');
+    }
+
+    if (sheet)   { sheet.classList.add('open');   sheet.setAttribute('aria-hidden', 'false'); }
+    if (overlay) { overlay.classList.add('open'); overlay.setAttribute('aria-hidden', 'false'); }
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeCatSheet() {
+    const sheet   = document.getElementById('catSheet');
+    const overlay = document.getElementById('catSheetOverlay');
+    if (sheet)   { sheet.classList.remove('open');   sheet.setAttribute('aria-hidden', 'true'); }
+    if (overlay) { overlay.classList.remove('open'); overlay.setAttribute('aria-hidden', 'true'); }
+    document.body.style.overflow = '';
+  }
+
+  /* ── Show/hide FAB based on current screen ───────────────── */
+  function _syncFab(screenId) {
+    const fab = document.getElementById('catFab');
+    if (!fab) return;
+    if (screenId === 'screenOrdering' && window.innerWidth <= 768) {
+      fab.classList.add('visible');
+    } else {
+      fab.classList.remove('visible');
+    }
+  }
+
+  /* ── Category scroll ─────────────────────────────────────── */
+  function scrollToCategory(catId) {
+    const section = document.getElementById(`cat_${catId}`);
+    if (!section) return;
+    const navH = document.querySelector('.tables-nav')?.offsetHeight || 60;
+    const catH = document.querySelector('.cat-sidebar')?.offsetHeight || 0;
+    const top  = section.getBoundingClientRect().top + window.scrollY - navH - catH - 12;
+    window.scrollTo({ top, behavior: 'smooth' });
+    document.querySelectorAll('.cat-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.catId === String(catId));
+    });
+  }
+
+  /* ── Main event delegator ────────────────────────────────── */
+  document.body.addEventListener('click', function (e) {
+    const target = e.target.closest('[data-action]');
+    if (!target) return;
+    const action = target.dataset.action;
 
     switch (action) {
 
+      /* ── Simple add (non-customisable) ── */
       case 'add-item': {
-        const item = _findMenuItem(btn.dataset.itemId);
+        const id   = target.dataset.itemId;
+        const item = _findMenuItem(id);
         if (!item) return;
-        Cart.addItem(item.id, item.name, item.price, '');
-        OrdersRenderer.updateItemBtn(item.id);
-        UI.renderCart();
-        UI.flashCartPanel();
-        UI.animateItemAdded(item.id);
+        OrdersCart.addItem(id, item.name, item.price);
+        OrdersRenderer.updateItemBtn(id);
+        OrdersRenderer.renderCartDrawer();
+        _updateMobileCartLabel();
+        Kravon.toast(`${item.name} added`);
         break;
       }
 
-      case 'open-modal':
-        Modal.open(btn.dataset.itemId);
+      /* ── Open customisation modal ── */
+      case 'open-modal': {
+        OrdersModal.open(target.dataset.itemId);
+        break;
+      }
+
+      /* ── Edit item in cart ── */
+      case 'edit-cart-item': {
+        OrdersModal.openEdit(parseInt(target.dataset.idx, 10));
+        break;
+      }
+
+      /* ── Modal close ── */
+      case 'orders-close-modal':
+        OrdersModal.close();
         break;
 
-      case 'close-modal':
-        Modal.close();
+      /* ── Modal qty ── */
+      case 'orders-modal-qty-dec':
+        OrdersModal.decQty();
         break;
 
-      case 'modal-qty-dec':
-        Modal.decQty();
+      case 'orders-modal-qty-inc':
+        OrdersModal.incQty();
         break;
 
-      case 'modal-qty-inc':
-        Modal.incQty();
+      /* ── Modal toggle addon ── */
+      case 'orders-toggle-addon':
+        OrdersModal.toggleAddon(target);
         break;
 
-      case 'toggle-addon':
-        Modal.toggleAddon(btn);
+      /* ── Modal set spice ── */
+      case 'orders-set-spice':
+        OrdersModal.setSpice(target);
         break;
 
-      case 'set-spice':
-        Modal.setSpice(btn);
-        break;
-
-      case 'modal-confirm': {
-        const confirmedId = Modal.confirm();
+      /* ── Modal confirm ── */
+      case 'orders-modal-confirm': {
+        const confirmedId = OrdersModal.confirm();
         if (confirmedId) {
           OrdersRenderer.updateItemBtn(confirmedId);
-          UI.renderCart();
-          UI.flashCartPanel();
-          UI.animateItemAdded(confirmedId);
+          OrdersRenderer.renderCartDrawer();
+          _updateMobileCartLabel();
+          Kravon.toast('Added to order');
         }
         break;
       }
 
-      case 'item-dec': {
-        // Decrement total qty for this menu item across all cart entries.
-        // Find the last matching entry and reduce it by 1.
-        const id    = btn.dataset.itemId;
-        const items = Cart.getItems();
-        // Walk backwards — remove the last-added variant first
-        for (let i = items.length - 1; i >= 0; i--) {
-          if (items[i].id === String(id)) {
-            Cart.changeQty(i, -1);
-            break;
-          }
+      /* ── Inc/dec from menu grid (non-customisable) ── */
+      case 'inc-item': {
+        const id    = target.dataset.itemId;
+        const items = OrdersCart.getItems();
+        const idx   = [...items].reverse().findIndex(i => i.id === String(id));
+        const realIdx = idx === -1 ? -1 : items.length - 1 - idx;
+        if (realIdx !== -1) {
+          OrdersCart.changeQty(realIdx, 1);
+        } else {
+          const item = _findMenuItem(id);
+          if (item) OrdersCart.addItem(id, item.name, item.price);
         }
         OrdersRenderer.updateItemBtn(id);
-        UI.renderCart();
+        OrdersRenderer.renderCartDrawer();
+        _updateMobileCartLabel();
         break;
       }
 
-      case 'change-qty': {
-        const idx    = parseInt(btn.dataset.idx, 10);
-        const itemId = Cart.getItems()[idx]?.id;
-        Cart.changeQty(idx, parseInt(btn.dataset.delta, 10));
-        if (itemId) OrdersRenderer.updateItemBtn(itemId);
-        UI.renderCart();
+      case 'dec-item': {
+        const id    = target.dataset.itemId;
+        const items = OrdersCart.getItems();
+        for (let i = items.length - 1; i >= 0; i--) {
+          if (items[i].id === String(id)) { OrdersCart.changeQty(i, -1); break; }
+        }
+        OrdersRenderer.updateItemBtn(id);
+        OrdersRenderer.renderCartDrawer();
+        _updateMobileCartLabel();
         break;
       }
 
-      case 'remove-item': {
-        const itemId = Cart.getItems()[parseInt(btn.dataset.idx, 10)]?.id;
-        Cart.removeItem(parseInt(btn.dataset.idx, 10));
-        if (itemId) OrdersRenderer.updateItemBtn(itemId);
-        UI.renderCart();
+      /* ── Cart drawer ── */
+      case 'open-cart':
+        openCart();
+        break;
+
+      case 'close-cart':
+        closeCart();
+        break;
+
+      /* ── Cart qty ── */
+      case 'cart-dec': {
+        const idx = parseInt(target.dataset.idx, 10);
+        const itemBefore = OrdersCart.getItems()[idx];
+        OrdersCart.changeQty(idx, -1);
+        if (itemBefore) OrdersRenderer.updateItemBtn(itemBefore.id);
+        OrdersRenderer.renderCartDrawer();
+        _updateMobileCartLabel();
         break;
       }
 
-      case 'edit-item':
-        Modal.openEdit(parseInt(btn.dataset.idx, 10));
+      case 'cart-inc': {
+        const idx  = parseInt(target.dataset.idx, 10);
+        const item = OrdersCart.getItems()[idx];
+        if (item) {
+          OrdersCart.changeQty(idx, 1);
+          OrdersRenderer.updateItemBtn(item.id);
+        }
+        OrdersRenderer.renderCartDrawer();
+        _updateMobileCartLabel();
+        break;
+      }
+
+      /* ── Floating category launcher ── */
+      case 'open-cat-sheet':
+        openCatSheet();
         break;
 
-      case 'go-to-checkout':
-        Checkout.goToCheckout();
+      case 'close-cat-sheet':
+        closeCatSheet();
         break;
 
+      case 'jump-to-cat': {
+        closeCatSheet();
+        scrollToCategory(target.dataset.catId);
+        break;
+      }
+
+      /* ── Go to checkout ── */
+      case 'go-checkout': {
+        const items = OrdersCart.getItems();
+        if (!items.length) return;
+        const totals = OrdersCart.getTotals();
+        if (totals.belowMin) {
+          Kravon.toast(`Min order ₹${totals.minOrder}. Add ₹${totals.minOrder - totals.sub} more.`);
+          return;
+        }
+        closeCart();
+        OrdersRenderer.renderCheckoutSummary();
+        OrdersRenderer.showScreen('screenCheckout');
+        _syncFab('screenCheckout');
+        window.scrollTo(0, 0);
+        break;
+      }
+
+      /* ── Place order ── */
+      case 'place-order':
+        OrdersCheckout.placeOrder();
+        break;
+
+      /* ── Delivery / payment selection ── */
       case 'select-delivery':
-        Checkout.selectDelivery(btn);
+        OrdersCheckout.selectDelivery(target);
         break;
 
       case 'select-payment':
-        Checkout.selectPayment(btn);
+        OrdersCheckout.selectPayment(target);
         break;
 
-      case 'place-order':
-        Checkout.placeOrder();
-        break;
-
+      /* ── Track order (WhatsApp) ── */
       case 'track-order':
-        Checkout.trackOrder();
+        OrdersCheckout.trackOrder(target);
         break;
 
+      /* ── New order ── */
       case 'new-order':
-        Checkout.newOrder();
-        // Reset all item card buttons to Add state after cart clear
-        window.MENU.forEach(cat => cat.items.forEach(item => {
-          OrdersRenderer.updateItemBtn(item.id);
-        }));
+        OrdersCheckout.newOrder();
+        (window.MENU || []).forEach(cat =>
+          cat.items.forEach(item => OrdersRenderer.updateItemBtn(item.id))
+        );
         break;
 
-      case 'rate-order':
-        Checkout.handleOrderRating(parseInt(btn.dataset.stars, 10));
+      /* ── Scroll to menu category ── */
+      case 'scroll-to-cat':
+        scrollToCategory(target.dataset.catId);
         break;
 
-      case 'submit-order-feedback':
-        Checkout.submitOrderFeedback();
+      /* ── Star rating ── */
+      case 'rate': {
+        const stars = parseInt(target.dataset.stars, 10);
+        OrdersCheckout.handleRating(stars);
+        break;
+      }
+
+      /* ── Submit feedback ── */
+      case 'submit-feedback':
+        OrdersCheckout.submitFeedback();
         break;
 
-      case 'browse-menu':
-        UI.closeMobileCart();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        break;
-
-      case 'edit-order':
-        Checkout.editOrder();
-        break;
-
-      case 'go-back':
-        history.back();
-        break;
-
-      case 'nav-cart':
-        UI.handleNavCart();
-        break;
-
-      case 'open-mobile-cart':
-        UI.openMobileCart();
-        break;
-
-      case 'close-mobile-cart':
-        UI.closeMobileCart();
-        break;
-
-      case 'toggle-mobile-cart':
-        UI.toggleMobileCart();
-        break;
-
-      case 'scroll-to-section':
-        UI.scrollToSection(btn.dataset.sectionId, btn);
-        break;
-
-      case 'expand-desc':
-        btn.classList.toggle('item-desc--expanded');
+      case 'expand-card-desc':
+        target.classList.toggle('menu-card-desc--expanded');
         break;
     }
   });
 
-  /* ── Keyboard ─────────────────────────────────────────── */
-  document.addEventListener('keydown', e => {
-    if (e.key !== 'Escape') return;
-    if (document.getElementById('customModal')?.classList.contains('open')) {
-      Modal.close();
-    } else {
-      UI.closeMobileCart();
+  /* ── Overlay click closes cart ─────────────────────────── */
+  const overlay = document.getElementById('cartOverlay');
+  if (overlay) overlay.addEventListener('click', closeCart);
+
+  /* ── Escape key: close cart or modal ──────────────────── */
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      const modal = document.getElementById('ordersCustomModal');
+      if (modal && modal.classList.contains('open')) {
+        OrdersModal.close();
+      } else {
+        closeCart();
+        closeCatSheet();
+      }
     }
   });
-
-  /* ── Resize ───────────────────────────────────────────── */
-  window.addEventListener('resize', UI.onResize);
-
-  /* ── Category scroll spy ──────────────────────────────── */
-  // Highlights the sidebar cat-btn matching the section currently in view.
-  function _updateActiveCat() {
-    const navH = parseInt(
-      getComputedStyle(document.documentElement).getPropertyValue('--nav-height'), 10
-    ) || 60;
-    const offset = navH + 24;
-    const sections = document.querySelectorAll('.menu-cat-section');
-    let activeId = null;
-    sections.forEach(s => {
-      if (s.getBoundingClientRect().top - offset <= 0) activeId = s.id;
-    });
-    // When no section has scrolled past the threshold, keep the first category active
-    if (!activeId) {
-      const firstSection = sections[0];
-      if (firstSection) activeId = firstSection.id;
-    }
-    document.querySelectorAll('.cat-btn').forEach(b => {
-      b.classList.toggle('active', b.dataset.sectionId === activeId);
-    });
-  }
-  window.addEventListener('scroll', _updateActiveCat, { passive: true });
 
   /* ── Browser back/forward ─────────────────────────────── */
   window.addEventListener('popstate', function (e) {
     const screen = e.state?.screen || 'screenOrdering';
-    UI.showScreen(screen, false);
+    OrdersRenderer.showScreen(screen, false);
+    window.scrollTo(0, 0);
   });
 
-  /* ── Init — called by boot.js after loadConfig() ─────── */
-  window.initBehaviour = function () {
-    Modal.init();
-    Checkout.init();
-    UI.renderCart();
-    document.getElementById('screenOrdering')?.classList.add('active');
-    // Seed initial history entry so the first Back press returns here
-    history.replaceState({ screen: 'screenOrdering' }, '', window.location.href);
-    // Set first category active immediately — scroll spy only fires after scroll
-    requestAnimationFrame(() => {
-      const firstBtn = document.querySelector('.cat-btn');
-      if (firstBtn) firstBtn.classList.add('active');
-    });
-    // Scroll to the ordering layout so the sticky cart panel is above the fold
-    requestAnimationFrame(() => {
-      const layout = document.querySelector('.ordering-layout');
-      if (layout) {
-        const navH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--nav-height'), 10) || 60;
-        window.scrollTo({ top: layout.getBoundingClientRect().top + window.scrollY - navH, behavior: 'instant' });
-      }
-    });
-  };
+  /* ── Category sticky scroll highlighting ───────────────── */
+  function updateActiveCat() {
+    const sections = document.querySelectorAll('.menu-section');
+    const navH = document.querySelector('.tables-nav')?.offsetHeight || 60;
+    const offset = navH + 24;
 
-})();
+    let activeId = null;
+    sections.forEach(s => {
+      if (s.getBoundingClientRect().top - offset < 0) activeId = s.id.replace('cat_', '');
+    });
+
+    if (!activeId && sections.length > 0) {
+      activeId = sections[0].id.replace('cat_', '');
+    }
+
+    document.querySelectorAll('.cat-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.catId === activeId);
+    });
+  }
+
+  requestAnimationFrame(() => {
+    const firstBtn = document.querySelector('.cat-btn');
+    if (firstBtn) firstBtn.classList.add('active');
+    _syncFab('screenOrdering');
+  });
+
+  window.addEventListener('scroll', updateActiveCat, { passive: true });
+  window.addEventListener('resize', () => _syncFab(
+    document.getElementById('screenOrdering')?.style.display !== 'none' ? 'screenOrdering' : 'other'
+  ), { passive: true });
+
+  /* ── Visual viewport: shrink cart drawer when keyboard appears ── */
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => {
+      const drawer = document.getElementById('cartDrawer');
+      if (!drawer || drawer.getAttribute('aria-hidden') === 'true') return;
+      const available = window.visualViewport.height;
+      drawer.style.maxHeight = Math.min(available * 0.85, available - 48) + 'px';
+    }, { passive: true });
+  }
+}
