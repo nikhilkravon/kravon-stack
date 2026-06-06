@@ -356,9 +356,42 @@ router.post('/reservations', async (req, res, next) => {
     return res.status(400).json({ error: 'Dining tables not configured for this restaurant.' });
   }
 
+  // ── Reservation settings gate ──────────────────────────────────────────
+  const resCfg = req.tenant.reservations || {};
+  if (resCfg.accepts_reservations === false) {
+    return res.status(409).json({ error: 'This restaurant is not currently accepting reservations.' });
+  }
+
   const reservationAt = new Date(reservation_time);
   if (Number.isNaN(reservationAt.getTime())) {
     return res.status(400).json({ error: 'reservation_time is invalid.' });
+  }
+
+  // Advance window checks
+  const nowMs          = Date.now();
+  const maxAdvanceDays = resCfg.max_advance_days  ?? 30;
+  const minAdvanceHrs  = resCfg.min_advance_hours ?? 2;
+  const maxPartySize   = resCfg.max_party_size    ?? 12;
+
+  if (reservationAt.getTime() < nowMs + minAdvanceHrs * 3600_000) {
+    return res.status(400).json({ error: `Reservations must be made at least ${minAdvanceHrs} hour(s) in advance.` });
+  }
+  if (reservationAt.getTime() > nowMs + maxAdvanceDays * 86400_000) {
+    return res.status(400).json({ error: `Reservations can only be made up to ${maxAdvanceDays} day(s) in advance.` });
+  }
+  if (party_size > maxPartySize) {
+    return res.status(400).json({ error: `Maximum party size is ${maxPartySize}. Please call us for larger groups.` });
+  }
+
+  // Slot validation — only when slots are configured
+  const slots = resCfg.slots || [];
+  if (slots.length) {
+    const dayOfWeek = reservationAt.getDay(); // 0=Sun, 6=Sat
+    const hhmm      = `${String(reservationAt.getHours()).padStart(2, '0')}:${String(reservationAt.getMinutes()).padStart(2, '0')}`;
+    const inSlot    = slots.some(s => s.day === dayOfWeek && hhmm >= s.open && hhmm < s.close);
+    if (!inSlot) {
+      return res.status(400).json({ error: 'The selected time is outside our reservation hours. Please choose a time within our available slots.' });
+    }
   }
 
   const client = await getClient();

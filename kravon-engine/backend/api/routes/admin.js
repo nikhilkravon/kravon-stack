@@ -47,6 +47,7 @@ const CreateRestaurantSchema = z.object({
   delivery_zone:      z.string().max(200).optional(),
   hours_display:      z.string().max(100).optional(),
   open_until:         z.string().max(40).optional(),
+  accepts_orders:     z.boolean().optional(),
   has_presence:       z.boolean().optional(),
   has_tables:         z.boolean().optional(),
   has_orders:         z.boolean().optional(),
@@ -224,7 +225,7 @@ router.put('/restaurants/:slug', async (req, res, next) => {
     // Merge new settings fields
     const settingsPatch = {};
     const SETTINGS_FIELDS = [
-      'tagline','year','email','delivery_zone','hours_display','open_until',
+      'tagline','year','email','delivery_zone','hours_display','open_until','accepts_orders',
       'review_threshold','google_review_url',
       'delivery_fee','free_delivery_above','domain','map_url','webhook_url',
     ];

@@ -255,10 +255,19 @@ router.get('/', async (req, res, next) => {
       },
 
       hours: {
-        display:     r.hours_display || '',
-        openUntil:   r.open_until    || '',
-        navBadge:    r.hours_display || 'Open Now',
-        kitchenNote: r.hours_display || '',
+        display:       r.hours_display || '',
+        openUntil:     r.open_until    || '',
+        navBadge:      r.hours_display || 'Open Now',
+        kitchenNote:   r.hours_display || '',
+        acceptsOrders: r.accepts_orders !== false, // default true; explicit false = closed
+      },
+
+      reservations: {
+        acceptsReservations: r.reservations?.accepts_reservations !== false,
+        maxAdvanceDays:      r.reservations?.max_advance_days  ?? 30,
+        minAdvanceHours:     r.reservations?.min_advance_hours ?? 2,
+        maxPartySize:        r.reservations?.max_party_size    ?? 12,
+        slots:               r.reservations?.slots             ?? [],
       },
 
       // Capability model — single source for frontend feature gating.
@@ -454,6 +463,19 @@ const SettingsUpdateSchema = z.object({
   tagline:             z.string().max(300).optional(),
   hours_display:       z.string().max(100).optional(),
   open_until:          z.string().max(40).optional(),
+  accepts_orders:      z.boolean().optional(),
+  reservations: z.object({
+    accepts_reservations: z.boolean().optional(),
+    max_advance_days:     z.number().int().min(1).max(365).optional(),
+    min_advance_hours:    z.number().min(0).max(168).optional(),
+    max_party_size:       z.number().int().min(1).max(100).optional(),
+    slots: z.array(z.object({
+      day:        z.number().int().min(0).max(6),
+      open:       z.string().regex(/^\d{2}:\d{2}$/),
+      close:      z.string().regex(/^\d{2}:\d{2}$/),
+      max_covers: z.number().int().min(0).optional(),
+    })).optional(),
+  }).optional(),
   email:               z.string().email().max(150).optional(),
   phone:               z.string().max(30).optional(),
   wa_number:           z.string().regex(/^\d{10,15}$/, 'wa_number must be digits only, 10–15 chars').optional(),

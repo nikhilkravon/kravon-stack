@@ -138,7 +138,9 @@
              </div>`}
         <div class="menu-card-body">
           <div class="menu-card-name">${Kravon.esc(item.name)}</div>
-          ${item.desc ? `<div class="menu-card-desc">${Kravon.esc(item.desc)}</div>` : ''}
+          ${item.desc ? `<div class="menu-card-desc${!item.customise ? ' menu-card-desc--expandable' : ''}"
+               ${!item.customise ? 'data-action="expand-card-desc" role="button" tabindex="0" title="Tap to read more"' : ''}
+            >${Kravon.esc(item.desc)}</div>` : ''}
           <div class="menu-card-footer">
             <span class="menu-card-price">₹${Kravon.esc(item.price)}</span>
             <div id="itemctrl_${item.id}">${_tablesCtrl(item)}</div>
@@ -384,6 +386,7 @@
           <div class="modal-header">
             <div>
               <div class="modal-title" id="tablesModalItemName"></div>
+              <div class="modal-item-desc" id="tablesModalItemDesc" style="display:none"></div>
               <div class="modal-price" id="tablesModalItemPrice"></div>
             </div>
             <button class="modal-close" data-action="tables-close-modal"
@@ -497,6 +500,14 @@
     });
     const mobileBar = document.getElementById('mobileCartBar');
     if (mobileBar) mobileBar.style.display = id === 'screenOrdering' ? '' : 'none';
+
+    // Ensure cart drawer is always closed when navigating between screens
+    const cartDrawer  = document.getElementById('cartDrawer');
+    const cartOverlay = document.getElementById('cartOverlay');
+    if (cartDrawer)  { cartDrawer.style.display = 'none'; cartDrawer.setAttribute('aria-hidden', 'true'); }
+    if (cartOverlay) { cartOverlay.style.display = 'none'; cartOverlay.setAttribute('aria-hidden', 'true'); }
+    document.body.style.overflow = '';
+
     if (pushState !== false) {
       history.pushState({ screen: id }, '', window.location.href);
     }
@@ -529,11 +540,13 @@
         const isCustomisable = (window.MENU || []).some(cat =>
           cat.items.some(i => String(i.id) === String(item.id) && (i.customise || i.is_customizable))
         );
+        const hasDupe = items.filter(i => i.id === item.id).length > 1;
+        const displayName = hasDupe && item.note ? `${item.name} · ${item.note}` : item.name;
         return `
-        <div class="cart-item" aria-label="${Kravon.esc(item.name)}, ₹${item.price * item.qty}">
+        <div class="cart-item" aria-label="${Kravon.esc(displayName)}, ₹${item.price * item.qty}">
           <div class="cart-item-info">
-            <span class="cart-item-name">${Kravon.esc(item.name)}</span>
-            ${item.note ? `<span class="cart-item-note">${Kravon.esc(item.note)}</span>` : ''}
+            <span class="cart-item-name">${Kravon.esc(displayName)}</span>
+            ${item.note && !hasDupe ? `<span class="cart-item-note">${Kravon.esc(item.note)}</span>` : ''}
           </div>
           <div class="cart-item-right">
             <div class="cart-item-qty" role="group"

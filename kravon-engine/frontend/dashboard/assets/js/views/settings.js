@@ -105,6 +105,64 @@ const SettingsView = (() => {
           </form>
         </div>
 
+        <!-- Ordering switch -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">Ordering</span></div>
+          <div class="card-body">
+            <label style="display:flex;align-items:center;gap:var(--sp-3);cursor:pointer">
+              <input type="checkbox" id="accepts-orders-toggle" ${config.hours?.acceptsOrders !== false ? 'checked' : ''}>
+              <span>Accepting orders</span>
+            </label>
+            <p class="text-sm text-muted" style="margin-top:8px">
+              Uncheck to close ordering for all customers (Orders and Tables products). They will see a "We're closed" screen.
+            </p>
+            <p id="accepts-orders-status" class="text-sm" style="margin-top:8px"></p>
+          </div>
+        </div>
+
+        <!-- Reservations -->
+        <div class="card" id="res-settings-card">
+          <div class="card-header">
+            <span class="card-title">Reservations</span>
+            <label style="display:flex;align-items:center;gap:var(--sp-2);cursor:pointer;font-size:13px">
+              <input type="checkbox" id="res-open-toggle" ${config.reservations?.acceptsReservations !== false ? 'checked' : ''}>
+              <span id="res-open-label">${config.reservations?.acceptsReservations !== false ? 'Open' : 'Closed'}</span>
+            </label>
+          </div>
+          <div class="card-body">
+            <div class="form-row" style="margin-bottom:var(--sp-4)">
+              <div class="form-group">
+                <label>Max advance booking <span class="text-muted">(days)</span></label>
+                <input id="res-max-advance" type="number" min="1" max="365" value="${config.reservations?.maxAdvanceDays ?? 30}">
+              </div>
+              <div class="form-group">
+                <label>Min lead time <span class="text-muted">(hours)</span></label>
+                <input id="res-min-lead" type="number" min="0" max="168" step="0.5" value="${config.reservations?.minAdvanceHours ?? 2}">
+              </div>
+              <div class="form-group">
+                <label>Max party size</label>
+                <input id="res-max-party" type="number" min="1" max="100" value="${config.reservations?.maxPartySize ?? 12}">
+              </div>
+            </div>
+
+            <div style="margin-bottom:var(--sp-3)">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp-3)">
+                <span class="text-sm" style="font-weight:600">Available slots</span>
+                <button type="button" class="btn btn-secondary btn-sm" id="res-add-slot">+ Add slot</button>
+              </div>
+              <div style="font-size:11px;color:var(--gray-400);margin-bottom:var(--sp-3)">
+                Define which days and times guests can book. Leave empty to allow any time within operating hours.
+              </div>
+              <div id="res-slots-list"></div>
+            </div>
+
+            <p id="res-save-status" class="text-sm" style="margin-bottom:var(--sp-3)"></p>
+          </div>
+          <div style="display:flex;justify-content:flex-end;padding:12px 20px;border-top:1px solid var(--gray-100)">
+            <button class="btn btn-primary" id="res-save">Save reservations</button>
+          </div>
+        </div>
+
         <!-- Reviews -->
         <div class="card">
           <div class="card-header"><span class="card-title">Reviews</span></div>
@@ -239,6 +297,126 @@ const SettingsView = (() => {
 
     _bindForm('settings-delivery', 'delivery-save', ['delivery_fee','free_delivery_above']);
     _bindForm('settings-reviews',  'reviews-save',  ['review_threshold','google_review_url']);
+
+    // Accepts orders toggle — saves immediately on change
+    const acceptsOrdersToggle = el.querySelector('#accepts-orders-toggle');
+    const acceptsOrdersStatus = el.querySelector('#accepts-orders-status');
+    if (acceptsOrdersToggle) {
+      acceptsOrdersToggle.addEventListener('change', async () => {
+        const val = acceptsOrdersToggle.checked;
+        try {
+          await Api.rPatch('/config', { accepts_orders: val });
+          if (acceptsOrdersStatus) {
+            acceptsOrdersStatus.textContent = val ? '✓ Ordering is now open' : '✕ Ordering is now closed';
+            acceptsOrdersStatus.style.color = val ? 'var(--green-600)' : 'var(--red-600, #c0392b)';
+          }
+        } catch (ex) {
+          DashUI.toast(ex.message || 'Could not update ordering status.', 'error');
+          acceptsOrdersToggle.checked = !val;
+        }
+      });
+    }
+
+    // ── Reservations settings ────────────────────────────────────────────
+    const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+    function _resSlotRow(slot) {
+      return `
+        <div class="res-slot-row" style="display:grid;grid-template-columns:140px 90px 90px 80px auto;gap:var(--sp-2);align-items:center;margin-bottom:var(--sp-2)">
+          <select class="slot-day">
+            ${DAY_NAMES.map((d, i) => `<option value="${i}" ${slot?.day === i ? 'selected' : ''}>${d}</option>`).join('')}
+          </select>
+          <input class="slot-open"  type="time" value="${slot?.open  || '12:00'}">
+          <input class="slot-close" type="time" value="${slot?.close || '22:00'}">
+          <input class="slot-covers" type="number" min="0" max="999" placeholder="Covers" title="Max covers (0 = unlimited)" value="${slot?.max_covers ?? ''}">
+          <button type="button" class="btn btn-ghost btn-sm slot-remove" style="padding:4px 8px">✕</button>
+        </div>`;
+    }
+
+    const slotsList = el.querySelector('#res-slots-list');
+    const initSlots = config.reservations?.slots || [];
+
+    function _renderSlots(slots) {
+      slotsList.innerHTML = slots.length
+        ? `<div style="display:grid;grid-template-columns:140px 90px 90px 80px auto;gap:var(--sp-2);margin-bottom:var(--sp-1)">
+            <span class="text-sm text-muted">Day</span><span class="text-sm text-muted">Open</span>
+            <span class="text-sm text-muted">Close</span><span class="text-sm text-muted">Max covers</span><span></span>
+           </div>` + slots.map(_resSlotRow).join('')
+        : '<p class="text-sm text-muted">No slots configured — all times accepted.</p>';
+      slotsList.querySelectorAll('.slot-remove').forEach(btn => {
+        btn.addEventListener('click', () => btn.closest('.res-slot-row').remove());
+      });
+    }
+
+    _renderSlots(initSlots);
+
+    el.querySelector('#res-add-slot').addEventListener('click', () => {
+      const row = document.createElement('div');
+      row.innerHTML = _resSlotRow(null);
+      const newRow = row.firstElementChild;
+      newRow.querySelector('.slot-remove').addEventListener('click', () => newRow.remove());
+      if (!slotsList.querySelector('.res-slot-row')) slotsList.innerHTML = '';
+      slotsList.appendChild(newRow);
+      // Ensure header exists
+      if (!slotsList.querySelector('.text-muted')) {
+        const header = document.createElement('div');
+        header.style.cssText = 'display:grid;grid-template-columns:140px 90px 90px 80px auto;gap:var(--sp-2);margin-bottom:var(--sp-1)';
+        header.innerHTML = `<span class="text-sm text-muted">Day</span><span class="text-sm text-muted">Open</span>
+          <span class="text-sm text-muted">Close</span><span class="text-sm text-muted">Max covers</span><span></span>`;
+        slotsList.insertBefore(header, slotsList.firstChild);
+      }
+    });
+
+    // Open/closed toggle — updates label immediately
+    const resOpenToggle = el.querySelector('#res-open-toggle');
+    const resOpenLabel  = el.querySelector('#res-open-label');
+    if (resOpenToggle) {
+      resOpenToggle.addEventListener('change', () => {
+        resOpenLabel.textContent = resOpenToggle.checked ? 'Open' : 'Closed';
+      });
+    }
+
+    el.querySelector('#res-save').addEventListener('click', async () => {
+      const btn       = el.querySelector('#res-save');
+      const statusEl  = el.querySelector('#res-save-status');
+      const maxAdv    = parseInt(el.querySelector('#res-max-advance').value, 10) || 30;
+      const minLead   = parseFloat(el.querySelector('#res-min-lead').value)      || 2;
+      const maxParty  = parseInt(el.querySelector('#res-max-party').value, 10)   || 12;
+      const accepting = resOpenToggle ? resOpenToggle.checked : true;
+
+      const slots = [];
+      slotsList.querySelectorAll('.res-slot-row').forEach(row => {
+        const day    = parseInt(row.querySelector('.slot-day').value, 10);
+        const open   = row.querySelector('.slot-open').value;
+        const close  = row.querySelector('.slot-close').value;
+        const covers = parseInt(row.querySelector('.slot-covers').value, 10);
+        if (open && close && open < close) {
+          slots.push({ day, open, close, ...(covers > 0 ? { max_covers: covers } : {}) });
+        }
+      });
+
+      btn.disabled = true; btn.textContent = 'Saving…';
+      statusEl.textContent = '';
+      try {
+        await Api.rPatch('/config', {
+          reservations: {
+            accepts_reservations: accepting,
+            max_advance_days:     maxAdv,
+            min_advance_hours:    minLead,
+            max_party_size:       maxParty,
+            slots,
+          },
+        });
+        statusEl.textContent = '✓ Saved';
+        statusEl.style.color = 'var(--green-600)';
+        DashUI.toast('Reservation settings saved.', 'success');
+      } catch (ex) {
+        statusEl.textContent = ex.message || 'Could not save.';
+        statusEl.style.color = 'var(--red-600, #c0392b)';
+      } finally {
+        btn.disabled = false; btn.textContent = 'Save reservations';
+      }
+    });
 
     // GST — toggle show/hide fields
     const gstToggle = el.querySelector('#gst-enabled-toggle');

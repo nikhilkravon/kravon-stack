@@ -179,6 +179,7 @@ window.KravonCart = (() => {
         belowMin:       sub < _cfg.minOrder,
         toMin:          Math.max(0, _cfg.minOrder - sub),
         toFreeDelivery: Math.max(0, _cfg.freeDeliveryAt - sub),
+        freeDeliveryAt: _cfg.freeDeliveryAt,
       };
     }
 

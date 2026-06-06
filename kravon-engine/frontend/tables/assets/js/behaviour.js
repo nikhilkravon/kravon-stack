@@ -322,6 +322,10 @@ function initTablesBehaviour() {
         TablesCart.clear();
         window.location.reload();
         break;
+
+      case 'expand-card-desc':
+        target.classList.toggle('menu-card-desc--expanded');
+        break;
     }
   });
 
@@ -380,4 +384,42 @@ function initTablesBehaviour() {
   window.addEventListener('resize', () => _syncFab(
     document.getElementById('screenOrdering')?.style.display !== 'none' ? 'screenOrdering' : 'other'
   ), { passive: true });
+
+  /* ── Visual viewport: shrink cart drawer when keyboard appears ──── */
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => {
+      const drawer = document.getElementById('cartDrawer');
+      if (!drawer || drawer.getAttribute('aria-hidden') === 'true') return;
+      const available = window.visualViewport.height;
+      drawer.style.maxHeight = Math.min(available * 0.85, available - 48) + 'px';
+    }, { passive: true });
+  }
+
+  /* ── Session liveness poll (dine-in only) ──────────────────── */
+  const TC = window.TABLE_CONTEXT || {};
+  if (TC.isDineIn && TC.tableId) {
+    setInterval(async () => {
+      const orderingEl = document.getElementById('screenOrdering');
+      if (!orderingEl || orderingEl.style.display === 'none') return;
+      try {
+        const status = await KravonAPI.getDineInSessionStatus(TC.tableId);
+        if (!status.open) _showSessionClosedBanner();
+      } catch (_) { /* network blip — ignore */ }
+    }, 60_000);
+  }
+
+  function _showSessionClosedBanner() {
+    if (document.getElementById('sessionClosedBanner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'sessionClosedBanner';
+    banner.style.cssText = `
+      position:fixed;top:0;left:0;right:0;z-index:9999;
+      background:#c0392b;color:#fff;text-align:center;
+      padding:14px 16px;font-size:14px;font-weight:600;line-height:1.4;
+    `;
+    banner.textContent = 'Your table session has ended. Ask your waiter to re-open it.';
+    document.body.prepend(banner);
+    const goCheckoutBtn = document.querySelector('[data-action="go-checkout"]');
+    if (goCheckoutBtn) { goCheckoutBtn.disabled = true; goCheckoutBtn.setAttribute('aria-disabled', 'true'); }
+  }
 }

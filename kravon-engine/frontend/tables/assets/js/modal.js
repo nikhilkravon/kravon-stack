@@ -155,7 +155,7 @@ const TablesModal = (() => {
     }
 
     _modalItem = { id: _currentItem.id, name: _currentItem.name, price: _currentItem.price };
-    _setHeader(_currentItem.name, _currentItem.price);
+    _setHeader(_currentItem.name, _currentItem.price, _currentItem.desc);
     _buildVariants(_currentItem);
     _buildCustomizations(_currentItem);
     buildAddons();
@@ -181,7 +181,7 @@ const TablesModal = (() => {
     _modalItem  = { id: entry.id, name: entry.name, price: basePrice };
     _modalQty   = entry.qty;
 
-    _setHeader(entry.name, basePrice);
+    _setHeader(entry.name, basePrice, menuItem?.desc);
     _resetOptions();
 
     if (entry.note) {
@@ -316,11 +316,16 @@ const TablesModal = (() => {
   }
 
   /* ── Private helpers ── */
-  function _setHeader(name, price) {
+  function _setHeader(name, price, desc) {
     const nameEl  = document.getElementById('tablesModalItemName');
     const priceEl = document.getElementById('tablesModalItemPrice');
+    const descEl  = document.getElementById('tablesModalItemDesc');
     if (nameEl)  nameEl.textContent  = name;
     if (priceEl) priceEl.textContent = TablesCart.fmt(price);
+    if (descEl) {
+      descEl.textContent = desc || '';
+      descEl.style.display = desc ? '' : 'none';
+    }
   }
 
   function _resetOptions() {

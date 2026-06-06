@@ -19,6 +19,7 @@ const ALLOWED_SETTINGS_KEYS = new Set([
   'hours_display',       // display string (e.g. "Mon–Sat 11am–11pm")
   'open_until',          // short open-until string
   'delivery_zone',       // delivery area description
+  'accepts_orders',      // boolean — false = restaurant closed, gate ordering screens
 
   // ── Brand copy ──────────────────────────────────────────────────────────
   'tagline',             // hero/footer tagline
@@ -46,6 +47,16 @@ const ALLOWED_SETTINGS_KEYS = new Set([
   // Shape: { enabled, gstin, cgst_rate, sgst_rate, inclusive }
   // Stored as a nested object; entire subtree is replaced on write.
   'gst',
+
+  // ── Reservations configuration ──────────────────────────────────────────
+  // Shape: {
+  //   accepts_reservations: boolean,
+  //   max_advance_days: number,      — how far ahead guests can book
+  //   min_advance_hours: number,     — minimum lead time before slot
+  //   max_party_size: number,
+  //   slots: [{ day: 0-6, open: "HH:MM", close: "HH:MM", max_covers: number }]
+  // }
+  'reservations',
 
   // ── Presence content (Phase 5 consolidated owner) ───────────────────────
   // Shape: { story: { headline, body[], facts[] }, timeline[], signature_dishes[] }

@@ -373,7 +373,7 @@
             ${(() => {
               // Use coords from config if provided, otherwise fall back to city-level geocode
               const lat  = loc.lat  || C.contact?.lat  || null;
-              const lon  = loc.lon  || C.contact?.lon  || null;
+              const lon  = loc.lng  || loc.lon  || C.contact?.lng  || C.contact?.lon  || null;
               const link = mapUrl || '#';
 
               if (lat && lon) {

@@ -8,6 +8,31 @@ const OrdersView = (() => {
   let _newCount    = 0;       // cumulative unseen new orders since last badge clear
   let _expandedId  = null;    // order id whose detail row is currently open
   const _origTitle = document.title;
+  let _alertsEnabled = false; // user must gesture to unlock audio
+
+  function _pingAudio() {
+    try {
+      const ctx  = new (window.AudioContext || window.webkitAudioContext)();
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type      = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(660, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.5);
+    } catch (_) { /* audio unavailable */ }
+  }
+
+  function _pushNotification(count) {
+    if (Notification.permission !== 'granted') return;
+    new Notification(`${count} new order${count > 1 ? 's' : ''} — Kravon`, {
+      body: 'New orders have arrived. Check your dashboard.',
+      icon: '/favicon.ico',
+    });
+  }
 
   const STATUS_NEXT_DELIVERY = {
     pending:          ['confirmed', 'cancelled'],
@@ -275,6 +300,8 @@ const OrdersView = (() => {
           badgeEl.textContent = `+${_newCount} new`;
           badgeEl.style.display = '';
         }
+        if (_alertsEnabled) _pingAudio();
+        _pushNotification(diff);
       }
       _lastCount = total;
 
@@ -296,6 +323,9 @@ const OrdersView = (() => {
       el.querySelectorAll('.order-action').forEach(btn => {
         btn.addEventListener('click', async (e) => {
           e.stopPropagation();
+          if (btn.dataset.status === 'cancelled') {
+            if (!confirm('Cancel this order? This cannot be undone.')) return;
+          }
           btn.disabled = true;
           try {
             await Api.rPatch(`/orders/${btn.dataset.id}`, { status: btn.dataset.status });
@@ -331,6 +361,7 @@ const OrdersView = (() => {
           <input id="orders-search" class="search-input" type="search" placeholder="Search by name or phone…">
           <div style="display:flex;align-items:center;gap:var(--sp-3)">
             <button id="orders-new-badge" class="badge badge-placed" style="display:none;cursor:pointer" title="Click to dismiss">+0 new</button>
+            <button id="orders-notify-btn" class="btn btn-secondary btn-sm" title="Enable sound and browser notifications for new orders">🔔 Enable alerts</button>
             <span id="orders-page-info" class="text-sm text-muted"></span>
           </div>
         </div>
@@ -361,6 +392,17 @@ const OrdersView = (() => {
       document.title = _origTitle;
       const badgeEl = el.querySelector('#orders-new-badge');
       if (badgeEl) badgeEl.style.display = 'none';
+    });
+
+    // Enable alerts button — requires user gesture to unlock AudioContext
+    el.querySelector('#orders-notify-btn').addEventListener('click', async () => {
+      _alertsEnabled = true;
+      _pingAudio(); // unlock audio context with user gesture
+      if ('Notification' in window && Notification.permission === 'default') {
+        await Notification.requestPermission();
+      }
+      const btn = el.querySelector('#orders-notify-btn');
+      if (btn) { btn.textContent = '🔔 Alerts on'; btn.disabled = true; }
     });
 
     el.querySelectorAll('.tab').forEach(tab => {

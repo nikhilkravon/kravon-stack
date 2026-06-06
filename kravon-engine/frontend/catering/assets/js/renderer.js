@@ -118,15 +118,17 @@
     wrap.appendChild(inner);
     sec.appendChild(wrap);
 
-    var panel = h('div', 'hero-panel');
-    CONFIG.hero.stats.forEach(function (s) {
-      var stat = h('div', 'h-stat');
-      stat.appendChild(h('span', 'h-stat-n' + (s.gold ? ' gold' : ''), s.value));
-      stat.appendChild(h('span', 'h-stat-lbl', s.label.replace('\n', '<br>')));
-      panel.appendChild(stat);
-    });
-    panel.appendChild(h('div', 'h-panel-note', CONFIG.hero.panelNote));
-    sec.appendChild(panel);
+    if (CONFIG.hero.stats && CONFIG.hero.stats.length) {
+      var panel = h('div', 'hero-panel');
+      CONFIG.hero.stats.forEach(function (s) {
+        var stat = h('div', 'h-stat');
+        stat.appendChild(h('span', 'h-stat-n' + (s.gold ? ' gold' : ''), s.value));
+        stat.appendChild(h('span', 'h-stat-lbl', s.label.replace('\n', '<br>')));
+        panel.appendChild(stat);
+      });
+      if (CONFIG.hero.panelNote) panel.appendChild(h('div', 'h-panel-note', CONFIG.hero.panelNote));
+      sec.appendChild(panel);
+    }
     return sec;
   }
 
@@ -574,19 +576,26 @@
   /* ── FOOTER ── */
   function renderFooter() {
     var b  = CONFIG.brand;
+    var regParts = [b.name + ' Catering'];
+    if (b.cin)   regParts.push('CIN: ' + b.cin);
+    if (b.gst)   regParts.push('GST: ' + b.gst);
+    var reg2Parts = [];
+    if (b.fssai)   reg2Parts.push('FSSAI Licence No. ' + b.fssai);
+    if (b.address) reg2Parts.push('Registered: ' + b.address);
     var ft = h('footer');
     ft.appendChild(h('div', '',
       '<div class="footer-brand">' + b.name + ' — Catering Division</div>' +
       '<div class="footer-reg">' +
-        b.name + ' Catering Pvt. Ltd. · CIN: ' + b.cin + ' · GST: ' + b.gst + '<br>' +
-        'FSSAI Licence No. ' + b.fssai + ' · Registered: ' + b.address + '<br>' +
-        '&copy; 2025 ' + b.name + '. All rights reserved.' +
+        regParts.join(' · ') +
+        (reg2Parts.length ? '<br>' + reg2Parts.join(' · ') : '') +
+        '<br>&copy; 2025 ' + b.name + '. All rights reserved.' +
       '</div>'));
-    ft.appendChild(h('div', 'footer-contact',
-      'Proposals: <a href="mailto:' + b.email    + '">' + b.email    + '</a><br>' +
-      'Operations: <a href="mailto:' + b.emailOps + '">' + b.emailOps + '</a><br>' +
-      'Contracts: ' + b.phone + '<br>' +
-      'Operations: ' + b.phoneOps));
+    var contactLines = [];
+    if (b.email)    contactLines.push('Proposals: <a href="mailto:' + b.email + '">' + b.email + '</a>');
+    if (b.emailOps && b.emailOps !== b.email) contactLines.push('Operations: <a href="mailto:' + b.emailOps + '">' + b.emailOps + '</a>');
+    if (b.phone)    contactLines.push('Phone: ' + b.phone);
+    if (b.phoneOps && b.phoneOps !== b.phone) contactLines.push('Operations: ' + b.phoneOps);
+    ft.appendChild(h('div', 'footer-contact', contactLines.join('<br>')));
     return ft;
   }
 
@@ -653,6 +662,15 @@
     C.brand = C.brand || {};
     C.brand.division    = C.brand.division    || 'Catering & Events';
     C.brand.redirectUrl = C.brand.redirectUrl || ('/presence/?slug=' + (C.slug || ''));
+    // footer fields — pull from contact if not already in brand
+    C.brand.email    = C.brand.email    || (C.contact && C.contact.email)    || '';
+    C.brand.phone    = C.brand.phone    || (C.contact && C.contact.phone)    || '';
+    C.brand.emailOps = C.brand.emailOps || C.brand.email  || '';
+    C.brand.phoneOps = C.brand.phoneOps || C.brand.phone  || '';
+    C.brand.cin      = C.brand.cin      || '';
+    C.brand.gst      = C.brand.gst      || '';
+    C.brand.fssai    = C.brand.fssai    || '';
+    C.brand.minContract = C.brand.minContract || '50 pax';
 
     // hero shape fixes — API hero.headline is a string; renderer expects array
     C.hero = C.hero || {};

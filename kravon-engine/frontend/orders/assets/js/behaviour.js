@@ -175,6 +175,10 @@
       case 'scroll-to-section':
         UI.scrollToSection(btn.dataset.sectionId, btn);
         break;
+
+      case 'expand-desc':
+        btn.classList.toggle('item-desc--expanded');
+        break;
     }
   });
 

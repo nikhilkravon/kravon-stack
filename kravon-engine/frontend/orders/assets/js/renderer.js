@@ -123,7 +123,9 @@
       <div class="item-card" id="card-${Kravon.esc(item.id)}">
         ${imgHTML}
         <div class="item-name">${Kravon.esc(item.name)}</div>
-        <div class="item-desc">${Kravon.esc(item.desc)}</div>
+        <div class="item-desc${!item.customise && item.desc ? ' item-desc--expandable' : ''}"
+             ${!item.customise && item.desc ? 'data-action="expand-desc" role="button" tabindex="0" title="Tap to read more"' : ''}
+        >${Kravon.esc(item.desc)}</div>
         <div class="item-footer">
           <div class="item-price">₹${item.price}</div>
           <div id="itembtn-${Kravon.esc(item.id)}">${itemBtnHTML(item)}</div>
@@ -261,6 +263,9 @@
             </div>
           </div>
           <p class="min-order-note" id="minOrderNote"></p>
+          <div class="free-delivery-bar" id="freeDeliveryBar" style="display:none">
+            <div class="free-delivery-bar-fill" id="freeDeliveryBarFill"></div>
+          </div>
           <button class="btn-primary checkout-btn" id="checkoutBtn"
                   data-action="go-to-checkout" aria-label="Proceed to checkout">
             Proceed to Checkout →
@@ -330,13 +335,6 @@
             <button class="back-btn" data-action="edit-order" aria-label="Back to menu">← Edit Order</button>
             <h2 class="checkout-heading">Checkout</h2>
 
-            <div class="checkout-section" aria-labelledby="delivery-heading">
-              <div class="checkout-section-title" id="delivery-heading">Delivery Option</div>
-              <div id="deliveryOptions" role="radiogroup" aria-label="Delivery type">
-                ${deliveryOpts}
-              </div>
-            </div>
-
             <div class="checkout-section" aria-labelledby="payment-heading">
               <div class="checkout-section-title" id="payment-heading">Payment Method</div>
               <div id="paymentOptions" role="radiogroup" aria-label="Payment method">
@@ -347,6 +345,13 @@
                 <div class="razorpay-label">${Kravon.esc(O.gatewayNote.label)}</div>
                 <div class="razorpay-sub">${Kravon.esc(O.gatewayNote.body)}</div>
               </div>` : ''}
+            </div>
+
+            <div class="checkout-section" aria-labelledby="delivery-heading">
+              <div class="checkout-section-title" id="delivery-heading">Delivery Option</div>
+              <div id="deliveryOptions" role="radiogroup" aria-label="Delivery type">
+                ${deliveryOpts}
+              </div>
             </div>
           </div>
 

@@ -181,7 +181,7 @@ const Modal = (() => {
 
     _modalItem  = { id: _currentItem.id, name: _currentItem.name, price: _currentItem.price };
 
-    _setHeader(_currentItem.name, _currentItem.price);
+    _setHeader(_currentItem.name, _currentItem.price, _currentItem.desc);
     buildVariants(_currentItem);
     buildCustomizations(_currentItem);
     buildAddons();
@@ -216,7 +216,7 @@ const Modal = (() => {
 
     _modalItem  = { id: entry.id, name: entry.name, price: basePrice };
 
-    _setHeader(entry.name, basePrice);
+    _setHeader(entry.name, basePrice, _currentItem.desc);
     buildVariants(_currentItem);
     buildCustomizations(_currentItem);
     buildAddons();
@@ -376,11 +376,16 @@ const Modal = (() => {
   }
 
   /* ── Private helpers ── */
-  function _setHeader(name, price) {
+  function _setHeader(name, price, desc) {
     const nameEl  = document.getElementById('modalItemName');
     const priceEl = document.getElementById('modalItemPrice');
+    const descEl  = document.getElementById('modalItemDesc');
     if (nameEl)  nameEl.textContent  = name;
     if (priceEl) priceEl.textContent = Cart.fmt(price);
+    if (descEl) {
+      descEl.textContent = desc || '';
+      descEl.style.display = desc ? '' : 'none';
+    }
   }
 
   function _resetOptions() {

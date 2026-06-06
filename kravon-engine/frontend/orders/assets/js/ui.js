@@ -53,12 +53,15 @@ const UI = (function () {
         const editBtn = _getCustomisableIds().has(item.id)
           ? `<button class="edit-btn" data-action="edit-item"
                      data-idx="${idx}" aria-label="Edit ${Kravon.esc(item.name)}">Edit</button>` : '';
-        const noteHtml = item.note
+        const hasDupe = items.filter(i => i.id === item.id).length > 1;
+        const displayName = hasDupe && item.note
+          ? `${item.name} · ${item.note}` : item.name;
+        const noteHtml = item.note && !hasDupe
           ? `<div class="cart-item-note">${Kravon.esc(item.note)}</div>` : '';
         return `
           <div class="cart-item" role="listitem">
             <div class="cart-item-top">
-              <div class="cart-item-name">${Kravon.esc(item.name)}</div>
+              <div class="cart-item-name">${Kravon.esc(displayName)}</div>
               <div class="cart-item-price">${Cart.fmt(item.price * item.qty)}</div>
             </div>
             <div class="cart-item-controls">
@@ -100,6 +103,20 @@ const UI = (function () {
           noteEl.textContent = 'Free delivery applied ✓';
           noteEl.classList.remove('warn');
         }
+      }
+
+      const barEl  = _$('freeDeliveryBar');
+      const fillEl = _$('freeDeliveryBarFill');
+      if (barEl && fillEl && totals.freeDeliveryAt !== Infinity) {
+        if (!totals.freeDelivery) {
+          const pct = Math.min(100, Math.round((totals.sub / totals.freeDeliveryAt) * 100));
+          barEl.style.display = '';
+          fillEl.style.width  = pct + '%';
+        } else {
+          barEl.style.display = 'none';
+        }
+      } else if (barEl) {
+        barEl.style.display = 'none';
       }
 
       const checkoutBtn = _$('checkoutBtn');

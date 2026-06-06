@@ -204,6 +204,8 @@ const Checkout = (() => {
     _setText('summaryDelivery', totals.freeDelivery ? 'Free' : Cart.fmt(totals.del));
     _setText('summaryTax',      Cart.fmt(totals.tax));
     _setText('summaryTotal',    Cart.fmt(totals.total));
+    const placeBtn = document.querySelector('[data-action="place-order"]');
+    if (placeBtn && !placeBtn.disabled) placeBtn.textContent = `Place Order · ${Cart.fmt(totals.total)} →`;
   }
 
   /* ═══════════════════════════════════════════════════════════

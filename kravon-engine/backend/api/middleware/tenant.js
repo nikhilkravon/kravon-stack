@@ -94,6 +94,8 @@ function buildTenant(tenantRow, locationRow, integrations, contactLinks, seoRow,
     google_review_url:   s.google_review_url   || null,
     hours_display:       s.hours_display        || null,
     open_until:          s.open_until           || null,
+    accepts_orders:      s.accepts_orders       !== false, // explicit false = closed
+    reservations:        s.reservations         || null,   // full reservations config object
     delivery_zone:       s.delivery_zone        || null,
     map_url:             s.map_url              || null,
     story_headline:      presSt.headline         || s.story_headline || null,

@@ -371,7 +371,7 @@
 }
 .cap-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 1px;
   background: var(--line);
   margin-top: var(--s40);
@@ -465,7 +465,7 @@
   background: var(--bg-3);
   animation: fadeUp 0.22s var(--ease-out);
 }
-.menu-panel.active { display: grid; grid-template-columns: 1fr 1fr 1fr; }
+.menu-panel.active { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -650,7 +650,7 @@ footer {
   z-index: 600;
   background: rgba(7,7,6,0.96);
   border-top: 1px solid var(--line2);
-  padding: 11px 20px 15px;
+  padding: 11px 20px calc(15px + env(safe-area-inset-bottom, 0px));
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -678,6 +678,7 @@ footer {
   .hero-h1       { font-size: clamp(36px, 7vw, 56px); letter-spacing: -1.5px; }
   .hero-panel    { grid-template-columns: repeat(2, 1fr) 2fr; }
   .pkg-grid      { grid-template-columns: 1fr 1fr; }
+  .cap-grid      { grid-template-columns: 1fr 1fr; }
   .process-inner { grid-template-columns: 1fr; gap: var(--s48); }
   .faq-inner     { grid-template-columns: 1fr; gap: var(--s48); }
   footer         { grid-template-columns: 1fr; gap: var(--s24); }
@@ -703,18 +704,25 @@ footer {
   .packages      { padding: 60px 0; }
   .process       { padding: 60px 0; }
   .faq           { padding: 60px 0; }
+  .trusted-tag, .trusted-vr { display: none; }
+  .trusted-track-wrap { mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%); -webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%); }
 }
 
 /* Small phones (≤480px) */
 @media (max-width: 480px) {
   .hero-h1       { font-size: clamp(26px, 8vw, 36px); }
-  .hero-panel    { grid-template-columns: 1fr; }
+  .hero-panel    { grid-template-columns: 1fr 1fr; }
   .cred-bar      { display: none; }
   .nav           { padding: 0 14px; height: 52px; }
+  .cap-grid      { grid-template-columns: 1fr 1fr; }
+  .wrap, .nav, footer { padding-inline: 16px; }
+  .f-block       { padding: 14px 16px; }
 }
 
 /* Very small phones (≤360px) */
 @media (max-width: 360px) {
   .hero-h1       { font-size: 26px; }
   .nav           { padding: 0 12px; height: 48px; }
+  .wrap, .nav, footer { padding-inline: 12px; }
+  .pill label    { white-space: normal; }
 }
