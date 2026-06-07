@@ -30,10 +30,7 @@ function initTablesBehaviour() {
   function closeCart() {
     const drawer  = document.getElementById('cartDrawer');
     const overlay = document.getElementById('cartOverlay');
-    // Move focus out before hiding so aria-hidden doesn't trap focus inside.
-    if (drawer?.contains(document.activeElement)) {
-      document.getElementById('navCartBtn')?.focus();
-    }
+    if (drawer?.contains(document.activeElement)) document.activeElement.blur();
     if (drawer)  { drawer.style.display = 'none'; drawer.setAttribute('aria-hidden', 'true'); }
     if (overlay) { overlay.style.display = 'none'; overlay.setAttribute('aria-hidden', 'true'); }
     document.body.style.overflow = '';
