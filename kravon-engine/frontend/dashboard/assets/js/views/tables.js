@@ -75,6 +75,7 @@ const TablesView = (() => {
           <div class="table-card-actions">
             <button class="btn btn-danger btn-sm" data-action="close-session" data-session-id="${session.id}" data-table="${t.name}">Close session</button>
             <button class="btn btn-ghost btn-sm" data-action="view-bill" data-session-id="${session.id}">View bill</button>
+            <button class="btn btn-ghost btn-sm" data-action="show-qr" data-table-id="${t.id}" data-table-name="${t.name}">QR</button>
           </div>
         ` : `
           <div class="table-card-actions">
@@ -141,8 +142,10 @@ const TablesView = (() => {
     try {
       const data   = await Api.rGet('/tables');
       const tables = data.tables || [];
+      _tables = tables;
 
       if (!tables.length) {
+        _tables = [];
         grid.innerHTML = DashUI.emptyState({
           icon:  '🪑',
           title: 'No tables yet',
@@ -397,8 +400,71 @@ const TablesView = (() => {
     };
   }
 
+  // ── QR PDF sheet ──────────────────────────────────────────────────────────
+  function _downloadQrPdf(tables) {
+    const slug = Auth.state().slug;
+    const base = window.KRAVON_FRONTEND_BASE || 'http://localhost:8000';
+
+    const cells = tables.map(t => {
+      const url = `${base}/tables/?slug=${encodeURIComponent(slug)}&table_id=${t.id}`;
+      const src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
+      return `
+        <div class="qr-cell">
+          <img src="${src}" alt="QR for ${t.name}" width="150" height="150">
+          <div class="qr-label">${t.name}</div>
+          ${t.floor ? `<div class="qr-floor">${t.floor}</div>` : ''}
+        </div>`;
+    }).join('');
+
+    const win = window.open('', '_blank');
+    win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>QR Codes — ${slug}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, sans-serif; padding: 24px; background: #fff; }
+    h1 { font-size: 16px; font-weight: 600; color: #111; margin-bottom: 20px; }
+    .grid { display: flex; flex-wrap: wrap; gap: 24px; }
+    .qr-cell {
+      display: flex; flex-direction: column; align-items: center;
+      width: 180px; padding: 16px 12px;
+      border: 1px solid #e5e7eb; border-radius: 8px;
+      page-break-inside: avoid;
+    }
+    .qr-cell img { width: 150px; height: 150px; display: block; }
+    .qr-label { margin-top: 10px; font-size: 15px; font-weight: 700; color: #111; text-align: center; }
+    .qr-floor { font-size: 11px; color: #6b7280; margin-top: 2px; text-align: center; }
+    @media print {
+      body { padding: 12px; }
+      @page { margin: 12mm; }
+    }
+  </style>
+</head>
+<body>
+  <h1>QR Codes — ${slug}</h1>
+  <div class="grid">${cells}</div>
+  <script>
+    window.onload = function() {
+      var imgs = document.querySelectorAll('img');
+      var loaded = 0;
+      function tryPrint() { if (++loaded === imgs.length) window.print(); }
+      imgs.forEach(function(img) {
+        if (img.complete) tryPrint();
+        else { img.onload = tryPrint; img.onerror = tryPrint; }
+      });
+      if (!imgs.length) window.print();
+    };
+  <\/script>
+</body>
+</html>`);
+    win.document.close();
+  }
+
   // ── Init ──────────────────────────────────────────────────────────────────
   let _pollTimer = null;
+  let _tables    = [];
 
   function init(el) {
     if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
@@ -409,12 +475,17 @@ const TablesView = (() => {
           <span class="text-sm text-muted" id="tables-count"></span>
         </div>
         <div class="toolbar-right">
+          <button id="download-qr-btn" class="btn btn-secondary">Download QR Sheet</button>
           <button id="add-table-btn" class="btn btn-primary">+ Add table</button>
         </div>
       </div>
       <div id="tables-grid" class="tables-grid"></div>`;
 
     el.querySelector('#add-table-btn').addEventListener('click', () => _openTableModal());
+    el.querySelector('#download-qr-btn').addEventListener('click', () => {
+      if (!_tables.length) { DashUI.toast('No tables to export.', 'error'); return; }
+      _downloadQrPdf(_tables);
+    });
     _load(el);
 
     _pollTimer = setInterval(() => {
