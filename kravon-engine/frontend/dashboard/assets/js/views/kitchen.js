@@ -120,6 +120,7 @@ const KitchenView = (() => {
     try {
       const data   = await Api.rGet('/dine-in/kitchen');
       const tables = data.tables || [];
+      const queue  = data.queue  || [];
 
       _lastLoadedAt = Date.now();
 
@@ -131,7 +132,7 @@ const KitchenView = (() => {
       }
       if (lastSync) lastSync.textContent = 'Just now';
 
-      if (!tables.length) {
+      if (!tables.length && !queue.length) {
         grid.innerHTML = DashUI.emptyState({
           icon:  '🍽',
           title: 'Nothing in the kitchen',
@@ -140,7 +141,22 @@ const KitchenView = (() => {
         return;
       }
 
-      grid.innerHTML = tables.map(_tableCard).join('');
+      const queueSection = queue.length ? `
+        <div class="kitchen-section-header" style="grid-column:1/-1;margin-top:var(--sp-4)">
+          <span class="text-sm" style="font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--gray-500)">
+            Delivery & Pickup (${queue.length})
+          </span>
+        </div>
+        ${queue.map(o => `
+          <div class="kitchen-card">
+            <div class="kitchen-card-header">
+              <span class="kitchen-table-name">${o.fulfillment_type === 'delivery' ? 'Delivery' : 'Pickup'}</span>
+              <span class="text-sm text-muted">${o.customer_name || ''}</span>
+            </div>
+            <div class="kitchen-orders">${_orderCard(o)}</div>
+          </div>`).join('')}` : '';
+
+      grid.innerHTML = tables.map(_tableCard).join('') + queueSection;
 
       // Kitchen action buttons — status changes without leaving this view
       grid.querySelectorAll('.kitchen-order-action').forEach(btn => {

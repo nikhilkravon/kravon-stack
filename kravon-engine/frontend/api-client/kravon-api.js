@@ -82,7 +82,18 @@ const KravonAPI = (() => {
    *     payment_method: 'upi'|'card'|'cod', special_notes? }
    */
   async function createOrder(orderData) {
-    return _post('/orders', orderData);
+    const key = crypto.randomUUID();
+    const res = await fetch(_url('/orders'), {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': key },
+      body:    JSON.stringify(orderData),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      const detail = data.details ? ' — ' + JSON.stringify(data.details) : '';
+      throw Object.assign(new Error((data.error || 'Request failed') + detail), { status: res.status });
+    }
+    return data;
   }
 
   /* ── Reviews ─────────────────────────────────────────────────────────── */

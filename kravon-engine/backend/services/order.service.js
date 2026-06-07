@@ -13,10 +13,32 @@ const { query, getClient } = require('../db/pool');
 const razorpay             = require('../integrations/razorpay');
 const notifyService        = require('./notify.service');
 
-async function createOrder(tenant, data) {
+async function createOrder(tenant, data, idempotencyKey = null) {
   const client = await getClient();
   try {
     await client.query('BEGIN');
+
+    /* ── 0. Idempotency check ────────────────────────────────────────────── */
+    if (idempotencyKey) {
+      const existing = await client.query(
+        `SELECT id, total_amount, metadata FROM orders.orders
+         WHERE tenant_id = $1 AND idempotency_key = $2 AND deleted_at IS NULL
+         LIMIT 1`,
+        [tenant.tenant_id, idempotencyKey]
+      );
+      if (existing.rows.length) {
+        await client.query('ROLLBACK');
+        const o = existing.rows[0];
+        const meta = o.metadata || {};
+        return {
+          orderId:         o.id,
+          razorpayOrderId: meta.razorpay_order_id || null,
+          razorpayKeyId:   meta.razorpay_key_id   || null,
+          total:           Number(o.total_amount),
+          duplicate:       true,
+        };
+      }
+    }
 
     /* ── 1. Verify items + prices against DB ─────────────────────────────── */
     const itemIds = data.items.map(i => i.id);
@@ -143,8 +165,8 @@ async function createOrder(tenant, data) {
         tenant_id, customer_id, channel, fulfillment_type, status,
         subtotal_amount, delivery_charge, tax_amount, discount_amount,
         tip_amount, packaging_charge, total_amount,
-        special_instructions, metadata
-      ) VALUES ($1,$2,'web',$3,$4,$5,$6,$7,0,0,0,$8,$9,$10)
+        special_instructions, metadata, idempotency_key
+      ) VALUES ($1,$2,'web',$3,$4,$5,$6,$7,0,0,0,$8,$9,$10,$11)
       RETURNING id
     `, [
       tenant.tenant_id,
@@ -157,6 +179,7 @@ async function createOrder(tenant, data) {
       total,
       data.special_notes || null,
       JSON.stringify(orderMeta),
+      idempotencyKey || null,
     ]);
 
     const orderId = orderRes.rows[0].id;

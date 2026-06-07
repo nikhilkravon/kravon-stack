@@ -87,8 +87,9 @@ router.post('/', async (req, res, next) => {
       return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
     }
 
-    const data   = parsed.data;
-    const result = await orderService.createOrder(req.tenant, data);
+    const data           = parsed.data;
+    const idempotencyKey = req.headers['idempotency-key'] || null;
+    const result         = await orderService.createOrder(req.tenant, data, idempotencyKey);
 
     events.emit('order.created', {
       tenantId:    req.tenant.tenant_id,
