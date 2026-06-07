@@ -57,5 +57,18 @@ export default defineConfig({
       },
       testMatch: ['**/scenarios/**/*.spec.ts'],
     },
+    {
+      name: 'simulation',
+      use: {
+        browserName: 'chromium',
+        viewport:    { width: 390, height: 844 },
+        userAgent:   devices['iPhone 14'].userAgent,
+        isMobile:    true,
+        hasTouch:    true,
+        ignoreHTTPSErrors: true,
+      },
+      testMatch: ['**/simulation/**/*.spec.ts'],
+      timeout: 3 * 60 * 60 * 1000, // 3 hours
+    },
   ],
 });

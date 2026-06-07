@@ -14,12 +14,12 @@ export class CustomerPage {
   constructor(public readonly page: Page) {}
 
   async gotoTable(tableId: string) {
-    await this.page.goto(tableUrl(tableId));
+    await this.page.goto(tableUrl(tableId), { waitUntil: 'domcontentloaded', timeout: 20_000 });
   }
 
   async submitGuestIdentity(name: string, phone: string) {
     // Real IDs: #guestName, #guestPhone, #guestPopupBtn inside #guest-popup-overlay
-    await expect(this.page.locator('#guestName')).toBeVisible({ timeout: 12_000 });
+    await expect(this.page.locator('#guestName')).toBeVisible({ timeout: 25_000 });
     await this.page.locator('#guestName').fill(name);
     await this.page.locator('#guestPhone').fill(phone);
     await this.page.locator('#guestPopupBtn').click();

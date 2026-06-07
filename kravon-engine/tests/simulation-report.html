@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Royal Tandoor — Full Day QR Simulation</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f4f5;color:#111;padding:32px;min-height:100vh}
+  h1{font-size:26px;font-weight:800;margin-bottom:6px}
+  .meta{font-size:13px;color:#777;margin-bottom:36px}
+  .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px;margin-bottom:44px}
+  .kpi{background:#fff;border-radius:12px;padding:20px 22px;box-shadow:0 1px 4px rgba(0,0,0,.07);border-top:3px solid var(--c,#2563eb)}
+  .kpi-val{font-size:28px;font-weight:800;line-height:1;color:var(--c,#2563eb)}
+  .kpi-lbl{font-size:11px;color:#999;margin-top:5px;text-transform:uppercase;letter-spacing:.5px}
+  h2{font-size:15px;font-weight:700;margin-bottom:16px;color:#333;border-bottom:2px solid #e5e7eb;padding-bottom:8px}
+  .rushes{display:flex;flex-direction:column;gap:28px;margin-bottom:44px}
+  .rush-card{background:#fff;border-radius:12px;padding:24px;box-shadow:0 1px 4px rgba(0,0,0,.07);border-left:4px solid var(--accent,#2563eb)}
+  .rush-header{font-size:16px;font-weight:800;margin-bottom:18px;color:#111}
+  .rush-time{font-size:12px;font-weight:400;color:#999;margin-left:8px}
+  .rush-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+  .stat{background:#f9fafb;border-radius:8px;padding:12px;text-align:center}
+  .stat-val{font-size:20px;font-weight:800}
+  .stat-lbl{font-size:10px;color:#999;text-transform:uppercase;margin-top:3px}
+  .stat-err{background:#fef2f2}.stat-err .stat-val{color:#dc2626}
+  .stat-ok{background:#f0fdf4}.stat-ok .stat-val{color:#16a34a}
+  .tbl{width:100%;border-collapse:collapse;font-size:12px}
+  .tbl th{text-align:left;padding:7px 10px;border-bottom:2px solid #e5e7eb;font-weight:600;color:#666;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+  .tbl td{padding:6px 10px;border-bottom:1px solid #f3f4f6;vertical-align:middle}
+  .tbl tr:last-child td{border-bottom:none}
+  .floor-tag{background:#f3f4f6;border-radius:4px;padding:1px 6px;font-size:11px;color:#555}
+  .guest-tag{display:inline-block;background:#f3f4f6;border-radius:4px;padding:1px 5px;font-size:11px;margin:1px;cursor:default}
+  .guest-tag.ok{background:#dcfce7;color:#166534}
+  .guest-tag.err{background:#fee2e2;color:#991b1b}
+  .ok-num{color:#16a34a;font-weight:700}
+  .err-num{color:#dc2626;font-weight:700}
+  .dur{color:#999}
+  section{margin-bottom:44px}
+</style>
+</head>
+<body>
+<h1>🍽️ Royal Tandoor — Full Day QR Simulation</h1>
+<p class="meta">
+  Simulated at Sunday, 7 June 2026 at 7:15 pm ·
+  Total duration: 8.6 min ·
+  20 tables · Real browser QR flow · 3 service periods
+</p>
+
+<div class="kpi-row">
+  <div class="kpi" style="--c:#2563eb"><div class="kpi-val">2</div><div class="kpi-lbl">Sessions</div></div>
+  <div class="kpi" style="--c:#2563eb"><div class="kpi-val">0</div><div class="kpi-lbl">Orders placed</div></div>
+  <div class="kpi" style="--c:#16a34a"><div class="kpi-val">₹0</div><div class="kpi-lbl">Revenue</div></div>
+  <div class="kpi" style="--c:#16a34a"><div class="kpi-val">0.0%</div><div class="kpi-lbl">Success rate</div></div>
+  <div class="kpi" style="--c:#7c3aed"><div class="kpi-val">23</div><div class="kpi-lbl">Bill requests</div></div>
+  <div class="kpi" style="--c:#dc2626">
+    <div class="kpi-val">9</div><div class="kpi-lbl">Failed orders</div>
+  </div>
+</div>
+
+<section>
+  <h2>Service Periods</h2>
+  <div class="rushes">
+    <div class="rush-card" style="--accent:#f59e0b">
+      <div class="rush-header">☀️ Breakfast <span class="rush-time">08:00–11:00</span></div>
+      <div class="rush-stats">
+        <div class="stat"><div class="stat-val">0</div><div class="stat-lbl">Tables</div></div>
+        <div class="stat"><div class="stat-val">0</div><div class="stat-lbl">Orders</div></div>
+        <div class="stat"><div class="stat-val">₹0</div><div class="stat-lbl">Revenue</div></div>
+        <div class="stat stat-ok">
+          <div class="stat-val">✓ 0</div>
+          <div class="stat-lbl">Failed</div>
+        </div>
+      </div>
+      <table class="tbl">
+        <thead><tr><th>Table</th><th>Floor</th><th>Pax</th><th>Guests</th><th>Orders</th><th>Billed</th><th>Time</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="rush-card" style="--accent:#2563eb">
+      <div class="rush-header">🍽️ Lunch <span class="rush-time">12:00–15:00</span></div>
+      <div class="rush-stats">
+        <div class="stat"><div class="stat-val">9</div><div class="stat-lbl">Tables</div></div>
+        <div class="stat"><div class="stat-val">0</div><div class="stat-lbl">Orders</div></div>
+        <div class="stat"><div class="stat-val">₹0</div><div class="stat-lbl">Revenue</div></div>
+        <div class="stat stat-err">
+          <div class="stat-val">9 ✗</div>
+          <div class="stat-lbl">Failed</div>
+        </div>
+      </div>
+      <table class="tbl">
+        <thead><tr><th>Table</th><th>Floor</th><th>Pax</th><th>Guests</th><th>Orders</th><th>Billed</th><th>Time</th></tr></thead>
+        <tbody><tr>
+        <td><strong>T7</strong></td>
+        <td><span class="floor-tag">Ground</span></td>
+        <td>3</td>
+        <td><span class="guest-tag err" title="[2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+Locator: locator('#guestName')
+Expec">
+          G1 0/1
+        </span> <span class="guest-tag err" title="[2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+Locator: locator('#guestName')
+Expec">
+          G2 0/1
+        </span> <span class="guest-tag err" title="[2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+Locator: locator('#guestName')
+Expec">
+          G3 0/2
+        </span></td>
+        <td>— <span class="err-num">4 ✗</span></td>
+        <td>₹0</td>
+        <td class="dur">70s</td>
+      </tr><tr>
+        <td><strong>T8</strong></td>
+        <td><span class="floor-tag">Ground</span></td>
+        <td>3</td>
+        <td></td>
+        <td>—</td>
+        <td>₹0</td>
+        <td class="dur">0s</td>
+      </tr><tr>
+        <td><strong>T9</strong></td>
+        <td><span class="floor-tag">Ground</span></td>
+        <td>4</td>
+        <td></td>
+        <td>—</td>
+        <td>₹0</td>
+        <td class="dur">0s</td>
+      </tr><tr>
+        <td><strong>T10</strong></td>
+        <td><span class="floor-tag">Ground</span></td>
+        <td>4</td>
+        <td></td>
+        <td>—</td>
+        <td>₹0</td>
+        <td class="dur">0s</td>
+      </tr><tr>
+        <td><strong>R1</strong></td>
+        <td><span class="floor-tag">Rooftop</span></td>
+        <td>3</td>
+        <td></td>
+        <td>—</td>
+        <td>₹0</td>
+        <td class="dur">0s</td>
+      </tr><tr>
+        <td><strong>R2</strong></td>
+        <td><span class="floor-tag">Rooftop</span></td>
+        <td>3</td>
+        <td></td>
+        <td>—</td>
+        <td>₹0</td>
+        <td class="dur">0s</td>
+      </tr><tr>
+        <td><strong>R3</strong></td>
+        <td><span class="floor-tag">Rooftop</span></td>
+        <td>4</td>
+        <td></td>
+        <td>—</td>
+        <td>₹0</td>
+        <td class="dur">0s</td>
+      </tr><tr>
+        <td><strong>R4</strong></td>
+        <td><span class="floor-tag">Rooftop</span></td>
+        <td>3</td>
+        <td></td>
+        <td>—</td>
+        <td>₹0</td>
+        <td class="dur">0s</td>
+      </tr><tr>
+        <td><strong>R5</strong></td>
+        <td><span class="floor-tag">Rooftop</span></td>
+        <td>3</td>
+        <td><span class="guest-tag err" title="[2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+Locator:  locator('#screenConfirm')
+">
+          G1 0/2
+        </span> <span class="guest-tag err" title="[2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+Locator:  locator('#screenConfirm')
+">
+          G2 0/1
+        </span> <span class="guest-tag err" title="[2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+Locator:  locator('#screenConfirm')
+">
+          G3 0/2
+        </span></td>
+        <td>— <span class="err-num">5 ✗</span></td>
+        <td>₹0</td>
+        <td class="dur">224s</td>
+      </tr></tbody>
+      </table>
+    </div>
+    <div class="rush-card" style="--accent:#7c3aed">
+      <div class="rush-header">🌙 Dinner <span class="rush-time">19:00–23:00</span></div>
+      <div class="rush-stats">
+        <div class="stat"><div class="stat-val">14</div><div class="stat-lbl">Tables</div></div>
+        <div class="stat"><div class="stat-val">0</div><div class="stat-lbl">Orders</div></div>
+        <div class="stat"><div class="stat-val">₹0</div><div class="stat-lbl">Revenue</div></div>
+        <div class="stat stat-ok">
+          <div class="stat-val">✓ 0</div>
+          <div class="stat-lbl">Failed</div>
+        </div>
+      </div>
+      <table class="tbl">
+        <thead><tr><th>Table</th><th>Floor</th><th>Pax</th><th>Guests</th><th>Orders</th><th>Billed</th><th>Time</th></tr></thead>
+        <tbody><tr>
+        <td><strong>T7</strong></td>
+        <td><span class="floor-tag">Ground</span></td>
+        <td>5</td>
+        <td></td>
+        <td>—</td>
+        <td>₹0</td>
+        <td class="dur">0s</td>
+      </tr><tr>
+        <td><strong>T8</strong></td>
+        <td><span class="floor-tag">Ground</span></td>
+        <td>6</td>
+        <td></td>
+        <td>—</td>
+        <td>₹0</td>
+        <td class="dur">0s</td>
+      </tr><tr>
+        <td><strong>T9</strong></td>
+        <td><span class="floor-tag">Ground</span></td>
+        <td>4</td>
+        <td></td>
+        <td>—</td>
+        <td>₹0</td>
+        <td class="dur">0s</td>
+      </tr><tr>
+        <td><strong>T10</strong></td>
+        <td><span class="floor-tag">Ground</span></td>
+        <td>6</td>
+        <td></td>
+        <td>—</td>
+        <td>₹0</td>
+        <td class="dur">0s</td>
+      </tr><tr>
+        <td><strong>R1</strong></td>
+        <td><span class="floor-tag">Rooftop</span></td>
+        <td>4</td>
+        <td></td>
+        <td>—</td>
+        <td>₹0</td>
+        <td class="dur">0s</td>
+      </tr><tr>
+        <td><strong>R2</strong></td>
+        <td><span class="floor-tag">Rooftop</span></td>
+        <td>6</td>
+        <td></td>
+        <td>—</td>
+        <td>₹0</td>
+        <td class="dur">0s</td>
+      </tr><tr>
+        <td><strong>R3</strong></td>
+        <td><span class="floor-tag">Rooftop</span></td>
+        <td>5</td>
+        <td></td>
+        <td>—</td>
+        <td>₹0</td>
+        <td class="dur">0s</td>
+      </tr><tr>
+        <td><strong>R4</strong></td>
+        <td><span class="floor-tag">Rooftop</span></td>
+        <td>5</td>
+        <td></td>
+        <td>—</td>
+        <td>₹0</td>
+        <td class="dur">0s</td>
+      </tr><tr>
+        <td><strong>R5</strong></td>
+        <td><span class="floor-tag">Rooftop</span></td>
+        <td>6</td>
+        <td></td>
+        <td>—</td>
+        <td>₹0</td>
+        <td class="dur">0s</td>
+      </tr><tr>
+        <td><strong>R6</strong></td>
+        <td><span class="floor-tag">Rooftop</span></td>
+        <td>2</td>
+        <td></td>
+        <td>—</td>
+        <td>₹0</td>
+        <td class="dur">0s</td>
+      </tr><tr>
+        <td><strong>R7</strong></td>
+        <td><span class="floor-tag">Rooftop</span></td>
+        <td>2</td>
+        <td></td>
+        <td>—</td>
+        <td>₹0</td>
+        <td class="dur">0s</td>
+      </tr><tr>
+        <td><strong>P1</strong></td>
+        <td><span class="floor-tag">Private</span></td>
+        <td>6</td>
+        <td></td>
+        <td>—</td>
+        <td>₹0</td>
+        <td class="dur">0s</td>
+      </tr><tr>
+        <td><strong>P2</strong></td>
+        <td><span class="floor-tag">Private</span></td>
+        <td>4</td>
+        <td></td>
+        <td>—</td>
+        <td>₹0</td>
+        <td class="dur">0s</td>
+      </tr><tr>
+        <td><strong>P3</strong></td>
+        <td><span class="floor-tag">Private</span></td>
+        <td>4</td>
+        <td></td>
+        <td>—</td>
+        <td>₹0</td>
+        <td class="dur">0s</td>
+      </tr></tbody>
+      </table>
+    </div></div>
+</section>
+</body>
+</html>
