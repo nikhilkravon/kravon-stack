@@ -338,8 +338,10 @@ const DineInOrderSchema = z.object({
 });
 
 router.post('/order', publicDineInLimiter, orderLimiter, async (req, res, next) => {
+  console.log('[dine-in/order] body:', JSON.stringify(req.body));
   const parsed = DineInOrderSchema.safeParse(req.body);
   if (!parsed.success) {
+    console.log('[dine-in/order] validation failed:', JSON.stringify(parsed.error.flatten()));
     return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
   }
   const { session_id, guest_name, guest_phone, items, special_notes } = parsed.data;
