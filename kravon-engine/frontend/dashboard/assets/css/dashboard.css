@@ -581,6 +581,59 @@ tbody tr:hover td { background: var(--gray-50); }
   border-top: 1px solid var(--gray-100);
 }
 
+/* ── Bill requested alert badge ────────────────────────────── */
+.bill-requested-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(220,38,38,0.08);
+  color: #dc2626;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(220,38,38,0.2);
+  margin-bottom: 4px;
+}
+.bill-requested-alert::before { content: '🔔'; font-size: 12px; }
+
+/* ── Session orders feed ────────────────────────────────────── */
+.session-orders-feed {
+  margin: 6px 0;
+  border: 1px solid var(--gray-100);
+  border-radius: 6px;
+  overflow: hidden;
+  font-size: 11px;
+}
+.session-orders-loading,
+.session-orders-empty {
+  padding: 6px 10px;
+  color: var(--gray-400);
+  font-size: 11px;
+  font-style: italic;
+}
+.session-order-row {
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--gray-100);
+}
+.session-order-row:last-child { border-bottom: none; }
+.session-order-meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 2px;
+}
+.session-order-guest {
+  font-weight: 600;
+  color: var(--gray-700);
+  min-width: 48px;
+}
+.session-order-time { color: var(--gray-400); flex: 1; }
+.session-order-status { font-weight: 600; text-transform: capitalize; }
+.session-order-items { color: var(--gray-600); line-height: 1.4; }
+
 /* ── Kitchen view ─────────────────────────────────────────────────────────── */
 .kitchen-grid {
   display: grid;

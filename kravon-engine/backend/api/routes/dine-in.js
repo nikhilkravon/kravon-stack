@@ -1,12 +1,14 @@
 /**
  * ROUTE — dine-in.js
- * POST /v1/restaurants/:slug/dine-in/session/open    (staff JWT)
- * POST /v1/restaurants/:slug/dine-in/session/close   (staff JWT)
- * GET  /v1/restaurants/:slug/dine-in/session/status  (public — customer QR scan)
- * POST /v1/restaurants/:slug/dine-in/order           (public — customer QR order)
- * GET  /v1/restaurants/:slug/dine-in/kitchen         (staff JWT)
- * GET  /v1/restaurants/:slug/dine-in/bill            (staff JWT)
- * POST /v1/restaurants/:slug/dine-in/reservations    (public)
+ * POST /v1/restaurants/:slug/dine-in/session/open         (staff JWT)
+ * POST /v1/restaurants/:slug/dine-in/session/close        (staff JWT)
+ * GET  /v1/restaurants/:slug/dine-in/session/status       (public — customer QR scan)
+ * GET  /v1/restaurants/:slug/dine-in/session/orders       (public — live order feed for customers)
+ * POST /v1/restaurants/:slug/dine-in/session/request-bill (public — customer requests bill)
+ * POST /v1/restaurants/:slug/dine-in/order                (public — customer QR order)
+ * GET  /v1/restaurants/:slug/dine-in/kitchen              (staff JWT)
+ * GET  /v1/restaurants/:slug/dine-in/bill                 (staff JWT)
+ * POST /v1/restaurants/:slug/dine-in/reservations         (public)
  *
  * All queries use v12 multi-schema: orders.orders, orders.order_items,
  * menu.menu_items, dining.sessions, dining.tables.
@@ -205,7 +207,9 @@ router.get('/session/status', publicDineInLimiter, async (req, res, next) => {
     }
 
     const result = await query(
-      `SELECT s.id, s.opened_at, s.covers, t.name AS table_name
+      `SELECT s.id, s.opened_at, s.covers, s.session_status,
+              s.bill_owner_name, s.bill_requested_at,
+              t.name AS table_name
        FROM dining.sessions s
        JOIN dining.tables t ON t.id = s.table_id
        WHERE s.table_id  = $1
@@ -220,8 +224,101 @@ router.get('/session/status', publicDineInLimiter, async (req, res, next) => {
       return res.json({ open: false });
     }
 
-    const { id: session_id, opened_at, covers, table_name } = result.rows[0];
-    res.json({ open: true, session_id, table_name, opened_at, covers });
+    const { id: session_id, opened_at, covers, table_name,
+            session_status, bill_owner_name, bill_requested_at } = result.rows[0];
+    res.json({
+      open: true, session_id, table_name, opened_at, covers,
+      session_status,
+      has_bill_owner: !!bill_owner_name,
+      bill_requested: !!bill_requested_at,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* ── GET /session/orders?session_id=xxx ─────────────────────────────────── */
+router.get('/session/orders', publicDineInLimiter, async (req, res, next) => {
+  const { session_id } = req.query;
+  if (!session_id || !UUID_RE.test(session_id)) {
+    return res.status(400).json({ error: 'session_id query param (UUID) is required.' });
+  }
+  const tenant_id = req.tenant.tenant_id;
+
+  try {
+    const result = await query(
+      `SELECT
+         o.id           AS order_id,
+         o.created_at,
+         o.status,
+         o.total_amount AS total,
+         o.metadata     ->> 'guest_name' AS guest_name,
+         json_agg(
+           json_build_object(
+             'name',  oi.item_name,
+             'qty',   oi.quantity,
+             'price', oi.unit_price
+           ) ORDER BY oi.id
+         ) AS items
+       FROM orders.orders o
+       JOIN orders.order_items oi ON oi.order_id = o.id
+       JOIN dining.sessions s ON s.id = o.session_id
+       WHERE o.session_id = $1
+         AND o.tenant_id  = $2
+         AND o.status NOT IN ('cancelled', 'refunded')
+         AND o.deleted_at IS NULL
+         AND s.deleted_at IS NULL
+       GROUP BY o.id
+       ORDER BY o.created_at ASC`,
+      [session_id, tenant_id]
+    );
+
+    res.json({ ok: true, orders: result.rows });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* ── POST /session/request-bill ─────────────────────────────────────────── */
+const RequestBillSchema = z.object({
+  session_id:     z.string().uuid(),
+  requested_by:   z.string().min(1).max(100).optional(),
+});
+
+router.post('/session/request-bill', publicDineInLimiter, async (req, res, next) => {
+  const parsed = RequestBillSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
+  }
+  const { session_id, requested_by } = parsed.data;
+  const tenant_id = req.tenant.tenant_id;
+
+  try {
+    const result = await query(
+      `UPDATE dining.sessions
+       SET session_status      = 'bill_requested',
+           bill_requested_at   = COALESCE(bill_requested_at, NOW()),
+           bill_requested_by   = COALESCE(bill_requested_by, $3),
+           updated_at          = NOW()
+       WHERE id         = $1
+         AND tenant_id  = $2
+         AND closed_at  IS NULL
+         AND deleted_at IS NULL
+       RETURNING id, session_status, bill_requested_at`,
+      [session_id, tenant_id, requested_by ?? null]
+    );
+
+    if (!result.rows.length) {
+      return res.status(404).json({ error: 'Session not found or already closed.' });
+    }
+
+    events.emit('dine_in.bill_requested', {
+      tenantId:  tenant_id,
+      sessionId: session_id,
+      requestedBy: requested_by ?? null,
+    });
+
+    res.json({ ok: true, bill_requested_at: result.rows[0].bill_requested_at });
   } catch (err) {
     next(err);
   }
@@ -230,6 +327,8 @@ router.get('/session/status', publicDineInLimiter, async (req, res, next) => {
 /* ── POST /order ────────────────────────────────────────────────────────── */
 const DineInOrderSchema = z.object({
   session_id:    z.string().uuid(),
+  guest_name:    z.string().min(1).max(100),
+  guest_phone:   z.string().min(8).max(20),
   items: z.array(z.object({
     menu_item_id:   z.string().uuid(),
     quantity:       z.number().int().min(1).max(20),
@@ -243,7 +342,7 @@ router.post('/order', publicDineInLimiter, orderLimiter, async (req, res, next) 
   if (!parsed.success) {
     return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
   }
-  const { session_id, items, special_notes } = parsed.data;
+  const { session_id, guest_name, guest_phone, items, special_notes } = parsed.data;
   const tenant_id = req.tenant.tenant_id;
 
   if (!tenant_id) {
@@ -255,13 +354,29 @@ router.post('/order', publicDineInLimiter, orderLimiter, async (req, res, next) 
     await client.query('BEGIN');
 
     const sessionRes = await client.query(
-      `SELECT id FROM dining.sessions
+      `SELECT id, session_status, bill_owner_name FROM dining.sessions
        WHERE id = $1 AND tenant_id = $2 AND closed_at IS NULL AND deleted_at IS NULL`,
       [session_id, tenant_id]
     );
     if (!sessionRes.rows.length) {
       await client.query('ROLLBACK');
       return res.status(409).json({ error: 'Session is closed or not found.' });
+    }
+
+    const { session_status, bill_owner_name } = sessionRes.rows[0];
+    if (session_status === 'closed' || session_status === 'paid') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'Session is closed. No more orders can be placed.' });
+    }
+
+    // First scanner becomes bill owner
+    if (!bill_owner_name) {
+      await client.query(
+        `UPDATE dining.sessions
+         SET bill_owner_name = $1, bill_owner_phone = $2, updated_at = NOW()
+         WHERE id = $3`,
+        [guest_name, guest_phone, session_id]
+      );
     }
 
     const itemIds = items.map(i => i.menu_item_id);
@@ -287,14 +402,15 @@ router.post('/order', publicDineInLimiter, orderLimiter, async (req, res, next) 
       return { id: db.id, name: db.name, price, qty: item.quantity, note: item.customizations ?? null };
     });
 
+    const guestMeta = JSON.stringify({ guest_name, guest_phone });
     const orderRes = await client.query(
       `INSERT INTO orders.orders (
          tenant_id, session_id, channel, fulfillment_type,
          status, subtotal_amount, tax_amount, total_amount,
          special_instructions, metadata
-       ) VALUES ($1, $2, 'qr', 'dine_in', 'confirmed', $3, 0, $3, $4, '{}')
+       ) VALUES ($1, $2, 'qr', 'dine_in', 'confirmed', $3, 0, $3, $4, $5)
        RETURNING id`,
-      [tenant_id, session_id, subtotal, special_notes ?? null]
+      [tenant_id, session_id, subtotal, special_notes ?? null, guestMeta]
     );
     const order_id = orderRes.rows[0].id;
 

@@ -60,11 +60,12 @@ const TablesCheckout = (() => {
 
     if (TC.sessionId) {
       // ── Dine-in with active session ──────────────────────
-      // No customer identity needed — session tracks the table
       if (btn) btn.disabled = true;
       if (note) note.textContent = 'Placing order…';
       try {
-        const result = await KravonAPI.createDineInOrder(TC.sessionId, items, notes);
+        const result = await KravonAPI.createDineInOrder(
+          TC.sessionId, TC.guestName, TC.guestPhone, items, notes
+        );
         _orderId = result.order_id;
         showConfirmScreen(result.order_id, { isDineIn: true });
       } catch (err) {
@@ -185,13 +186,12 @@ const TablesCheckout = (() => {
         (orderData.table_identifier && orderData.table_identifier !== 'takeaway');
       billWrap.style.display = isDineIn ? '' : 'none';
 
-      // Pre-wire the bill request button
+      // Reflect already-requested state if someone else tapped first
       const billBtn = document.getElementById('billRequestBtn');
-      if (billBtn) {
-        const tableLabel = TC2.tableName || orderData.table_identifier || 'my table';
-        const waNumber = window.CONFIG.contact?.waNumber || '';
-        const msg = encodeURIComponent(`Bill please — Table ${tableLabel}.`);
-        billBtn.dataset.waUrl = `https://wa.me/${waNumber}?text=${msg}`;
+      if (billBtn && TC2.billRequested) {
+        billBtn.textContent = 'Bill Requested';
+        billBtn.disabled = true;
+        billBtn.classList.add('bill-requested');
       }
     }
 
@@ -200,9 +200,29 @@ const TablesCheckout = (() => {
   }
 
   /* ── Bill request ─────────────────────────────────────────── */
-  function requestBill(btn) {
-    const url = btn.dataset.waUrl;
-    if (url) window.open(url, '_blank', 'noopener,noreferrer');
+  let _billRequested = false;
+
+  async function requestBill(btn) {
+    if (_billRequested) return;
+    const TC = window.TABLE_CONTEXT;
+    if (!TC.sessionId) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Requesting…';
+
+    try {
+      await KravonAPI.requestDineInBill(TC.sessionId, TC.guestName || undefined);
+      _billRequested = true;
+      TC.billRequested = true;
+      btn.textContent = 'Bill Requested';
+      btn.classList.add('bill-requested');
+      Kravon.toast('Staff has been notified — they\'ll be with you shortly.');
+    } catch (err) {
+      console.error('[tables:checkout] requestBill failed:', err.message);
+      btn.disabled = false;
+      btn.textContent = 'Request Bill';
+      Kravon.toast('Could not send request. Please try again.');
+    }
   }
 
   /* ── Review prompt ───────────────────────────────────────── */

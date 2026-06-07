@@ -26,9 +26,12 @@ router.get('/', async (req, res, next) => {
       `SELECT
          t.id, t.name, t.capacity, t.floor, t.status, t.qr_code, t.is_active,
          t.created_at, t.updated_at,
-         s.id          AS session_id,
-         s.opened_at   AS session_opened_at,
-         s.covers      AS session_covers,
+         s.id                AS session_id,
+         s.opened_at         AS session_opened_at,
+         s.covers            AS session_covers,
+         s.session_status    AS session_status,
+         s.bill_owner_name   AS session_bill_owner,
+         s.bill_requested_at AS session_bill_requested_at,
          COALESCE(
            (SELECT SUM(o.total_amount)
             FROM orders.orders o
@@ -54,10 +57,14 @@ router.get('/', async (req, res, next) => {
       is_active:  r.is_active,
       created_at: r.created_at,
       session: r.session_id ? {
-        id:         r.session_id,
-        opened_at:  r.session_opened_at,
-        covers:     r.session_covers,
-        total:      Number(r.session_total),
+        id:              r.session_id,
+        opened_at:       r.session_opened_at,
+        covers:          r.session_covers,
+        total:           Number(r.session_total),
+        session_status:  r.session_status,
+        bill_owner:      r.session_bill_owner,
+        bill_requested:  !!r.session_bill_requested_at,
+        bill_requested_at: r.session_bill_requested_at,
       } : null,
     }))});
   } catch (err) { next(err); }

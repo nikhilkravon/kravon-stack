@@ -171,9 +171,21 @@
         </section>`;
     }).join('');
 
+    const requestBillBar = TC.isDineIn ? `
+      <div class="request-bill-bar" id="requestBillBar">
+        <span class="request-bill-table">
+          ${Kravon.esc(TC.tableName || 'Table')}
+        </span>
+        <button class="request-bill-bar-btn" id="requestBillBarBtn"
+                data-action="request-bill-bar" aria-label="Request the bill">
+          Request Bill
+        </button>
+      </div>` : '';
+
     return `
       <div id="screenOrdering" class="tables-screen" role="main" style="display:none">
         ${buildNav(navLabel)}
+        ${requestBillBar}
         ${buildHero()}
         ${buildStory()}
         <div class="tables-layout">
@@ -182,6 +194,7 @@
           </aside>
           <main class="menu-main" id="menuMain" tabindex="-1">
             <div id="menu"></div>
+            <div id="tableOrdersPanel" style="display:none"></div>
             ${sections}
           </main>
         </div>
@@ -193,8 +206,10 @@
     const cfg       = C.tables || {};
     const isOffline = cfg.paymentMode === 'offline' || !cfg.razorpayKeyId;
     const tableCtx  = TC.isDineIn && TC.tableName
-      ? `<div class="checkout-table-ctx" id="checkoutTableCtx">Ordering for Table ${Kravon.esc(TC.tableName)}</div>`
+      ? `<div class="checkout-table-ctx" id="checkoutTableCtx">Ordering for ${Kravon.esc(TC.tableName)}${TC.guestName ? ` · ${Kravon.esc(TC.guestName)}` : ''}</div>`
       : '';
+    // For dine-in, name+phone were captured in the guest popup — hide those fields
+    const detailsDisplay = TC.isDineIn ? 'display:none' : '';
 
     const paymentBlock = isOffline
       ? `<div class="checkout-pay-offline">
@@ -233,7 +248,7 @@
           <div class="checkout-main">
             ${tableCtx}
 
-            <section class="checkout-section" aria-labelledby="checkout-details-h">
+            <section class="checkout-section" aria-labelledby="checkout-details-h" style="${detailsDisplay}">
               <h2 class="checkout-section-title" id="checkout-details-h">Your Details</h2>
               <div class="checkout-fields">
                 <div class="field-group">
@@ -308,8 +323,7 @@
           <div id="billRequestWrap" style="display:none">
             <button class="bill-request-btn" id="billRequestBtn"
                     data-action="request-bill"
-                    aria-label="Request bill via WhatsApp">
-              <svg width="18" height="18" aria-hidden="true"><use href="#icon-wa"/></svg>
+                    aria-label="Request the bill">
               Request Bill
             </button>
           </div>

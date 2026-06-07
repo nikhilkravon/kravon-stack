@@ -300,10 +300,38 @@ function initTablesBehaviour() {
         scrollToCategory(target.dataset.catId);
         break;
 
-      /* ── Bill request ── */
+      /* ── Bill request (from confirm screen) ── */
       case 'request-bill':
         TablesCheckout.requestBill(target);
         break;
+
+      /* ── Bill request (from menu screen bar) ── */
+      case 'request-bill-bar': {
+        const TC2 = window.TABLE_CONTEXT;
+        if (!TC2.sessionId) break;
+        target.disabled = true;
+        target.textContent = 'Requesting…';
+        KravonAPI.requestDineInBill(TC2.sessionId, TC2.guestName || undefined)
+          .then(() => {
+            TC2.billRequested = true;
+            target.textContent = 'Bill Requested';
+            target.classList.add('bill-requested');
+            Kravon.toast('Staff has been notified — they\'ll be with you shortly.');
+            // sync confirm-screen button if visible
+            const confBtn = document.getElementById('billRequestBtn');
+            if (confBtn) {
+              confBtn.textContent = 'Bill Requested';
+              confBtn.disabled = true;
+              confBtn.classList.add('bill-requested');
+            }
+          })
+          .catch(() => {
+            target.disabled = false;
+            target.textContent = 'Request Bill';
+            Kravon.toast('Could not send request. Please try again.');
+          });
+        break;
+      }
 
       /* ── Star rating ── */
       case 'rate': {
@@ -395,17 +423,101 @@ function initTablesBehaviour() {
     }, { passive: true });
   }
 
-  /* ── Session liveness poll (dine-in only) ──────────────────── */
+  /* ── Session liveness + live orders poll (dine-in only) ────── */
   const TC = window.TABLE_CONTEXT || {};
+
+  function _fmtTime(iso) {
+    const d = new Date(iso);
+    return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  }
+
+  function _statusLabel(status) {
+    const map = { confirmed: 'Confirmed', preparing: 'Preparing', pending: 'Pending', ready: 'Ready' };
+    return map[status] || status;
+  }
+
+  function _renderOrdersPanel(orders) {
+    const panel = document.getElementById('tableOrdersPanel');
+    if (!panel) return;
+
+    if (!orders || !orders.length) {
+      panel.style.display = 'none';
+      return;
+    }
+
+    const rows = orders.map(o => {
+      const guest = o.guest_name ? Kravon.esc(o.guest_name.split(' ')[0]) : 'Guest';
+      const itemList = (o.items || []).map(i => `${Kravon.esc(i.name)} ×${i.qty}`).join(', ');
+      const cls = `top-order-status--${o.status}`;
+      return `
+        <div class="top-order-row">
+          <div class="top-order-meta">
+            <span class="top-order-guest">${guest}</span>
+            <span>
+              <span class="top-order-status ${cls}">${_statusLabel(o.status)}</span>
+              <span style="margin-left:4px;font-size:11px">${_fmtTime(o.created_at)}</span>
+            </span>
+          </div>
+          <div class="top-order-items">${itemList}</div>
+        </div>`;
+    }).join('');
+
+    panel.style.display = '';
+    panel.innerHTML = `
+      <div class="top-panel-header" id="topPanelHeader">
+        <span class="top-panel-title">Table Orders (${orders.length})</span>
+        <span class="top-panel-toggle" id="topPanelToggle">Hide</span>
+      </div>
+      <div class="top-panel-body" id="topPanelBody">${rows}</div>`;
+
+    // Collapse/expand toggle
+    const header = panel.querySelector('#topPanelHeader');
+    if (header && !header._wired) {
+      header._wired = true;
+      header.addEventListener('click', () => {
+        const body   = document.getElementById('topPanelBody');
+        const toggle = document.getElementById('topPanelToggle');
+        if (!body) return;
+        const collapsed = body.classList.toggle('collapsed');
+        if (toggle) toggle.textContent = collapsed ? 'Show' : 'Hide';
+      });
+    }
+  }
+
   if (TC.isDineIn && TC.tableId) {
+    // Initial orders fetch
+    if (TC.sessionId) {
+      KravonAPI.getDineInSessionOrders(TC.sessionId)
+        .then(d => _renderOrdersPanel(d.orders))
+        .catch(() => {});
+    }
+
     setInterval(async () => {
       const orderingEl = document.getElementById('screenOrdering');
       if (!orderingEl || orderingEl.style.display === 'none') return;
       try {
-        const status = await KravonAPI.getDineInSessionStatus(TC.tableId);
-        if (!status.open) _showSessionClosedBanner();
+        const [status, ordersData] = await Promise.all([
+          KravonAPI.getDineInSessionStatus(TC.tableId),
+          TC.sessionId ? KravonAPI.getDineInSessionOrders(TC.sessionId) : Promise.resolve({ orders: [] }),
+        ]);
+
+        if (!status.open) {
+          _showSessionClosedBanner();
+          return;
+        }
+
+        // Sync bill-requested state
+        if (status.bill_requested && !TC.billRequested) {
+          TC.billRequested = true;
+          const barBtn  = document.getElementById('requestBillBarBtn');
+          const confBtn = document.getElementById('billRequestBtn');
+          if (barBtn)  { barBtn.textContent  = 'Bill Requested'; barBtn.disabled  = true; barBtn.classList.add('bill-requested'); }
+          if (confBtn) { confBtn.textContent = 'Bill Requested'; confBtn.disabled = true; confBtn.classList.add('bill-requested'); }
+        }
+
+        _renderOrdersPanel(ordersData.orders);
       } catch (_) { /* network blip — ignore */ }
-    }, 60_000);
+    }, 30_000);
   }
 
   function _showSessionClosedBanner() {

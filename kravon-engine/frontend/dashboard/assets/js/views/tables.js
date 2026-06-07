@@ -42,6 +42,15 @@ const TablesView = (() => {
       : urgency === 'table-card--warning'
       ? '<span class="table-urgency-badge table-urgency-badge--warn">60+ min</span>'
       : '';
+
+    const billRequestedBadge = session?.bill_requested
+      ? `<div class="bill-requested-alert">Bill Requested</div>`
+      : '';
+
+    const billOwnerLine = session?.bill_owner
+      ? `<div class="table-session-row"><span class="detail-label">Guest</span> ${session.bill_owner}</div>`
+      : '';
+
     return `
       <div class="table-card table-card--${t.status}${urgency ? ' ' + urgency : ''}" data-table-id="${t.id}">
         <div class="table-card-header">
@@ -49,6 +58,7 @@ const TablesView = (() => {
           <span class="table-card-cap">${t.capacity || '—'} pax</span>
         </div>
         ${badge}
+        ${billRequestedBadge}
         ${session ? `
           <div class="table-session-info">
             <div class="table-session-row">
@@ -57,6 +67,10 @@ const TablesView = (() => {
             <div class="table-session-row">
               <span class="detail-label">Total</span> ${_fmt(session.total)}
             </div>
+            ${billOwnerLine}
+          </div>
+          <div class="session-orders-feed" id="orders-feed-${session.id}">
+            <div class="session-orders-loading">Loading orders…</div>
           </div>
           <div class="table-card-actions">
             <button class="btn btn-danger btn-sm" data-action="close-session" data-session-id="${session.id}" data-table="${t.name}">Close session</button>
@@ -73,6 +87,50 @@ const TablesView = (() => {
           <button class="btn btn-danger btn-sm" data-action="delete-table" data-table-id="${t.id}" data-table="${t.name}">Delete</button>
         </div>
       </div>`;
+  }
+
+  function _fmtTime(iso) {
+    const d = new Date(iso);
+    return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  }
+
+  async function _loadSessionOrders(sessionId) {
+    const feed = document.getElementById(`orders-feed-${sessionId}`);
+    if (!feed) return;
+    try {
+      const data   = await Api.rGet(`/dine-in/session/orders?session_id=${sessionId}`);
+      const orders = data.orders || [];
+
+      if (!orders.length) {
+        feed.innerHTML = '<div class="session-orders-empty">No orders yet</div>';
+        return;
+      }
+
+      const STATUS_COLOR = {
+        confirmed: 'var(--green)',
+        preparing: 'var(--amber)',
+        pending:   'var(--gray-400)',
+        ready:     'var(--blue)',
+        completed: 'var(--gray-500)',
+      };
+
+      feed.innerHTML = orders.map(o => {
+        const guest    = o.guest_name ? o.guest_name.split(' ')[0] : 'Guest';
+        const itemList = (o.items || []).map(i => `${i.name} ×${i.qty}`).join(', ');
+        const color    = STATUS_COLOR[o.status] || 'var(--gray-400)';
+        return `
+          <div class="session-order-row">
+            <div class="session-order-meta">
+              <span class="session-order-guest">${guest}</span>
+              <span class="session-order-time">${_fmtTime(o.created_at)}</span>
+              <span class="session-order-status" style="color:${color}">${o.status}</span>
+            </div>
+            <div class="session-order-items">${itemList}</div>
+          </div>`;
+      }).join('');
+    } catch (err) {
+      if (feed) feed.innerHTML = '';
+    }
   }
 
   async function _load(el) {
@@ -96,6 +154,11 @@ const TablesView = (() => {
       }
 
       grid.innerHTML = tables.map(_tableCard).join('');
+
+      // Load order feeds for all occupied tables
+      tables.forEach(t => {
+        if (t.session?.id) _loadSessionOrders(t.session.id);
+      });
 
       // Event delegation
       grid.addEventListener('click', async e => {
