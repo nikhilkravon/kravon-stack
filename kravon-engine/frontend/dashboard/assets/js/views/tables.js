@@ -301,27 +301,30 @@ const TablesView = (() => {
 
   // ── QR modal ──────────────────────────────────────────────────────────────
   function _showQr(tableId, tableName) {
-    const slug    = Auth.state().slug;
-    const base    = window.KRAVON_FRONTEND_BASE || 'http://localhost:8000';
-    const qrUrl   = `${base}/tables/?slug=${encodeURIComponent(slug)}&table_id=${tableId}`;
-    const qrSrc   = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(qrUrl)}`;
+    const slug  = Auth.state().slug;
+    const base  = window.KRAVON_FRONTEND_BASE || 'http://localhost:8000';
+    const qrUrl = `${base}/tables/?slug=${encodeURIComponent(slug)}&table_id=${tableId}`;
+    const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(qrUrl)}`;
 
-    document.body.insertAdjacentHTML('beforeend', `
-      <div class="modal-overlay" id="qr-modal">
-        <div class="modal" style="max-width:320px">
-          <div class="modal-header">
-            <span class="modal-title">QR Code — ${tableName}</span>
-            <button class="modal-close" id="qr-modal-close">✕</button>
-          </div>
-          <div class="modal-body" style="display:flex;flex-direction:column;align-items:center;gap:var(--sp-4)">
-            <img src="${qrSrc}" alt="QR code for ${tableName}" style="width:200px;height:200px;border-radius:var(--radius)">
-            <div style="font-size:11px;color:var(--gray-400);text-align:center;word-break:break-all">${qrUrl}</div>
-            <a href="${qrSrc}" download="qr-${tableName}.png" class="btn btn-secondary btn-sm">Download PNG</a>
-          </div>
+    document.getElementById('qr-modal')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id        = 'qr-modal';
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal" style="max-width:320px">
+        <div class="modal-header">
+          <span class="modal-title">QR Code — ${tableName}</span>
+          <button class="modal-close" id="qr-modal-close">✕</button>
         </div>
-      </div>`);
+        <div class="modal-body" style="display:flex;flex-direction:column;align-items:center;gap:var(--sp-4)">
+          <img src="${qrSrc}" alt="QR code for ${tableName}" style="width:200px;height:200px;border-radius:var(--radius)">
+          <div style="font-size:11px;color:var(--gray-400);text-align:center;word-break:break-all">${qrUrl}</div>
+          <a href="${qrSrc}" download="qr-${tableName}.png" class="btn btn-secondary btn-sm">Download PNG</a>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
 
-    const overlay = document.getElementById('qr-modal');
     overlay.querySelector('#qr-modal-close').onclick = () => overlay.remove();
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
   }
