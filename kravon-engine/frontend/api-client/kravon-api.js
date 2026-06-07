@@ -38,7 +38,10 @@ const KravonAPI = (() => {
       body:    JSON.stringify(body),
     });
     const data = await res.json();
-    if (!res.ok) throw Object.assign(new Error(data.error || 'Request failed'), { status: res.status });
+    if (!res.ok) {
+      const detail = data.details ? ' — ' + JSON.stringify(data.details) : '';
+      throw Object.assign(new Error((data.error || 'Request failed') + detail), { status: res.status });
+    }
     return data;
   }
 
