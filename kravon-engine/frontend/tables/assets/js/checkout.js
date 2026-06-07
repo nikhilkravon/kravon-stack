@@ -63,7 +63,6 @@ const TablesCheckout = (() => {
       if (btn) btn.disabled = true;
       if (note) note.textContent = 'Placing order…';
       try {
-        console.log('[tables:checkout] placing dine-in order', { sessionId: TC.sessionId, guestName: TC.guestName, guestPhone: TC.guestPhone, items });
         const result = await KravonAPI.createDineInOrder(
           TC.sessionId, TC.guestName, TC.guestPhone, items, notes
         );

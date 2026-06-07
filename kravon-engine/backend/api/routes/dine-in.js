@@ -327,8 +327,8 @@ router.post('/session/request-bill', publicDineInLimiter, async (req, res, next)
 /* ── POST /order ────────────────────────────────────────────────────────── */
 const DineInOrderSchema = z.object({
   session_id:    z.string().uuid(),
-  guest_name:    z.string().min(1).max(100),
-  guest_phone:   z.string().min(8).max(20),
+  guest_name:    z.string().min(1).max(100).optional(),
+  guest_phone:   z.string().min(8).max(20).optional(),
   items: z.array(z.object({
     menu_item_id:   z.string().uuid(),
     quantity:       z.number().int().min(1).max(20),
@@ -369,13 +369,13 @@ router.post('/order', publicDineInLimiter, orderLimiter, async (req, res, next) 
       return res.status(409).json({ error: 'Session is closed. No more orders can be placed.' });
     }
 
-    // First scanner becomes bill owner
-    if (!bill_owner_name) {
+    // First scanner with identity becomes bill owner
+    if (!bill_owner_name && guest_name) {
       await client.query(
         `UPDATE dining.sessions
          SET bill_owner_name = $1, bill_owner_phone = $2, updated_at = NOW()
          WHERE id = $3`,
-        [guest_name, guest_phone, session_id]
+        [guest_name, guest_phone ?? null, session_id]
       );
     }
 

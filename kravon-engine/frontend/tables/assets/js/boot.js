@@ -99,8 +99,6 @@
         return;
       }
 
-      // Every scanner captures name + phone before accessing the menu
-      await _showGuestPopup();
     }
 
     if (typeof TablesCart !== 'undefined' && typeof TablesCart.init === 'function') {
@@ -125,70 +123,4 @@
     document.body.setAttribute('data-error', 'true');
   }
 
-  /* ── Guest identity popup ───────────────────────────────────────────────── */
-  function _showGuestPopup() {
-    return new Promise((resolve) => {
-      const overlay = document.createElement('div');
-      overlay.id = 'guest-popup-overlay';
-      overlay.innerHTML = `
-        <div id="guest-popup">
-          <div class="guest-popup-brand">${window.CONFIG?.brand?.name || 'Welcome'}</div>
-          <h2 class="guest-popup-title">${window.TABLE_CONTEXT.tableName || 'Your Table'}</h2>
-          <p class="guest-popup-sub">Enter your details to start ordering</p>
-          <div class="guest-popup-field">
-            <label for="guestName">Your Name</label>
-            <input id="guestName" type="text" placeholder="e.g. Priya" autocomplete="given-name" maxlength="100">
-            <span class="guest-popup-err" id="guestNameErr"></span>
-          </div>
-          <div class="guest-popup-field">
-            <label for="guestPhone">Phone Number</label>
-            <input id="guestPhone" type="tel" placeholder="e.g. 9876543210" autocomplete="tel" maxlength="20">
-            <span class="guest-popup-err" id="guestPhoneErr"></span>
-          </div>
-          <button id="guestPopupBtn" class="guest-popup-btn">View Menu</button>
-        </div>`;
-
-      document.body.appendChild(overlay);
-
-      const nameEl  = overlay.querySelector('#guestName');
-      const phoneEl = overlay.querySelector('#guestPhone');
-      const btn     = overlay.querySelector('#guestPopupBtn');
-      const nameErr = overlay.querySelector('#guestNameErr');
-      const phErr   = overlay.querySelector('#guestPhoneErr');
-
-      nameEl.focus();
-
-      btn.addEventListener('click', () => {
-        nameErr.textContent = '';
-        phErr.textContent   = '';
-
-        const name  = nameEl.value.trim();
-        const phone = phoneEl.value.trim().replace(/\s+/g, '');
-        let valid   = true;
-
-        if (!name) {
-          nameErr.textContent = 'Please enter your name';
-          nameEl.focus();
-          valid = false;
-        }
-        if (!phone || !/^\+?[0-9]{10,15}$/.test(phone)) {
-          phErr.textContent = 'Please enter a valid phone number';
-          if (valid) phoneEl.focus();
-          valid = false;
-        }
-        if (!valid) return;
-
-        window.TABLE_CONTEXT.guestName  = name;
-        window.TABLE_CONTEXT.guestPhone = phone;
-
-        overlay.remove();
-        resolve();
-      });
-
-      // Allow submit on Enter
-      [nameEl, phoneEl].forEach(el => {
-        el.addEventListener('keydown', e => { if (e.key === 'Enter') btn.click(); });
-      });
-    });
-  }
 })();
