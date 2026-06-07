@@ -20,7 +20,7 @@
   document.body.setAttribute('data-loading', 'true');
 
   try {
-    await KravonAPI.loadConfig();
+    await KravonAPI.loadConfig('dine_in');
 
     // Tables renderer needs categorised menu — override the flat-items default
     window.MENU = window.CONFIG.categories || [];

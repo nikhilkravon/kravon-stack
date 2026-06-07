@@ -30,12 +30,21 @@ const { requireRestaurantAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
+// bustConfigCache is lazy-required to avoid circular dependency at module load
+function _bustConfig(tenantId) {
+  try { require('./config').bustConfigCache(tenantId); } catch (_) {}
+}
+
 /* ── Zod schemas ─────────────────────────────────────────────────────────── */
+
+const VALID_SURFACES = ['delivery', 'pickup', 'dine_in', 'catering'];
+const SurfacesSchema = z.array(z.enum(VALID_SURFACES)).min(1).max(4).nullable().optional();
 
 const CategoryCreateSchema = z.object({
   name:        z.string().min(1).max(150),
   description: z.string().max(500).nullable().optional(),
   position:    z.number().int().min(0).max(999).optional(),
+  surfaces:    SurfacesSchema,
 });
 
 const CategoryUpdateSchema = z.object({
@@ -43,6 +52,7 @@ const CategoryUpdateSchema = z.object({
   description: z.string().max(500).nullable().optional(),
   position:    z.number().int().min(0).max(999).optional(),
   is_active:   z.boolean().optional(),
+  surfaces:    SurfacesSchema,
 });
 
 const ItemCreateSchema = z.object({
@@ -56,6 +66,7 @@ const ItemCreateSchema = z.object({
   sort_order:      z.number().int().min(0).max(999).optional(),
   image_url:       z.string().url().max(500).nullable().optional(),
   tags:            z.array(z.string().max(50)).max(20).optional(),
+  surfaces:        SurfacesSchema,
 });
 
 const ItemUpdateSchema = z.object({
@@ -69,6 +80,7 @@ const ItemUpdateSchema = z.object({
   sort_order:      z.number().int().min(0).max(999).optional(),
   image_url:       z.string().url().max(500).nullable().optional(),
   tags:            z.array(z.string().max(50)).max(20).optional(),
+  surfaces:        SurfacesSchema,
 });
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
@@ -114,7 +126,7 @@ router.get('/categories', async (req, res, next) => {
 
     const result = await query(
       `SELECT
-         c.id, c.name, c.description, c.position, c.is_active,
+         c.id, c.name, c.description, c.position, c.is_active, c.surfaces AS cat_surfaces,
          i.id          AS item_id,
          i.name        AS item_name,
          i.description AS item_desc,
@@ -124,7 +136,8 @@ router.get('/categories', async (req, res, next) => {
          i.is_customizable,
          i.sort_order,
          i.image_url,
-         i.tags
+         i.tags,
+         i.surfaces    AS item_surfaces
        FROM menu.categories c
        LEFT JOIN menu.menu_items i
               ON i.category_id = c.id
@@ -144,6 +157,7 @@ router.get('/categories', async (req, res, next) => {
           description: row.description,
           position:    row.position,
           is_active:   row.is_active,
+          surfaces:    row.cat_surfaces || null,
           items:       [],
         });
       }
@@ -159,6 +173,7 @@ router.get('/categories', async (req, res, next) => {
           sort_order:      row.sort_order,
           image_url:       row.image_url,
           tags:            row.tags || [],
+          surfaces:        row.item_surfaces || null,
         });
       }
     }
@@ -179,17 +194,19 @@ router.post('/categories', requireRestaurantAuth, async (req, res, next) => {
     const { name, description, position } = parsed.data;
     const menuId = await getOrCreateMenu(tenantId);
 
+    const { surfaces } = parsed.data;
     const result = await query(
       `INSERT INTO menu.categories
-         (tenant_id, menu_id, name, description, position)
+         (tenant_id, menu_id, name, description, position, surfaces)
        VALUES ($1, $2, $3, $4, COALESCE($5,
          (SELECT COALESCE(MAX(position), -1) + 1 FROM menu.categories
           WHERE tenant_id = $1 AND deleted_at IS NULL)
-       ))
-       RETURNING id, name, description, position, is_active, created_at`,
-      [tenantId, menuId, name, description ?? null, position ?? null]
+       ), $6)
+       RETURNING id, name, description, position, is_active, surfaces, created_at`,
+      [tenantId, menuId, name, description ?? null, position ?? null, surfaces ?? null]
     );
 
+    _bustConfig(tenantId);
     res.status(201).json({ ok: true, category: result.rows[0] });
   } catch (err) {
     next(err);
@@ -217,6 +234,7 @@ router.put('/categories/:id', requireRestaurantAuth, async (req, res, next) => {
     if (data.description !== undefined) { setClauses.push(`description = $${idx++}`); values.push(data.description); }
     if (data.position    !== undefined) { setClauses.push(`position = $${idx++}`);    values.push(data.position); }
     if (data.is_active   !== undefined) { setClauses.push(`is_active = $${idx++}`);   values.push(data.is_active); }
+    if (data.surfaces    !== undefined) { setClauses.push(`surfaces = $${idx++}`);    values.push(data.surfaces ?? null); }
     setClauses.push(`updated_at = NOW()`);
 
     values.push(id, tenantId);
@@ -224,13 +242,14 @@ router.put('/categories/:id', requireRestaurantAuth, async (req, res, next) => {
       `UPDATE menu.categories
        SET ${setClauses.join(', ')}
        WHERE id = $${idx} AND tenant_id = $${idx + 1} AND deleted_at IS NULL
-       RETURNING id, name, description, position, is_active, updated_at`,
+       RETURNING id, name, description, position, is_active, surfaces, updated_at`,
       values
     );
 
     if (!result.rows.length) {
       return res.status(404).json({ error: 'Category not found' });
     }
+    _bustConfig(tenantId);
     res.json({ ok: true, category: result.rows[0] });
   } catch (err) {
     next(err);
@@ -268,6 +287,7 @@ router.delete('/categories/:id', requireRestaurantAuth, async (req, res, next) =
     );
 
     await client.query('COMMIT');
+    _bustConfig(tenantId);
     res.json({ ok: true });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -303,23 +323,24 @@ router.post('/items', requireRestaurantAuth, async (req, res, next) => {
     const result = await query(
       `INSERT INTO menu.menu_items
          (tenant_id, category_id, name, description, price,
-          food_type, is_customizable, is_available, sort_order, image_url, tags)
+          food_type, is_customizable, is_available, sort_order, image_url, tags, surfaces)
        VALUES ($1,$2,$3,$4,$5, $6,$7,$8,
                COALESCE($9, (SELECT COALESCE(MAX(sort_order), -1) + 1
                              FROM menu.menu_items
                              WHERE category_id = $2 AND deleted_at IS NULL)),
-               $10, $11)
+               $10, $11, $12)
        RETURNING id, category_id, name, description, price, food_type,
-                 is_customizable, is_available, sort_order, image_url, tags, created_at`,
+                 is_customizable, is_available, sort_order, image_url, tags, surfaces, created_at`,
       [
         tenantId, d.category_id, d.name, d.description ?? null, d.price,
         d.food_type ?? 'veg', d.is_customizable ?? false, d.is_available ?? true,
-        d.sort_order ?? null, d.image_url ?? null, d.tags ?? [],
+        d.sort_order ?? null, d.image_url ?? null, d.tags ?? [], d.surfaces ?? null,
       ]
     );
 
     const item = result.rows[0];
     if (item.price !== null) item.price = Number(item.price);
+    _bustConfig(tenantId);
     res.status(201).json({ ok: true, item });
   } catch (err) {
     next(err);
@@ -363,6 +384,10 @@ router.put('/items/:id', requireRestaurantAuth, async (req, res, next) => {
         values.push(d[f]);
       }
     }
+    if (d.surfaces !== undefined) {
+      setClauses.push(`surfaces = $${idx++}`);
+      values.push(d.surfaces ?? null);
+    }
     setClauses.push(`updated_at = NOW()`);
 
     values.push(id, tenantId);
@@ -371,7 +396,7 @@ router.put('/items/:id', requireRestaurantAuth, async (req, res, next) => {
        SET ${setClauses.join(', ')}
        WHERE id = $${idx} AND tenant_id = $${idx + 1} AND deleted_at IS NULL
        RETURNING id, category_id, name, description, price, food_type,
-                 is_customizable, is_available, sort_order, image_url, tags, updated_at`,
+                 is_customizable, is_available, sort_order, image_url, tags, surfaces, updated_at`,
       values
     );
 
@@ -380,6 +405,7 @@ router.put('/items/:id', requireRestaurantAuth, async (req, res, next) => {
     }
     const item = result.rows[0];
     if (item.price !== null) item.price = Number(item.price);
+    _bustConfig(tenantId);
     res.json({ ok: true, item });
   } catch (err) {
     next(err);
@@ -404,6 +430,7 @@ router.patch('/items/:id/availability', requireRestaurantAuth, async (req, res, 
     if (!result.rows.length) {
       return res.status(404).json({ error: 'Item not found' });
     }
+    _bustConfig(tenantId);
     res.json({ ok: true, item: result.rows[0] });
   } catch (err) {
     next(err);
@@ -424,6 +451,7 @@ router.delete('/items/:id', requireRestaurantAuth, async (req, res, next) => {
     if (!result.rows.length) {
       return res.status(404).json({ error: 'Item not found' });
     }
+    _bustConfig(tenantId);
     res.json({ ok: true });
   } catch (err) {
     next(err);

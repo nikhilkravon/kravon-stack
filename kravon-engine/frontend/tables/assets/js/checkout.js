@@ -165,38 +165,67 @@ const TablesCheckout = (() => {
       cat.items.forEach(item => TablesRenderer.updateItemBtn(item.id))
     );
 
-    // Populate confirm card
-    const subEl = document.getElementById('confirmSub');
-    const idEl  = document.getElementById('confirmOrderId');
-    const TC    = window.TABLE_CONTEXT;
+    const TC = window.TABLE_CONTEXT;
+    const isDineIn = TC.isDineIn ||
+      (orderData && orderData.table_identifier && orderData.table_identifier !== 'takeaway');
 
-    if (subEl) {
-      const isDineIn = TC.isDineIn || (orderData.table_identifier && orderData.table_identifier !== 'takeaway');
-      subEl.textContent = isDineIn
-        ? `Your order is in the kitchen.`
-        : `Your order is being prepared. Please collect at counter.`;
-    }
-    if (idEl) idEl.textContent = `Order ID: ORD-${orderId}`;
-
-    // Bill Request — only for dine-in
-    const billWrap = document.getElementById('billRequestWrap');
-    const TC2 = window.TABLE_CONTEXT;
-    if (billWrap) {
-      const isDineIn = TC2.isDineIn ||
-        (orderData.table_identifier && orderData.table_identifier !== 'takeaway');
-      billWrap.style.display = isDineIn ? '' : 'none';
-
-      // Reflect already-requested state if someone else tapped first
+    if (isDineIn) {
+      // ── Dine-in: Table Session screen ────────────────────
+      // Reflect already-requested bill state
       const billBtn = document.getElementById('billRequestBtn');
-      if (billBtn && TC2.billRequested) {
-        billBtn.textContent = 'Bill Requested';
+      if (billBtn && TC.billRequested) {
+        billBtn.textContent = 'Bill Requested ✓';
         billBtn.disabled = true;
         billBtn.classList.add('bill-requested');
       }
+
+      // Fetch and render aggregated table orders
+      if (TC.sessionId) {
+        KravonAPI.getDineInSessionOrders(TC.sessionId)
+          .then(d => TablesCheckout.renderSessionOrders(d.orders))
+          .catch(() => {
+            const listEl = document.getElementById('sessionOrdersList');
+            if (listEl) listEl.innerHTML = '<div class="session-orders-empty">Could not load orders.</div>';
+          });
+      }
+    } else {
+      // ── Takeaway: populate standard confirm card ──────────
+      const subEl = document.getElementById('confirmSub');
+      const idEl  = document.getElementById('confirmOrderId');
+      if (subEl) subEl.textContent = 'Your order is being prepared. Please collect at counter.';
+      if (idEl)  idEl.textContent  = `Order ID: ORD-${orderId}`;
     }
 
     // Reset review state
     resetReview();
+  }
+
+  /* ── Render aggregated session orders (no guest names) ─────── */
+  function renderSessionOrders(orders) {
+    const listEl = document.getElementById('sessionOrdersList');
+    if (!listEl) return;
+
+    if (!orders || !orders.length) {
+      listEl.innerHTML = '<div class="session-orders-empty">No orders yet at this table.</div>';
+      return;
+    }
+
+    // Aggregate item quantities across all orders — no guest attribution
+    const totals = new Map();
+    for (const order of orders) {
+      for (const item of (order.items || [])) {
+        const key = item.name;
+        totals.set(key, (totals.get(key) || 0) + item.qty);
+      }
+    }
+
+    listEl.innerHTML = [...totals.entries()]
+      .map(([name, qty]) =>
+        `<div class="session-order-row">
+           <span class="session-order-qty">${qty} ×</span>
+           <span class="session-order-name">${Kravon.esc(name)}</span>
+         </div>`
+      ).join('');
   }
 
   /* ── Bill request ─────────────────────────────────────────── */
@@ -214,7 +243,7 @@ const TablesCheckout = (() => {
       await KravonAPI.requestDineInBill(TC.sessionId, TC.guestName || undefined);
       _billRequested = true;
       TC.billRequested = true;
-      btn.textContent = 'Bill Requested';
+      btn.textContent = 'Bill Requested ✓';
       btn.classList.add('bill-requested');
       Kravon.toast('Staff has been notified — they\'ll be with you shortly.');
     } catch (err) {
@@ -332,6 +361,7 @@ const TablesCheckout = (() => {
     init,
     placeOrder,
     requestBill,
+    renderSessionOrders,
     handleRating,
     submitFeedback,
     selectPayment,

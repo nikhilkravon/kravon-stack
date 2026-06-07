@@ -98,8 +98,11 @@ function initTablesBehaviour() {
   function scrollToCategory(catId) {
     const section = document.getElementById(`cat_${catId}`);
     if (!section) return;
-    const navH = document.querySelector('.tables-nav')?.offsetHeight || 60;
-    const catH = document.querySelector('.cat-sidebar')?.offsetHeight || 0;
+    const navH  = document.querySelector('.tables-nav')?.offsetHeight || 60;
+    // Only subtract cat-sidebar height on mobile (where it's a horizontal sticky bar).
+    // On desktop the sidebar is a column — its height is irrelevant to scroll offset.
+    const isMobile = window.innerWidth <= 768;
+    const catH  = isMobile ? (document.querySelector('.cat-sidebar')?.offsetHeight || 0) : 0;
     const top = section.getBoundingClientRect().top + window.scrollY - navH - catH - 12;
     window.scrollTo({ top, behavior: 'smooth' });
     document.querySelectorAll('.cat-btn').forEach(b => {
@@ -315,13 +318,13 @@ function initTablesBehaviour() {
         KravonAPI.requestDineInBill(TC2.sessionId, TC2.guestName || undefined)
           .then(() => {
             TC2.billRequested = true;
-            target.textContent = 'Bill Requested';
+            target.textContent = 'Bill Requested ✓';
             target.classList.add('bill-requested');
             Kravon.toast('Staff has been notified — they\'ll be with you shortly.');
-            // sync confirm-screen button if visible
+            // sync session-screen button if visible
             const confBtn = document.getElementById('billRequestBtn');
             if (confBtn) {
-              confBtn.textContent = 'Bill Requested';
+              confBtn.textContent = 'Bill Requested ✓';
               confBtn.disabled = true;
               confBtn.classList.add('bill-requested');
             }
@@ -346,7 +349,14 @@ function initTablesBehaviour() {
         TablesCheckout.submitFeedback();
         break;
 
-      /* ── New order ── */
+      /* ── Order More (dine-in: return to menu from session screen) ── */
+      case 'order-more':
+        TablesRenderer.showScreen('screenOrdering');
+        window.scrollTo(0, 0);
+        _syncFab('screenOrdering');
+        break;
+
+      /* ── New order (takeaway) ── */
       case 'new-order':
         TablesCart.clear();
         window.location.reload();
@@ -446,27 +456,35 @@ function initTablesBehaviour() {
       return;
     }
 
-    const rows = orders.map(o => {
-      const guest = o.guest_name ? Kravon.esc(o.guest_name.split(' ')[0]) : 'Guest';
-      const itemList = (o.items || []).map(i => `${Kravon.esc(i.name)} ×${i.qty}`).join(', ');
-      const cls = `top-order-status--${o.status}`;
-      return `
-        <div class="top-order-row">
-          <div class="top-order-meta">
-            <span class="top-order-guest">${guest}</span>
-            <span>
-              <span class="top-order-status ${cls}">${_statusLabel(o.status)}</span>
-              <span style="margin-left:4px;font-size:11px">${_fmtTime(o.created_at)}</span>
-            </span>
-          </div>
-          <div class="top-order-items">${itemList}</div>
-        </div>`;
-    }).join('');
+    // Aggregate by dish name — no guest attribution shown
+    const totals = new Map();
+    let latestStatus = 'pending';
+    let latestTime   = null;
+    for (const order of orders) {
+      for (const item of (order.items || [])) {
+        totals.set(item.name, (totals.get(item.name) || 0) + item.qty);
+      }
+      latestStatus = order.status || latestStatus;
+      if (!latestTime || order.created_at > latestTime) latestTime = order.created_at;
+    }
+
+    const rows = [...totals.entries()].map(([name, qty]) =>
+      `<div class="top-order-row">
+         <div class="top-order-items">${qty} × ${Kravon.esc(name)}</div>
+       </div>`
+    ).join('');
+
+    const cls = `top-order-status--${latestStatus}`;
+    const timeStr = latestTime ? _fmtTime(latestTime) : '';
 
     panel.style.display = '';
     panel.innerHTML = `
       <div class="top-panel-header" id="topPanelHeader">
-        <span class="top-panel-title">Table Orders (${orders.length})</span>
+        <span class="top-panel-title">Table Orders</span>
+        <span>
+          <span class="top-order-status ${cls}">${_statusLabel(latestStatus)}</span>
+          ${timeStr ? `<span style="margin-left:4px;font-size:11px">${timeStr}</span>` : ''}
+        </span>
         <span class="top-panel-toggle" id="topPanelToggle">Hide</span>
       </div>
       <div class="top-panel-body" id="topPanelBody">${rows}</div>`;
@@ -495,7 +513,10 @@ function initTablesBehaviour() {
 
     setInterval(async () => {
       const orderingEl = document.getElementById('screenOrdering');
-      if (!orderingEl || orderingEl.style.display === 'none') return;
+      const confirmEl  = document.getElementById('screenConfirm');
+      const onOrdering = orderingEl && orderingEl.style.display !== 'none';
+      const onConfirm  = confirmEl  && confirmEl.style.display  !== 'none';
+      if (!onOrdering && !onConfirm) return;
       try {
         const [status, ordersData] = await Promise.all([
           KravonAPI.getDineInSessionStatus(TC.tableId),
@@ -507,16 +528,17 @@ function initTablesBehaviour() {
           return;
         }
 
-        // Sync bill-requested state
+        // Sync bill-requested state across both screens
         if (status.bill_requested && !TC.billRequested) {
           TC.billRequested = true;
           const barBtn  = document.getElementById('requestBillBarBtn');
           const confBtn = document.getElementById('billRequestBtn');
-          if (barBtn)  { barBtn.textContent  = 'Bill Requested'; barBtn.disabled  = true; barBtn.classList.add('bill-requested'); }
-          if (confBtn) { confBtn.textContent = 'Bill Requested'; confBtn.disabled = true; confBtn.classList.add('bill-requested'); }
+          if (barBtn)  { barBtn.textContent  = 'Bill Requested ✓'; barBtn.disabled  = true; barBtn.classList.add('bill-requested'); }
+          if (confBtn) { confBtn.textContent = 'Bill Requested ✓'; confBtn.disabled = true; confBtn.classList.add('bill-requested'); }
         }
 
-        _renderOrdersPanel(ordersData.orders);
+        if (onOrdering) _renderOrdersPanel(ordersData.orders);
+        if (onConfirm)  TablesCheckout.renderSessionOrders(ordersData.orders);
       } catch (_) { /* network blip — ignore */ }
     }, 30_000);
   }
@@ -532,7 +554,16 @@ function initTablesBehaviour() {
     `;
     banner.textContent = 'Your table session has ended. Ask your waiter to re-open it.';
     document.body.prepend(banner);
+    // Disable ordering on both screens
     const goCheckoutBtn = document.querySelector('[data-action="go-checkout"]');
     if (goCheckoutBtn) { goCheckoutBtn.disabled = true; goCheckoutBtn.setAttribute('aria-disabled', 'true'); }
+    const orderMoreBtn = document.querySelector('[data-action="order-more"]');
+    if (orderMoreBtn) { orderMoreBtn.disabled = true; orderMoreBtn.setAttribute('aria-disabled', 'true'); }
+    // Update session badge on confirm screen
+    const badge = document.getElementById('sessionStatusBadge');
+    if (badge) {
+      badge.classList.add('session-status-badge--closed');
+      badge.innerHTML = 'Session Closed';
+    }
   }
 }

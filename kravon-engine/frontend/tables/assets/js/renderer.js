@@ -302,6 +302,78 @@
 
   /* ── Screen: Confirmation ────────────────────────────────── */
   function buildScreenConfirm() {
+    const isDineIn = TC.isDineIn && TC.tableName;
+
+    if (isDineIn) {
+      // ── Dine-in: Table Session screen ────────────────────────
+      return `
+        <div id="screenConfirm" class="tables-screen tables-screen--confirm"
+             style="display:none" role="main" aria-live="polite">
+          ${buildNav(Kravon.esc(TC.tableName))}
+          <div class="confirm-wrap">
+
+            <div class="session-status-badge" id="sessionStatusBadge">
+              <span class="session-dot" aria-hidden="true"></span>
+              Session Active
+            </div>
+
+            <div class="session-orders-card" id="sessionOrdersCard">
+              <div class="session-orders-title">Current Table Orders</div>
+              <div class="session-orders-list" id="sessionOrdersList">
+                <div class="session-orders-empty">Loading orders…</div>
+              </div>
+            </div>
+
+            <button class="btn-primary order-more-btn" data-action="order-more"
+                    aria-label="Order more food">
+              Order More
+            </button>
+
+            <div class="session-assist-wrap">
+              <div class="session-assist-label">Need Assistance?</div>
+              <button class="bill-request-btn bill-request-btn--secondary" id="billRequestBtn"
+                      data-action="request-bill"
+                      aria-label="Request the bill">
+                Request Bill
+              </button>
+            </div>
+
+            <div class="review-wrap" id="reviewWrap" aria-label="Rate your experience">
+              <div class="review-heading">Rate Experience</div>
+              <div class="review-stars" id="reviewStars" role="group" aria-label="Star rating">
+                ${[1,2,3,4,5].map(n =>
+                  `<button class="star-btn" data-action="rate" data-stars="${n}"
+                           aria-label="${n} star${n > 1 ? 's' : ''}"
+                           aria-pressed="false">
+                     <svg width="28" height="28" aria-hidden="true"><use href="#icon-star"/></svg>
+                   </button>`
+                ).join('')}
+              </div>
+              <div class="review-feedback" id="reviewFeedback" style="display:none">
+                <textarea id="feedbackText" class="feedback-textarea"
+                          placeholder="Tell us what we can improve…"
+                          maxlength="500" rows="3"></textarea>
+                <button class="btn-primary review-submit-btn"
+                        data-action="submit-feedback">Send Feedback</button>
+              </div>
+              <div class="review-google" id="reviewGoogle" style="display:none">
+                <p class="review-google-msg">We're so glad you enjoyed it! Please share on Google—it helps us a lot.</p>
+                <a class="btn-primary review-google-btn" id="reviewGoogleLink"
+                   href="#" target="_blank" rel="noopener noreferrer">
+                  Leave a Google Review ↗
+                </a>
+              </div>
+              <div class="review-thanks" id="reviewThanks" style="display:none"
+                   aria-live="polite">
+                Thank you for the feedback 🙏
+              </div>
+            </div>
+
+          </div>
+        </div>`;
+    }
+
+    // ── Takeaway / no session: standard confirmation screen ──
     return `
       <div id="screenConfirm" class="tables-screen tables-screen--confirm"
            style="display:none" role="main" aria-live="polite">
@@ -313,19 +385,8 @@
               <svg width="36" height="36"><use href="#icon-check"/></svg>
             </div>
             <div class="confirm-heading" id="confirmHeading">Order Placed!</div>
-            ${TC.isDineIn && TC.tableName
-              ? `<div class="confirm-table-ctx">Table ${Kravon.esc(TC.tableName)} · Session active</div>`
-              : ''}
             <div class="confirm-sub" id="confirmSub"></div>
             <div class="confirm-id" id="confirmOrderId"></div>
-          </div>
-
-          <div id="billRequestWrap" style="display:none">
-            <button class="bill-request-btn" id="billRequestBtn"
-                    data-action="request-bill"
-                    aria-label="Request the bill">
-              Request Bill
-            </button>
           </div>
 
           <div class="review-wrap" id="reviewWrap" aria-label="Rate your experience">
@@ -493,8 +554,13 @@
       buildScreenCheckout(),
       buildScreenConfirm(),
       buildCartDrawer(),
-      buildCustomModal(),
     ].join('');
+
+    // Modal appended directly to <body> to escape any stacking context
+    // created by backdrop-filter on .tables-nav or transforms on .menu-card.
+    const modalEl = document.createElement('div');
+    modalEl.innerHTML = buildCustomModal();
+    document.body.appendChild(modalEl.firstElementChild);
 
     const initialScreen = isDineIn ? 'screenOrdering' : 'screenChoice';
     showScreen(initialScreen, false);

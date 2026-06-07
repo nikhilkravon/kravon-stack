@@ -121,19 +121,25 @@ function _nominatimGeocode(query) {
   });
 }
 
-// 60-second per-tenant config cache — matches the Cache-Control max-age.
+// 60-second per-tenant+surface config cache — matches the Cache-Control max-age.
 // Prevents the full menu JOIN running on every concurrent request.
+// Cache key format: "<tenantId>:<surface>" where surface is 'all' when no ?surface param.
 const _configCache = new Map();
 const CONFIG_TTL   = 60 * 1000;
 
-function getConfigCached(tenantId) {
-  const entry = _configCache.get(tenantId);
+const VALID_SURFACES = new Set(['delivery', 'pickup', 'dine_in', 'catering']);
+
+function _cacheKey(tenantId, surface) {
+  return `${tenantId}:${surface || 'all'}`;
+}
+function getConfigCached(tenantId, surface) {
+  const entry = _configCache.get(_cacheKey(tenantId, surface));
   if (entry && Date.now() - entry.ts < CONFIG_TTL) return entry.data;
   return null;
 }
-function setConfigCached(tenantId, data) {
+function setConfigCached(tenantId, surface, data) {
   if (_configCache.size > 500) _configCache.delete(_configCache.keys().next().value);
-  _configCache.set(tenantId, { data, ts: Date.now() });
+  _configCache.set(_cacheKey(tenantId, surface), { data, ts: Date.now() });
 }
 
 router.get('/', async (req, res, next) => {
@@ -141,13 +147,25 @@ router.get('/', async (req, res, next) => {
     const r  = req.tenant;
     const id = r.tenant_id;
 
-    const cached = getConfigCached(id);
+    // Optional ?surface=delivery|pickup|dine_in|catering
+    // When provided, categories and items whose surfaces array does NOT include
+    // this surface are excluded. NULL surfaces = visible on all surfaces.
+    const rawSurface = req.query.surface;
+    const surface    = VALID_SURFACES.has(rawSurface) ? rawSurface : null;
+
+    const cached = getConfigCached(id, surface);
     if (cached) {
       res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
       return res.json(cached);
     }
 
-    // Fetch categories + items in one pass (v12 column names)
+    // NULL surfaces = no restriction = always included.
+    // Non-null surfaces = must contain the requested surface.
+    const catChannelFilter  = surface ? `AND (c.surfaces IS NULL OR $2 = ANY(c.surfaces))` : '';
+    const itemChannelFilter = surface ? `AND (i.surfaces IS NULL OR $2 = ANY(i.surfaces))` : '';
+    const queryParams       = surface ? [id, surface] : [id];
+
+    // Fetch categories + items in one pass.
     // has_variants and is_customizable are derived live from child rows so they
     // stay accurate even if the flags on menu_items were never backfilled.
     const menuRes = await query(`
@@ -156,11 +174,13 @@ router.get('/', async (req, res, next) => {
         c.name        AS cat_name,
         c.description AS cat_subtitle,
         c.position    AS cat_sort,
+        c.surfaces    AS cat_surfaces,
         i.id          AS item_id,
         i.name        AS item_name,
         i.price       AS item_price,
         i.description AS item_desc,
         i.image_url   AS image,
+        i.surfaces    AS item_surfaces,
         i.is_customizable OR EXISTS (
           SELECT 1 FROM menu.customization_groups g
           WHERE g.menu_item_id = i.id AND g.tenant_id = i.tenant_id AND g.deleted_at IS NULL
@@ -177,11 +197,13 @@ router.get('/', async (req, res, next) => {
              ON i.category_id = c.id
             AND i.is_available = TRUE
             AND i.deleted_at IS NULL
+            ${itemChannelFilter}
       WHERE c.tenant_id = $1
         AND c.is_active = TRUE
         AND c.deleted_at IS NULL
+        ${catChannelFilter}
       ORDER BY c.position, i.sort_order
-    `, [id]);
+    `, queryParams);
 
     // Build categorised map + flat list
     const catMap    = new Map();
@@ -193,6 +215,7 @@ router.get('/', async (req, res, next) => {
           id:       row.cat_id,
           name:     row.cat_name,
           subtitle: row.cat_subtitle,
+          surfaces: row.cat_surfaces || null,
           items:    [],
         });
       }
@@ -212,6 +235,7 @@ router.get('/', async (req, res, next) => {
           has_variants:    row.has_variants,
           food_type:       row.food_type,
           tags:            row.tags || [],
+          surfaces:        row.item_surfaces || null,
         };
         catMap.get(row.cat_id).items.push(item);
         flatItems.push(item);
@@ -439,7 +463,7 @@ router.get('/', async (req, res, next) => {
     };
 
     const payload = { ok: true, config };
-    setConfigCached(id, payload);
+    setConfigCached(id, surface, payload);
     res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
     res.json(payload);
 
@@ -619,8 +643,8 @@ router.patch('/', requireRestaurantAuth, async (req, res, next) => {
       }
     }
 
-    // ── Bust both caches ─────────────────────────────────────────────────────
-    _configCache.delete(tenantId);
+    // ── Bust both caches (all surface variants) ──────────────────────────────
+    bustConfigCache(tenantId);
     require('../middleware/tenant').clearTenantCache(req.tenant.slug);
     audit.log(null, {
       tenantId, actorId: req.auth?.staffId, actorType: 'staff',
@@ -716,7 +740,10 @@ router.get('/items/:id', async (req, res, next) => {
 });
 
 function bustConfigCache(tenantId) {
-  _configCache.delete(tenantId);
+  // Delete all surface-keyed variants for this tenant (e.g. "id:all", "id:dine_in", etc.)
+  for (const key of _configCache.keys()) {
+    if (key.startsWith(`${tenantId}:`)) _configCache.delete(key);
+  }
 }
 
 module.exports = router;

@@ -46,8 +46,9 @@ const KravonAPI = (() => {
   }
 
   /* ── Config ─────────────────────────────────────────────────────────── */
-  async function loadConfig() {
-    const res = await fetch(_url('/config'));
+  async function loadConfig(surface) {
+    const qs  = surface ? `?surface=${encodeURIComponent(surface)}` : '';
+    const res = await fetch(_url(`/config${qs}`));
     if (!res.ok) throw new Error('Failed to load restaurant config');
     const data = await res.json();
     _config = data.config;

@@ -9,7 +9,7 @@
   document.body.setAttribute('data-loading', 'true');
 
   try {
-    await KravonAPI.loadConfig();
+    await KravonAPI.loadConfig('catering');
 
     if (typeof window.initRenderer  === 'function') window.initRenderer();
     if (typeof window.initBehaviour === 'function') window.initBehaviour();

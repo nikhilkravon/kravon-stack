@@ -11,33 +11,38 @@
  */
 const App = (() => {
 
+  // Views grouped by domain — add future views here when their modules are built
   const VIEWS = {
+    // Operations
     overview:     OverviewView,
     orders:       OrdersView,
-    menu:         MenuView,
-    reservations: ReservationsView,
     tables:       TablesView,
     kitchen:      KitchenView,
+    reservations: ReservationsView,
+    // Customers & Sales
+    customers:    CustomersView,
     catering:     CateringView,
     insights:     InsightsView,
-    customers:    CustomersView,
-    staff:        StaffView,
+    // Digital Experience
     presence:     PresenceView,
+    menu:         MenuView,
+    // Administration
+    staff:        StaffView,
     settings:     SettingsView,
   };
 
   const VIEW_TITLES = {
     overview:     'Overview',
     orders:       'Orders',
-    menu:         'Menu',
-    reservations: 'Reservations',
     tables:       'Tables',
     kitchen:      'Kitchen',
-    catering:     'Catering',
-    insights:     'Insights',
+    reservations: 'Reservations',
     customers:    'Customers',
+    catering:     'Catering Leads',
+    insights:     'Insights',
+    presence:     'Website & Brand',
+    menu:         'Menu',
     staff:        'Staff',
-    presence:     'Personalisation',
     settings:     'Settings',
   };
 
@@ -110,6 +115,13 @@ const App = (() => {
         a.addEventListener('click', () => { if (window.innerWidth <= 768) closeSidebar(); })
       );
     }
+
+    // Nav group collapse toggles (mobile-first, but available on all sizes)
+    document.querySelectorAll('.dash-nav-group-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        btn.closest('.dash-nav-group').classList.toggle('collapsed');
+      });
+    });
   }
 
   // ── Auth forms ─────────────────────────────────────────────────────────────
@@ -249,9 +261,14 @@ const App = (() => {
 
     _currentView = viewName;
 
-    // Sidebar active state
+    // Sidebar active state — mark item, expand its group if collapsed
     document.querySelectorAll('.dash-nav-item').forEach(a => {
-      a.classList.toggle('active', a.dataset.view === viewName);
+      const isActive = a.dataset.view === viewName;
+      a.classList.toggle('active', isActive);
+      if (isActive) {
+        const group = a.closest('.dash-nav-group');
+        if (group) group.classList.remove('collapsed');
+      }
     });
 
     // Page title

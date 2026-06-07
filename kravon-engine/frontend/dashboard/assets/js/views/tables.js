@@ -107,12 +107,14 @@ const TablesView = (() => {
         return;
       }
 
+      // Read-only: Tables reads Order.status from the Session domain, never writes it
       const STATUS_COLOR = {
-        confirmed: 'var(--green)',
-        preparing: 'var(--amber)',
         pending:   'var(--gray-400)',
-        ready:     'var(--blue)',
+        confirmed: 'var(--blue-500)',
+        preparing: 'var(--amber-600)',
+        ready:     'var(--green-600)',
         completed: 'var(--gray-500)',
+        cancelled: 'var(--red-500)',
       };
 
       feed.innerHTML = orders.map(o => {

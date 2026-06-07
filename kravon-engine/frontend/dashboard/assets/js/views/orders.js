@@ -34,12 +34,21 @@ const OrdersView = (() => {
     });
   }
 
+  // Order domain: status transitions per fulfillment_type
+  // Kitchen owns confirmed→preparing→ready; Orders view owns the rest
   const STATUS_NEXT_DELIVERY = {
     pending:          ['confirmed', 'cancelled'],
     confirmed:        ['preparing', 'cancelled'],
     preparing:        ['ready'],
     ready:            ['out_for_delivery'],
     out_for_delivery: ['completed'],
+  };
+
+  const STATUS_NEXT_PICKUP = {
+    pending:          ['confirmed', 'cancelled'],
+    confirmed:        ['preparing', 'cancelled'],
+    preparing:        ['ready'],
+    ready:            ['completed'],
   };
 
   const STATUS_NEXT_DINE_IN = {
@@ -56,14 +65,15 @@ const OrdersView = (() => {
 
   function _statusNext(fulfillmentType) {
     if (fulfillmentType === 'delivery') return STATUS_NEXT_DELIVERY;
+    if (fulfillmentType === 'pickup')   return STATUS_NEXT_PICKUP;
     if (fulfillmentType === 'catering') return STATUS_NEXT_CATERING;
     return STATUS_NEXT_DINE_IN;
   }
 
   const ACTION_LABELS = {
-    confirmed:        'Accept',
-    preparing:        'Preparing',
-    ready:            'Ready',
+    confirmed:        'Confirm',
+    preparing:        'Start Preparing',
+    ready:            'Mark Ready',
     out_for_delivery: 'Out for Delivery',
     completed:        'Complete',
     cancelled:        'Cancel',
@@ -102,17 +112,21 @@ const OrdersView = (() => {
     refunded:         'Refunded',
   };
 
+  // fulfillment_type labels (primary)
+  const FULFILLMENT_LABEL = {
+    dine_in:  'Dine-in',
+    delivery: 'Delivery',
+    pickup:   'Pickup',
+    catering: 'Catering',
+  };
+
+  // channel labels (secondary context, shown when fulfillment_type alone is ambiguous)
   const CHANNEL_LABEL = {
-    dine_in:          'Dine-in',
-    delivery:         'Delivery',
-    pickup:           'Pickup',
-    catering:         'Catering',
-    dine_in_takeaway: 'Takeaway',
-    qr:               'QR Table',
-    web:              'Online',
-    whatsapp:         'WhatsApp',
-    pos:              'POS',
-    phone:            'Phone',
+    qr:        'QR',
+    web:       'Online',
+    whatsapp:  'WhatsApp',
+    pos:       'POS',
+    phone:     'Phone',
   };
 
   function _fmt(n) { return '₹ ' + Number(n || 0).toLocaleString('en-IN'); }
@@ -139,8 +153,9 @@ const OrdersView = (() => {
   }
 
   function _channel(o) {
-    const key = o.fulfillment_type || o.channel || '';
-    return CHANNEL_LABEL[key] || key.replace(/_/g, ' ') || '—';
+    const type = FULFILLMENT_LABEL[o.fulfillment_type] || (o.fulfillment_type || '').replace(/_/g, ' ');
+    const ch   = CHANNEL_LABEL[o.channel];
+    return ch ? `${type} · ${ch}` : type || '—';
   }
 
   function _actionButtons(o) {

@@ -36,7 +36,13 @@ const KitchenView = (() => {
     pending:   '<span class="badge badge-pending">Pending</span>',
   };
 
-  // Kitchen staff own confirmed→preparing and preparing→ready
+  const CHANNEL_LABEL = {
+    dine_in:  'Dine-in',
+    delivery: 'Delivery',
+    pickup:   'Pickup',
+  };
+
+  // Kitchen owns confirmed→preparing→ready on Order.status
   const KITCHEN_NEXT = {
     confirmed: { status: 'preparing', label: 'Start Preparing' },
     preparing: { status: 'ready',     label: 'Mark Ready' },
@@ -54,9 +60,10 @@ const KitchenView = (() => {
   }
 
   function _orderCard(o) {
-    const ageClass = _orderAgeClass(o.created_at, o.status);
-    const ageLabel = _orderAge(o.created_at);
-    const next     = KITCHEN_NEXT[o.status];
+    const ageClass   = _orderAgeClass(o.created_at, o.status);
+    const ageLabel   = _orderAge(o.created_at);
+    const next       = KITCHEN_NEXT[o.status];
+    const chLabel    = CHANNEL_LABEL[o.fulfillment_type] || o.fulfillment_type || '';
 
     const items = (o.items || []).map(i => `
       <div class="order-item-line">
@@ -66,7 +73,10 @@ const KitchenView = (() => {
     return `
       <div class="kitchen-order-card" data-order-id="${o.order_id}">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-2)">
-          <span class="text-sm text-muted">#${o.order_id.slice(-6).toUpperCase()}</span>
+          <div style="display:flex;align-items:center;gap:var(--sp-2)">
+            <span class="text-sm text-muted">#${o.order_id.slice(-6).toUpperCase()}</span>
+            ${chLabel ? `<span class="text-sm" style="color:var(--gray-500);font-size:11px;text-transform:uppercase;letter-spacing:.04em">${chLabel}</span>` : ''}
+          </div>
           <div style="display:flex;align-items:center;gap:var(--sp-2)">
             <span class="text-sm ${ageClass}" style="font-weight:600">${ageLabel}</span>
             ${STATUS_BADGE[o.status] || ''}
@@ -124,8 +134,8 @@ const KitchenView = (() => {
       if (!tables.length) {
         grid.innerHTML = DashUI.emptyState({
           icon:  '🍽',
-          title: 'No open tables',
-          body:  'Active dine-in sessions with pending orders will appear here.',
+          title: 'Nothing in the kitchen',
+          body:  'Confirmed orders will appear here when they need preparing.',
         });
         return;
       }

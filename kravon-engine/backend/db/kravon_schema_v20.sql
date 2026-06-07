@@ -682,6 +682,9 @@ CREATE TABLE menu.categories (
     image_url   TEXT,
     position    SMALLINT NOT NULL DEFAULT 0,
     is_active   BOOLEAN  NOT NULL DEFAULT TRUE,
+    -- NULL = visible on all surfaces; non-null restricts to listed surfaces only.
+    -- Valid values: 'delivery', 'pickup', 'dine_in', 'catering'  (v22)
+    surfaces    TEXT[],
     deleted_at  TIMESTAMPTZ,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -689,8 +692,10 @@ CREATE TABLE menu.categories (
     FOREIGN KEY (menu_id)   REFERENCES menu.menus(id)         ON DELETE CASCADE
 );
 
-CREATE INDEX idx_categories_menu   ON menu.categories(menu_id)   WHERE deleted_at IS NULL;
-CREATE INDEX idx_categories_tenant ON menu.categories(tenant_id);
+CREATE INDEX idx_categories_menu      ON menu.categories(menu_id)   WHERE deleted_at IS NULL;
+CREATE INDEX idx_categories_tenant    ON menu.categories(tenant_id);
+CREATE INDEX idx_categories_surfaces  ON menu.categories USING gin(surfaces)
+    WHERE surfaces IS NOT NULL AND deleted_at IS NULL;
 
 
 CREATE TABLE menu.menu_items (
@@ -707,6 +712,9 @@ CREATE TABLE menu.menu_items (
     is_available    BOOLEAN         NOT NULL DEFAULT TRUE,
     allergens       TEXT[],
     tags            TEXT[],
+    -- NULL = visible on all surfaces; non-null restricts to listed surfaces only.
+    -- Valid values: 'delivery', 'pickup', 'dine_in', 'catering'  (v22)
+    surfaces        TEXT[],
     prep_time_mins  SMALLINT,
     calories        SMALLINT,
     sort_order      SMALLINT        NOT NULL DEFAULT 0,
@@ -727,6 +735,8 @@ CREATE INDEX idx_menu_items_available ON menu.menu_items(tenant_id, is_available
 CREATE INDEX idx_menu_items_category  ON menu.menu_items(category_id)            WHERE deleted_at IS NULL;
 CREATE INDEX idx_menu_items_name_trgm ON menu.menu_items USING gin(name gin_trgm_ops)
     WHERE deleted_at IS NULL;
+CREATE INDEX idx_menu_items_surfaces  ON menu.menu_items USING gin(surfaces)
+    WHERE surfaces IS NOT NULL AND deleted_at IS NULL;
 
 
 CREATE TABLE menu.item_variants (

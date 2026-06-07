@@ -378,7 +378,11 @@
       "Bash(curl -s --max-time 10 https://kravon-backend-production.up.railway.app/health)",
       "Bash(curl -s --max-time 10 -X POST https://kravon-backend-production.up.railway.app/v1/auth/login -H \"Content-Type: application/json\" -d '{\"slug\":\"royal-tandoor\",\"email\":\"admin@royaltandoor.in\",\"password\":\"RoyalT@2026\"}')",
       "Bash(curl -s \"http://localhost:8000/dashboard/\")",
-      "Bash(curl -s -I -X OPTIONS \"https://kravon-backend-production.up.railway.app/v1/restaurants/royal-tandoor/notifications\" -H \"Origin: http://localhost:8000\" -H \"Access-Control-Request-Method: GET\")"
+      "Bash(curl -s -I -X OPTIONS \"https://kravon-backend-production.up.railway.app/v1/restaurants/royal-tandoor/notifications\" -H \"Origin: http://localhost:8000\" -H \"Access-Control-Request-Method: GET\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Nikhil\\\\KravonSAAS\\\\kravon-stack\" -Recurse -Directory -Name)",
+      "Bash(node verify_session_screen.mjs)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Nikhil\\\\KravonSAAS\\\\kravon-stack\\\\kravon-engine\\\\frontend\\\\dashboard\\\\\" -Recurse -File | Select-Object FullName | Sort-Object FullName)",
+      "Bash(find \"c:\\\\\\\\Users\\\\\\\\Nikhil\\\\\\\\KravonSAAS\\\\\\\\kravon-stack\\\\\\\\kravon-engine\\\\\\\\frontend\\\\\\\\dashboard\" -type f)"
     ],
     "additionalDirectories": [
       "\\tmp",

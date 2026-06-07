@@ -10,12 +10,20 @@ const MenuView = (() => {
     return `<span class="menu-item-dot ${cls}" title="${type || 'veg'}"></span>`;
   }
 
+  function _surfacePill(surfaces) {
+    if (!surfaces?.length) return '';
+    const labels = { delivery: 'Del', pickup: 'Pick', dine_in: 'DI', catering: 'Cat' };
+    const pills  = surfaces.map(s => `<span class="menu-channel-pill">${labels[s] || s}</span>`).join('');
+    return `<span class="menu-channel-tag" title="Visible on: ${surfaces.join(', ')}">${pills}</span>`;
+  }
+
   function _itemRow(item, catId) {
     return `
       <div class="menu-item-row ${item.is_available ? '' : 'menu-item-unavailable'}" data-item-id="${item.id}">
         <div class="menu-item-info">
           ${_foodDot(item.food_type)}
           <span class="menu-item-name">${_esc(item.name)}</span>
+          ${_surfacePill(item.surfaces)}
           <span class="menu-item-price">₹ ${Number(item.price).toLocaleString('en-IN')}</span>
         </div>
         <div class="menu-item-actions">
@@ -87,6 +95,18 @@ const MenuView = (() => {
                 <label>Description <span class="text-muted">(optional)</span></label>
                 <input name="description" type="text" value="${_esc(cat?.description || '')}" maxlength="500">
               </div>
+              <div class="form-group">
+                <label>Visible on <span class="text-muted">(leave all unchecked = all surfaces)</span></label>
+                <div style="display:flex;flex-wrap:wrap;gap:var(--sp-3);margin-top:var(--sp-1)">
+                  ${['delivery','pickup','dine_in','catering'].map(s => {
+                    const checked = cat?.surfaces?.includes(s) ? 'checked' : '';
+                    const label   = { delivery: 'Delivery', pickup: 'Pickup', dine_in: 'Dine-in', catering: 'Catering' }[s];
+                    return `<label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer">
+                      <input type="checkbox" name="surfaces" value="${s}" ${checked}> ${label}
+                    </label>`;
+                  }).join('')}
+                </div>
+              </div>
               <p id="cat-modal-error" class="form-error" hidden></p>
             </div>
             <div class="modal-footer">
@@ -104,8 +124,13 @@ const MenuView = (() => {
 
     overlay.querySelector('#cat-form').onsubmit = async (e) => {
       e.preventDefault();
-      const fd   = new FormData(e.target);
-      const body = { name: fd.get('name'), description: fd.get('description') || null };
+      const fd       = new FormData(e.target);
+      const surfaces = fd.getAll('surfaces');
+      const body = {
+        name:        fd.get('name'),
+        description: fd.get('description') || null,
+        surfaces:    surfaces.length ? surfaces : null,
+      };
       const btn  = overlay.querySelector('#cat-modal-save');
       const err  = overlay.querySelector('#cat-modal-error');
       btn.disabled = true; btn.textContent = 'Saving…';
@@ -179,6 +204,18 @@ const MenuView = (() => {
                   <label>Image URL</label>
                   <input name="image_url" type="url" value="${_esc(item?.image_url || '')}" maxlength="500" placeholder="https://…">
                 </div>
+                <div class="form-group">
+                  <label>Visible on <span class="text-muted">(leave all unchecked = all surfaces)</span></label>
+                  <div style="display:flex;flex-wrap:wrap;gap:var(--sp-3);margin-top:var(--sp-1)">
+                    ${['delivery','pickup','dine_in','catering'].map(s => {
+                      const checked = item?.surfaces?.includes(s) ? 'checked' : '';
+                      const label   = { delivery: 'Delivery', pickup: 'Pickup', dine_in: 'Dine-in', catering: 'Catering' }[s];
+                      return `<label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer">
+                        <input type="checkbox" name="surfaces" value="${s}" ${checked}> ${label}
+                      </label>`;
+                    }).join('')}
+                  </div>
+                </div>
                 <p id="item-modal-error" class="form-error" hidden></p>
               </div>
               <div class="modal-footer">
@@ -227,7 +264,8 @@ const MenuView = (() => {
     // Details form submit
     overlay.querySelector('#item-form').onsubmit = async e => {
       e.preventDefault();
-      const fd   = new FormData(e.target);
+      const fd       = new FormData(e.target);
+      const surfaces = fd.getAll('surfaces');
       const body = {
         category_id:  fd.get('category_id'),
         name:         fd.get('name'),
@@ -236,6 +274,7 @@ const MenuView = (() => {
         is_available: fd.get('is_available') === 'true',
         description:  fd.get('description') || null,
         image_url:    fd.get('image_url') || null,
+        surfaces:     surfaces.length ? surfaces : null,
       };
       const btn = overlay.querySelector('#item-modal-save');
       const err = overlay.querySelector('#item-modal-error');

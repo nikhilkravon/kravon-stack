@@ -788,6 +788,128 @@ body[data-error="true"] .tables-error { display: flex; }
   gap: var(--sp-6);
   align-items: center;
 }
+
+/* ── Session Active badge ─────────────────────────────────── */
+.session-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  background: rgba(76, 175, 80, 0.12);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  border-radius: 999px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6fcf6f;
+  letter-spacing: 0.02em;
+}
+.session-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4caf50;
+  display: inline-block;
+  animation: session-pulse 2s ease-in-out infinite;
+}
+@keyframes session-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+.session-status-badge--closed {
+  background: rgba(192, 57, 43, 0.12);
+  border-color: rgba(192, 57, 43, 0.3);
+  color: #e07060;
+}
+
+/* ── Session orders card ──────────────────────────────────── */
+.session-orders-card {
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+}
+.session-orders-title {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: var(--sp-4);
+}
+.session-orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.session-order-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  font-size: 15px;
+  color: var(--cream);
+  line-height: 1.4;
+}
+.session-order-qty {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--stone);
+  min-width: 28px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.session-order-name {
+  font-weight: 500;
+}
+.session-orders-empty {
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+  padding: var(--sp-3) 0;
+}
+
+/* ── Order More button ────────────────────────────────────── */
+.order-more-btn {
+  width: 100%;
+  font-size: 16px;
+  padding: 14px 24px;
+  justify-content: center;
+}
+
+/* ── Session assist section (Request Bill) ────────────────── */
+.session-assist-wrap {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.session-assist-label {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+.bill-request-btn--secondary {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--border-2);
+  color: var(--stone);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: color var(--t-fast), border-color var(--t-fast);
+  justify-content: center;
+}
+.bill-request-btn--secondary:hover {
+  color: var(--cream);
+  border-color: var(--border-2);
+}
 .confirm-card {
   width: 100%;
   background: var(--card);
@@ -1322,9 +1444,10 @@ body[data-error="true"] .tables-error { display: flex; }
 .top-order-status--ready      { background: rgba(80,180,255,0.15);  color: #60b4ff; }
 
 /* ── Bill requested state ─────────────────────────────────── */
-#billRequestBtn.bill-requested {
+#billRequestBtn.bill-requested,
+.bill-request-btn--secondary.bill-requested {
   background: transparent;
-  border: 1px solid rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.12);
   color: var(--muted);
   cursor: default;
 }
