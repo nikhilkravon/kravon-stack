@@ -25,15 +25,29 @@
 
 'use strict';
 
-const express  = require('express');
-const { z }    = require('zod');
-const { query } = require('../../db/pool');
-const orderService = require('../../services/order.service');
+const express      = require('express');
+const rateLimit    = require('express-rate-limit');
+const { z }        = require('zod');
+const orderService = require('../../domains/ordering/service');
+const orderRepo    = require('../../domains/ordering/repository');
 const { requireRestaurantAuth } = require('../middleware/auth');
-const audit    = require('../../utils/audit');
-const events   = require('../../utils/events');
+const audit        = require('../../utils/audit');
+const events       = require('../../utils/events');
 
 const router = express.Router();
+
+// 30 order-creation attempts per tenant per minute — stops flooding without
+// blocking legitimate burst traffic (e.g. a busy table night).
+const orderCreateLimiter = rateLimit({
+  windowMs:        60 * 1000,
+  max:             30,
+  standardHeaders: true,
+  legacyHeaders:   false,
+  keyGenerator:    (req) => req.tenant?.tenant_id || req.ip,
+  message: { error: 'Too many order requests. Please wait a moment.' },
+  skip:            (req) => req.method !== 'POST',
+});
+router.use(orderCreateLimiter);
 
 /* ── Shared cart item schema ────────────────────────────────────────────── */
 const CartItemSchema = z.object({
@@ -89,14 +103,8 @@ router.post('/', async (req, res, next) => {
 
     const data           = parsed.data;
     const idempotencyKey = req.headers['idempotency-key'] || null;
-    const result         = await orderService.createOrder(req.tenant, data, idempotencyKey);
-
-    events.emit('order.created', {
-      tenantId:    req.tenant.tenant_id,
-      orderId:     result.orderId,
-      total:       result.total,
-      channel:     data.order_surface,
-    });
+    const result         = await orderService.createOnlineOrder(req.tenant, data, idempotencyKey);
+    // order.created event is emitted inside the domain service
 
     res.status(201).json({
       ok:    true,
@@ -115,64 +123,14 @@ router.post('/', async (req, res, next) => {
 /* ── GET /orders (admin — paginated list) ────────────────────────────────── */
 router.get('/', requireRestaurantAuth, async (req, res, next) => {
   try {
-    const tenantId = req.tenant.tenant_id;
-    const page     = Math.min(10000, Math.max(1, parseInt(req.query.page,  10) || 1));
-    const limit    = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 25));
-    const offset   = (page - 1) * limit;
-    const status   = req.query.status  || null;
-    const channel  = req.query.channel || null;  // 'qr'|'web'|'whatsapp'|'pos'
-
-    const params  = [tenantId];
-    const filters = ['o.tenant_id = $1', 'o.deleted_at IS NULL'];
-
-    if (status) {
-      // 'completed' tab also shows legacy 'delivered' rows
-      if (status === 'completed') {
-        filters.push(`o.status IN ('completed','delivered')`);
-      // 'live' tab covers all in-progress statuses
-      } else if (status === 'live') {
-        filters.push(`o.status IN ('pending','confirmed','preparing','ready','out_for_delivery')`);
-      } else {
-        params.push(status);
-        filters.push(`o.status = $${params.length}`);
-      }
-    }
-    if (channel) {
-      params.push(channel);
-      filters.push(`o.channel = $${params.length}`);
-    }
-
-    const where = `WHERE ${filters.join(' AND ')}`;
-
-    const [listRes, countRes] = await Promise.all([
-      query(
-        `SELECT o.id, o.channel, o.fulfillment_type, o.status,
-                o.total_amount, o.created_at,
-                c.name  AS customer_name,
-                c.phone AS customer_phone
-         FROM orders.orders o
-         LEFT JOIN customer.customers c
-                ON c.id = o.customer_id AND c.deleted_at IS NULL
-         ${where}
-         ORDER BY o.created_at DESC
-         LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
-        [...params, limit, offset]
-      ),
-      query(
-        `SELECT COUNT(*) AS total FROM orders.orders o ${where}`,
-        params
-      ),
-    ]);
-
-    const total = parseInt(countRes.rows[0].total, 10);
-    res.json({
-      ok:     true,
-      orders: listRes.rows.map(o => ({ ...o, total_amount: Number(o.total_amount) })),
-      total,
-      page,
-      limit,
-      pages:  Math.ceil(total / limit),
+    const page    = Math.min(10000, Math.max(1, parseInt(req.query.page,  10) || 1));
+    const limit   = Math.min(100,   Math.max(1, parseInt(req.query.limit, 10) || 25));
+    const { orders, total } = await orderRepo.listPaginated(req.tenant.tenant_id, {
+      page, limit,
+      status:  req.query.status  || null,
+      channel: req.query.channel || null,
     });
+    res.json({ ok: true, orders, total, page, limit, pages: Math.ceil(total / limit) });
   } catch (err) {
     next(err);
   }
@@ -181,13 +139,9 @@ router.get('/', requireRestaurantAuth, async (req, res, next) => {
 /* ── GET /orders/:id (admin only) ────────────────────────────────────────── */
 router.get('/:id', requireRestaurantAuth, async (req, res, next) => {
   try {
-    const id = req.params.id;
-    const result = await query(
-      'SELECT * FROM orders.orders WHERE id=$1::uuid AND tenant_id=$2',
-      [id, req.tenant.tenant_id]
-    );
-    if (!result.rows.length) return res.status(404).json({ error: 'Order not found' });
-    res.json({ ok: true, order: result.rows[0] });
+    const order = await orderRepo.findById(req.tenant.tenant_id, req.params.id);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+    res.json({ ok: true, order });
   } catch (err) {
     next(err);
   }
@@ -196,18 +150,8 @@ router.get('/:id', requireRestaurantAuth, async (req, res, next) => {
 /* ── GET /orders/:id/items (admin only) ──────────────────────────────────── */
 router.get('/:id/items', requireRestaurantAuth, async (req, res, next) => {
   try {
-    const result = await query(
-      `SELECT oi.item_name, oi.quantity, oi.unit_price, oi.total_price, oi.special_note
-       FROM orders.order_items oi
-       JOIN orders.orders o ON o.id = oi.order_id
-       WHERE oi.order_id = $1::uuid AND o.tenant_id = $2`,
-      [req.params.id, req.tenant.tenant_id]
-    );
-    res.json({ ok: true, items: result.rows.map(r => ({
-      ...r,
-      unit_price:  Number(r.unit_price),
-      total_price: Number(r.total_price),
-    }))});
+    const items = await orderRepo.getItems(req.tenant.tenant_id, req.params.id);
+    res.json({ ok: true, items });
   } catch (err) {
     next(err);
   }
@@ -227,15 +171,8 @@ router.patch('/:id', requireRestaurantAuth, async (req, res, next) => {
       return res.status(400).json({ error: `Invalid status. Valid: ${VALID_ORDER_STATUSES.join(', ')}` });
     }
 
-    const result = await query(
-      `UPDATE orders.orders
-       SET status = $1, updated_at = NOW()
-       WHERE id = $2::uuid AND tenant_id = $3 AND deleted_at IS NULL
-       RETURNING id, status, updated_at`,
-      [status, req.params.id, req.tenant.tenant_id]
-    );
-
-    if (!result.rows.length) return res.status(404).json({ error: 'Order not found' });
+    const updated = await orderService.updateStatus(req.tenant.tenant_id, req.params.id, status);
+    if (!updated) return res.status(404).json({ error: 'Order not found' });
 
     audit.log(null, {
       tenantId: req.tenant.tenant_id, actorId: req.auth?.staffId, actorType: 'staff',
@@ -250,7 +187,7 @@ router.patch('/:id', requireRestaurantAuth, async (req, res, next) => {
       actorId:  req.auth?.staffId,
     });
 
-    res.json({ ok: true, order: result.rows[0] });
+    res.json({ ok: true, order: updated });
   } catch (err) {
     next(err);
   }

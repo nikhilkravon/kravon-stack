@@ -28,10 +28,11 @@
 
 'use strict';
 
-const express       = require('express');
-const crypto        = require('crypto');
+const express         = require('express');
+const crypto          = require('crypto');
 const { query, getClient } = require('../../db/pool');
-const notifyService = require('../../services/notify.service');
+const notifyService   = require('../../services/notify.service');
+const orderingService = require('../../domains/ordering/service');
 
 const router = express.Router();
 
@@ -91,56 +92,25 @@ router.post('/razorpay', async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    // Look up order by razorpay_order_id stored in metadata JSONB
-    const orderRes = await client.query(
-      `UPDATE orders.orders
-       SET status     = 'confirmed',
-           metadata   = metadata || $1,
-           updated_at = NOW()
-       WHERE metadata->>'razorpay_order_id' = $2
-         AND status = 'pending'
-       RETURNING *`,
-      [JSON.stringify({ razorpay_payment_id: razorpayPayId }), razorpayOrderId]
-    );
+    // Ordering domain owns this mutation (F04: atomic payment + order update)
+    const order = await orderingService.confirmPayment(client, razorpayOrderId, razorpayPayId);
 
-    if (!orderRes.rows.length) {
+    if (!order) {
       await client.query('ROLLBACK');
       return res.json({ ok: true, skipped: 'order not found or already confirmed' });
     }
 
-    const order = orderRes.rows[0];
-    const meta  = order.metadata || {};
-
+    const meta = order.metadata || {};
     await client.query('COMMIT');
 
-    /* ── 4. Notifications + outbound webhook ────────────────────────────── */
-    const tenantRes = await query(
-      `SELECT id, slug, name, has_presence, has_orders, has_tables, has_catering, has_insights, settings
-       FROM tenant.restaurants WHERE id = $1 AND deleted_at IS NULL LIMIT 1`,
-      [order.tenant_id]
-    );
-
-    if (tenantRes.rows[0]) {
-      const tr = tenantRes.rows[0];
-      // Minimal tenant object for notify
-      const tenant = {
-        tenant_id:   tr.id,
-        slug:        tr.slug,
-        name:        tr.name,
-        webhook_url: tr.settings?.webhook_url || null,
-        wa_number:   null,
-      };
-      const orderForNotify = {
-        ...order,
-        customer_name:  meta.customer_name,
-        customer_phone: meta.customer_phone,
-        order_surface:  order.fulfillment_type === 'delivery' ? 'orders' : 'tables',
-      };
-      notifyService.orderConfirmed(tenant, orderForNotify).catch(err =>
-        console.error(JSON.stringify({ level: 'error', event: 'webhook.notify_failed',
-          tenantId: order.tenant_id, orderId: order.id, message: err.message }))
-      );
-    }
+    /* ── 4. Emit order.created — notification listeners handle WhatsApp + in-app ── */
+    const events = require('../../utils/events');
+    events.emit('order.created', {
+      tenantId: order.tenant_id,
+      orderId:  order.id,
+      total:    Number(order.total_amount),
+      channel:  order.channel,
+    });
 
     res.json({ ok: true });
 

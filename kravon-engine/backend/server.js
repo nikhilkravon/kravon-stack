@@ -107,12 +107,22 @@ app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
     const ms  = Date.now() - start;
-    const log = { level: 'info', event: 'request', reqId: req.id, method: req.method,
-                  path: req.path, status: res.statusCode, ms };
+    const log = {
+      level:    'info',
+      event:    'request',
+      reqId:    req.id,
+      tenantId: req.tenant?.tenant_id || null,
+      slug:     req.tenant?.slug      || null,
+      method:   req.method,
+      path:     req.path,
+      status:   res.statusCode,
+      ms,
+    };
     if (process.env.NODE_ENV === 'production') {
       console.log(JSON.stringify(log));
     } else if (res.statusCode >= 400) {
-      console.log(`[req] ${req.method} ${req.path} ${res.statusCode} ${ms}ms`);
+      const tenant = req.tenant?.slug ? ` [${req.tenant.slug}]` : '';
+      console.log(`[req] ${req.method} ${req.path}${tenant} ${res.statusCode} ${ms}ms`);
     }
   });
   next();
@@ -261,6 +271,12 @@ app.use(errorHandler);
 
 /* ── Platform event listeners ──────────────────────────────────────────────── */
 require('./services/notification.listeners').registerAll();
+
+/* ── Outbox poller — durable event delivery ────────────────────────────────── */
+require('./services/outbox.poller').start();
+
+/* ── Intelligence aggregation job ──────────────────────────────────────────── */
+require('./jobs/aggregate-daily-metrics').schedule();
 
 /* ── Start ─────────────────────────────────────────────────────────────────── */
 const server = app.listen(PORT, () => {

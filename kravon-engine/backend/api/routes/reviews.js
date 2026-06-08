@@ -1,18 +1,9 @@
-/**
- * ROUTE — reviews.js
- * POST /v1/restaurants/:slug/reviews
- *
- * Captures post-order star ratings from the Tables product.
- * Private below threshold, routes to Google above threshold.
- * Uses v12 schema: dining.reviews.
- */
-
 'use strict';
 
-const express = require('express');
-const { z }   = require('zod');
-const { query } = require('../../db/pool');
-const events  = require('../../utils/events');
+const express    = require('express');
+const { z }      = require('zod');
+const diningRepo = require('../../domains/dining/repository');
+const events     = require('../../utils/events');
 
 const router = express.Router();
 
@@ -35,27 +26,17 @@ router.post('/', async (req, res, next) => {
     const data = parsed.data;
     const r    = req.tenant;
 
-    // Verify order belongs to this tenant if supplied
     if (data.order_id) {
-      const check = await query(
-        'SELECT id FROM orders.orders WHERE id=$1::uuid AND tenant_id=$2',
-        [data.order_id, r.tenant_id]
-      );
-      if (!check.rows.length) {
-        return res.status(400).json({ error: 'Order not found' });
-      }
+      const exists = await diningRepo.verifyOrderTenant(r.tenant_id, data.order_id);
+      if (!exists) return res.status(400).json({ error: 'Order not found' });
     }
 
-    await query(`
-      INSERT INTO dining.reviews (tenant_id, order_id, session_id, rating, comment, source)
-      VALUES ($1, $2, $3, $4, $5, 'web')
-    `, [
-      r.tenant_id,
-      data.order_id   || null,
-      data.session_id || null,
-      data.stars,
-      data.feedback   || null,
-    ]);
+    await diningRepo.insertReview(r.tenant_id, {
+      orderId:   data.order_id,
+      sessionId: data.session_id,
+      stars:     data.stars,
+      feedback:  data.feedback,
+    });
 
     events.emit('review.submitted', {
       tenantId: r.tenant_id,
@@ -63,7 +44,7 @@ router.post('/', async (req, res, next) => {
       orderId:  data.order_id ?? null,
     });
 
-    const threshold     = r.review_threshold ?? 4;
+    const threshold      = r.review_threshold ?? 4;
     const aboveThreshold = data.stars >= threshold;
 
     res.status(201).json({
@@ -71,9 +52,7 @@ router.post('/', async (req, res, next) => {
       above_threshold:   aboveThreshold,
       google_review_url: aboveThreshold ? (r.google_review_url || null) : null,
     });
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 });
 
 module.exports = router;

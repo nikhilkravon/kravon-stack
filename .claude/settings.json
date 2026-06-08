@@ -382,7 +382,11 @@
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Nikhil\\\\KravonSAAS\\\\kravon-stack\" -Recurse -Directory -Name)",
       "Bash(node verify_session_screen.mjs)",
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Nikhil\\\\KravonSAAS\\\\kravon-stack\\\\kravon-engine\\\\frontend\\\\dashboard\\\\\" -Recurse -File | Select-Object FullName | Sort-Object FullName)",
-      "Bash(find \"c:\\\\\\\\Users\\\\\\\\Nikhil\\\\\\\\KravonSAAS\\\\\\\\kravon-stack\\\\\\\\kravon-engine\\\\\\\\frontend\\\\\\\\dashboard\" -type f)"
+      "Bash(find \"c:\\\\\\\\Users\\\\\\\\Nikhil\\\\\\\\KravonSAAS\\\\\\\\kravon-stack\\\\\\\\kravon-engine\\\\\\\\frontend\\\\\\\\dashboard\" -type f)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Nikhil\\\\KravonSAAS\\\\kravon-stack\\\\kravon-engine\\\\backend\\\\\" -Recurse -Directory | Select-Object -ExpandProperty FullName | head -50)",
+      "Bash(node -e \"require\\('./api/routes/customers'\\); console.log\\('OK'\\)\")",
+      "Bash(grep -E \"\\\\.js$|^d\")",
+      "Bash(git rm *)"
     ],
     "additionalDirectories": [
       "\\tmp",

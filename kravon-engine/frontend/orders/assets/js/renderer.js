@@ -479,7 +479,7 @@
 
     _ordersCtrl = ItemControls.makeRenderer({
       getQty:       id => OrdersCart.getQtyById(id),
-      isCustomKey:  'customisable',
+      isCustomKey:  'customise',
       idAttr:       'item-id',
       addBtnCls:    'add-btn',
       ctrlCls:      'item-qty-ctrl',

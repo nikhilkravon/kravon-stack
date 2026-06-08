@@ -10,8 +10,8 @@
      screenConfirm    — Confirmation + Bill Request + Review Prompt
 
    Menu cards:
-     customisable === true  → "Customise" button → modal
-     customisable !== true  → simple "+ Add" → straight to cart
+     customise === true  → "Customise" button → modal
+     customise !== true  → simple "+ Add" → straight to cart
 
    Exposes: window.TablesRenderer
    ═══════════════════════════════════════════════════════════ */
@@ -519,7 +519,7 @@
 
     _tablesCtrl = ItemControls.makeRenderer({
       getQty:       id => TablesCart.getQtyById(id),
-      isCustomKey:  'customisable',
+      isCustomKey:  'customise',
       idAttr:       'item-id',
       addBtnCls:    'add-btn',
       ctrlCls:      'item-qty-ctrl',

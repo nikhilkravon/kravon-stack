@@ -27,7 +27,7 @@ const MAX_SIZE = 500;
 /**
  * buildTenant — assembles req.tenant from v12 schema rows.
  */
-function buildTenant(tenantRow, locationRow, integrations, contactLinks, seoRow, assets, announcements) {
+function buildTenant(tenantRow, locationRow, integrations, contactLinks, seoRow, assets, announcements, featureFlagRows = []) {
   const s       = tenantRow.settings || {};
   const loc     = locationRow        || {};
   const seo     = seoRow             || {};
@@ -57,12 +57,18 @@ function buildTenant(tenantRow, locationRow, integrations, contactLinks, seoRow,
     name:   tenantRow.name,
     domain: s.domain || null,
 
-    // Feature flags
-    has_presence: tenantRow.has_presence,
-    has_tables:   tenantRow.has_tables,
-    has_orders:   tenantRow.has_orders,
-    has_catering: tenantRow.has_catering,
-    has_insights: tenantRow.has_insights,
+    // Feature flags — primary source: tenant.feature_flags; fallback: boolean columns
+    ...(function() {
+      const fm = new Map(featureFlagRows.map(r => [r.feature_key, r.enabled]));
+      const flag = (key, col) => fm.has(key) ? fm.get(key) : (col ?? false);
+      return {
+        has_presence: flag('has_presence', tenantRow.has_presence),
+        has_tables:   flag('has_tables',   tenantRow.has_tables),
+        has_orders:   flag('has_orders',   tenantRow.has_orders),
+        has_catering: flag('has_catering', tenantRow.has_catering),
+        has_insights: flag('has_insights', tenantRow.has_insights),
+      };
+    })(),
 
     plan: tenantRow.plan || 'starter',
 
@@ -187,7 +193,7 @@ async function resolveRestaurant(req, res, next) {
 
     const tenantId = tenantRow.id;
 
-    const [locRes, integRes, contactRes, seoRes, assetRes, annRes] = await Promise.all([
+    const [locRes, integRes, contactRes, seoRes, assetRes, annRes, flagRes] = await Promise.all([
       query(
         `SELECT phone, address, city, state, lat, lng, metadata
          FROM tenant.locations
@@ -229,6 +235,10 @@ async function resolveRestaurant(req, res, next) {
          ORDER BY created_at`,
         [tenantId]
       ),
+      query(
+        `SELECT feature_key, enabled FROM tenant.feature_flags WHERE tenant_id = $1`,
+        [tenantId]
+      ),
     ]);
 
     const tenant = buildTenant(
@@ -239,6 +249,7 @@ async function resolveRestaurant(req, res, next) {
       seoRes.rows[0]  || null,
       assetRes.rows,
       annRes.rows,
+      flagRes.rows,
     );
 
     if (_cache.size >= MAX_SIZE) {
