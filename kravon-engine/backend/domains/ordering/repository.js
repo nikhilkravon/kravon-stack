@@ -152,11 +152,25 @@ async function listPaginated(tenantId, { page = 1, limit = 25, status = null, ch
     query(
       `SELECT o.id, o.channel, o.fulfillment_type, o.status,
               o.total_amount, o.created_at,
+              o.metadata->>'payment_method'    AS payment_method,
+              o.metadata->>'table_identifier'  AS table_identifier,
               c.name  AS customer_name,
-              c.phone AS customer_phone
+              c.phone AS customer_phone,
+              COALESCE(
+                json_agg(
+                  json_build_object(
+                    'name', oi.item_name,
+                    'qty',  oi.quantity,
+                    'price', oi.unit_price
+                  )
+                ) FILTER (WHERE oi.id IS NOT NULL),
+                '[]'
+              ) AS items
        FROM orders.orders o
-       LEFT JOIN customer.customers c ON c.id = o.customer_id AND c.deleted_at IS NULL
+       LEFT JOIN customer.customers c  ON c.id = o.customer_id AND c.deleted_at IS NULL
+       LEFT JOIN orders.order_items oi ON oi.order_id = o.id
        ${where}
+       GROUP BY o.id, c.name, c.phone
        ORDER BY o.created_at DESC
        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
       [...params, limit, offset]

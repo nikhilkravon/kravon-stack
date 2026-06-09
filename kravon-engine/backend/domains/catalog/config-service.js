@@ -87,56 +87,63 @@ async function getMenuData(tenantId, surface) {
 }
 
 async function getItemDetail(tenantId, itemId) {
-  const itemRes = await query(`
-    SELECT id, name, price, description, is_customizable, has_variants
-    FROM menu.menu_items
-    WHERE id = $1 AND tenant_id = $2 AND is_available = TRUE AND deleted_at IS NULL
-  `, [itemId, tenantId]);
+  const [itemRes, variantsRes, customRes] = await Promise.all([
+    query(
+      `SELECT id, name, price, description, is_customizable, has_variants
+       FROM menu.menu_items
+       WHERE id = $1 AND tenant_id = $2 AND is_available = TRUE AND deleted_at IS NULL`,
+      [itemId, tenantId]
+    ),
+    query(
+      `SELECT id, name, price
+       FROM menu.item_variants
+       WHERE menu_item_id = $1 AND is_available = TRUE AND deleted_at IS NULL
+       ORDER BY sort_order`,
+      [itemId]
+    ),
+    query(
+      `SELECT g.id AS group_id, g.name AS group_name, g.group_type,
+              g.is_required, g.min_select, g.max_select, g.position,
+              o.id AS opt_id, o.name AS opt_name,
+              o.price_modifier, o.is_default
+       FROM menu.customization_groups g
+       LEFT JOIN menu.customization_options o
+              ON o.group_id = g.id AND o.is_available = TRUE AND o.deleted_at IS NULL
+       WHERE g.menu_item_id = $1 AND g.deleted_at IS NULL
+       ORDER BY g.position, o.sort_order`,
+      [itemId]
+    ),
+  ]);
 
   if (!itemRes.rows.length) return null;
   const item = itemRes.rows[0];
 
-  const [variantsRes, groupsRes] = await Promise.all([
-    query(`
-      SELECT id, name, price
-      FROM menu.item_variants
-      WHERE menu_item_id = $1 AND is_available = TRUE AND deleted_at IS NULL
-      ORDER BY sort_order
-    `, [itemId]),
-    query(`
-      SELECT id, name, group_type, is_required, min_select, max_select
-      FROM menu.customization_groups
-      WHERE menu_item_id = $1 AND deleted_at IS NULL
-      ORDER BY position
-    `, [itemId]),
-  ]);
+  const variants = variantsRes.rows.map(v => ({
+    id: v.id, name: v.name, price: Number(v.price),
+  }));
 
-  const variants = variantsRes.rows.map(v => ({ id: v.id, name: v.name, price: Number(v.price) }));
-
-  const customizations = await Promise.all(
-    groupsRes.rows.map(async (group) => {
-      const optRes = await query(`
-        SELECT id, name, price_modifier, is_default
-        FROM menu.customization_options
-        WHERE group_id = $1 AND is_available = TRUE AND deleted_at IS NULL
-        ORDER BY sort_order
-      `, [group.id]);
-      return {
-        id:          group.id,
-        name:        group.name,
-        group_type:  group.group_type,
-        is_required: group.is_required,
-        min_select:  group.min_select,
-        max_select:  group.max_select,
-        options:     optRes.rows.map(o => ({
-          id:             o.id,
-          name:           o.name,
-          price_modifier: Number(o.price_modifier),
-          is_default:     o.is_default,
-        })),
-      };
-    })
-  );
+  const groupMap = new Map();
+  for (const row of customRes.rows) {
+    if (!groupMap.has(row.group_id)) {
+      groupMap.set(row.group_id, {
+        id:          row.group_id,
+        name:        row.group_name,
+        group_type:  row.group_type,
+        is_required: row.is_required,
+        min_select:  row.min_select,
+        max_select:  row.max_select,
+        options:     [],
+      });
+    }
+    if (row.opt_id) {
+      groupMap.get(row.group_id).options.push({
+        id:             row.opt_id,
+        name:           row.opt_name,
+        price_modifier: Number(row.price_modifier),
+        is_default:     row.is_default,
+      });
+    }
+  }
 
   return {
     id:              item.id,
@@ -146,7 +153,7 @@ async function getItemDetail(tenantId, itemId) {
     has_variants:    item.has_variants,
     is_customizable: item.is_customizable,
     variants,
-    customizations,
+    customizations:  [...groupMap.values()],
   };
 }
 

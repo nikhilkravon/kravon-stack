@@ -175,7 +175,7 @@ function registerAll() {
       metadata: { leadId, status },
     });
 
-    if (status === 'converted') {
+    if (status === 'confirmed') {
       notify.reviewRequest({ tenantId, source: 'catering', entityId: leadId });
     }
   });
