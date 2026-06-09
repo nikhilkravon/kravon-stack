@@ -192,6 +192,39 @@ function registerAll() {
 
   /* ── Dine-In Sessions ────────────────────────────────────────────────────── */
 
+  events.on('dine_in.bill_requested', async ({ tenantId, sessionId, requestedBy }) => {
+    try {
+      const res = await query(
+        `SELECT t.name AS table_name
+         FROM dining.sessions s
+         JOIN dining.tables t ON t.id = s.table_id
+         WHERE s.id = $1 AND s.tenant_id = $2 LIMIT 1`,
+        [sessionId, tenantId]
+      );
+      const tableName = res.rows[0]?.table_name || 'table';
+      notif.create({
+        tenantId, type: 'dine_in.bill_requested', priority: 'WARNING',
+        title: 'Bill requested',
+        body:  `${tableName} is ready to pay`,
+        entityType: 'dining.sessions', entityId: sessionId, actorType: 'customer',
+        metadata: { sessionId, requestedBy },
+      });
+    } catch (err) {
+      console.error(JSON.stringify({ level: 'error', event: 'listener.bill_req_failed',
+        tenantId, sessionId, message: err.message }));
+    }
+  });
+
+  events.on('dine_in.staff_notify', ({ tenantId, tableId, tableName }) => {
+    notif.create({
+      tenantId, type: 'dine_in.staff_notify', priority: 'WARNING',
+      title: 'Guests waiting',
+      body:  `${tableName} is waiting — please open their session`,
+      entityType: 'dining.tables', entityId: tableId, actorType: 'customer',
+      metadata: { tableId, tableName },
+    });
+  });
+
   events.on('session.opened', ({ tenantId, sessionId, tableId, covers }) => {
     notif.create({
       tenantId, type: 'session.opened', priority: 'INFO',

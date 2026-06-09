@@ -10,6 +10,7 @@
  * Endpoints:
  *   POST /session/open           (staff JWT)
  *   POST /session/close          (staff JWT)
+ *   GET  /boot                   (public) — unified: session status + orders in one call
  *   GET  /session/status         (public)
  *   GET  /session/orders         (public)
  *   POST /session/request-bill   (public)
@@ -55,8 +56,9 @@ function sendResult(res, result, successStatus = 200) {
 
 /* ── POST /session/open ─────────────────────────────────────────────────── */
 const OpenSessionSchema = z.object({
-  table_id: z.string().uuid(),
-  covers:   z.number().int().min(1).max(50).optional(),
+  table_id:       z.string().uuid(),
+  covers:         z.number().int().min(1).max(50).optional(),
+  reservation_id: z.string().uuid().optional(),
 });
 
 router.post('/session/open', requireRestaurantAuth, async (req, res, next) => {
@@ -76,6 +78,41 @@ router.post('/session/close', requireRestaurantAuth, async (req, res, next) => {
   if (!parsed.success) return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
   try {
     const result = await sessions.closeSession(req.tenant, parsed.data, req.auth?.staffId);
+    sendResult(res, result);
+  } catch (err) { next(err); }
+});
+
+/* ── GET /boot?table_id=xxx ─────────────────────────────────────────────
+ * Unified QR boot: returns session status + active orders in one call.
+ * Replaces two sequential calls (status then orders) in the tables frontend.
+ */
+router.get('/boot', publicLimiter, async (req, res, next) => {
+  try {
+    const status = await sessions.getStatus(req.tenant.tenant_id, req.query.table_id);
+    if (status.error) return res.status(status.status || 500).json({ error: status.error });
+    if (!status.open) {
+      // Still return table_name so the "not open" screen can show the table name
+      const tableName = await sessions.getTableName(req.tenant.tenant_id, req.query.table_id);
+      return res.json({ ok: true, open: false, table_name: tableName });
+    }
+
+    const ordersResult = await sessions.getSessionOrders(req.tenant.tenant_id, status.session_id);
+    res.json({ ok: true, open: true, session: status, orders: ordersResult.orders || [] });
+  } catch (err) { next(err); }
+});
+
+/* ── POST /notify-staff ─────────────────────────────────────────────────
+ * Guest at an inactive table taps "Notify Staff". Creates an in-app alert.
+ */
+const NotifyStaffSchema = z.object({
+  table_id: z.string().uuid(),
+});
+
+router.post('/notify-staff', publicLimiter, async (req, res, next) => {
+  const parsed = NotifyStaffSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
+  try {
+    const result = await sessions.notifyStaffTableReady(req.tenant, parsed.data.table_id);
     sendResult(res, result);
   } catch (err) { next(err); }
 });
@@ -132,14 +169,16 @@ router.post('/order', publicLimiter, orderLimiter, async (req, res, next) => {
     return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
   }
   try {
+    const idempotencyKey = req.headers['idempotency-key'] || null;
     const result = await orderService.createDineInOrder(req.tenant, {
       sessionId:    parsed.data.session_id,
       guestName:    parsed.data.guest_name,
       guestPhone:   parsed.data.guest_phone,
       items:        parsed.data.items,
       specialNotes: parsed.data.special_notes,
+      idempotencyKey,
     });
-    res.status(201).json({ ok: true, order_id: result.orderId, total: result.total });
+    res.status(result.duplicate ? 200 : 201).json({ ok: true, order_id: result.orderId, total: result.total });
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.message });
     next(err);
@@ -199,12 +238,12 @@ router.get('/reservations', requireRestaurantAuth, async (req, res, next) => {
 
 /* ── PATCH /reservations/:id ─────────────────────────────────────────────── */
 router.patch('/reservations/:id', requireRestaurantAuth, async (req, res, next) => {
-  const { status, notes } = req.body;
+  const { status, notes, table_id } = req.body;
   if (!status && notes === undefined) return res.status(400).json({ error: 'Nothing to update' });
   try {
     const result = await reservations.updateStatus(
-      req.tenant.tenant_id, req.params.id,
-      { status, notes }, req.auth?.staffId
+      req.tenant, req.params.id,
+      { status, notes, table_id }, req.auth?.staffId
     );
     sendResult(res, result);
   } catch (err) { next(err); }

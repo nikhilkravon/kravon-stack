@@ -49,16 +49,16 @@ async function insertOrder(client, {
 }
 
 async function insertDineInOrder(client, {
-  tenantId, sessionId, subtotal, specialNotes, guestMeta,
+  tenantId, customerId, sessionId, subtotal, specialNotes, guestMeta, idempotencyKey,
 }) {
   const res = await client.query(
     `INSERT INTO orders.orders (
-       tenant_id, session_id, channel, fulfillment_type,
+       tenant_id, customer_id, session_id, channel, fulfillment_type,
        status, subtotal_amount, tax_amount, total_amount,
-       special_instructions, metadata
-     ) VALUES ($1, $2, 'qr', 'dine_in', 'confirmed', $3, 0, $3, $4, $5)
+       special_instructions, metadata, idempotency_key
+     ) VALUES ($1, $2, $3, 'qr', 'dine_in', 'confirmed', $4, 0, $4, $5, $6, $7)
      RETURNING id`,
-    [tenantId, sessionId, subtotal, specialNotes || null, JSON.stringify(guestMeta)]
+    [tenantId, customerId || null, sessionId, subtotal, specialNotes || null, JSON.stringify(guestMeta), idempotencyKey || null]
   );
   return res.rows[0].id;
 }
@@ -126,7 +126,7 @@ async function confirmByRazorpayOrderId(client, razorpayOrderId, razorpayPayment
   return res.rows[0] || null;
 }
 
-async function listPaginated(tenantId, { page = 1, limit = 25, status = null, channel = null } = {}) {
+async function listPaginated(tenantId, { page = 1, limit = 25, status = null, channel = null, fulfillment_type = null } = {}) {
   const params  = [tenantId];
   const filters = ['o.tenant_id = $1', 'o.deleted_at IS NULL'];
 
@@ -143,6 +143,10 @@ async function listPaginated(tenantId, { page = 1, limit = 25, status = null, ch
   if (channel) {
     params.push(channel);
     filters.push(`o.channel = $${params.length}`);
+  }
+  if (fulfillment_type) {
+    params.push(fulfillment_type);
+    filters.push(`o.fulfillment_type = $${params.length}`);
   }
 
   const where  = `WHERE ${filters.join(' AND ')}`;

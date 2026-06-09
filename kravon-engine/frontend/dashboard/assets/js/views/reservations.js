@@ -142,24 +142,17 @@ const ReservationsView = (() => {
       confirmEl.textContent = 'Seating…';
       errEl.hidden          = true;
 
-      // Session domain: open session first (creates Session record)
-      // Reservation domain: mark seated only after session is confirmed open
-      let sessionOpened = false;
       try {
-        await Api.rPost('/dine-in/session/open', { table_id: tableId, covers: covers ?? undefined });
-        sessionOpened = true;
-        await Api.rPatch(`/dine-in/reservations/${resId}`, { status: 'seated' });
+        const result = await Api.rPatch(`/dine-in/reservations/${resId}`, { status: 'seated', table_id: tableId });
         overlay.remove();
-        DashUI.toast('Guest seated and session opened.', 'success');
+        if (result.session?.error) {
+          DashUI.toast(`Guest marked seated — but session could not open: ${result.session.error}`, 'warn');
+        } else {
+          DashUI.toast('Guest seated and session opened.', 'success');
+        }
         _load(el);
       } catch (err) {
-        if (sessionOpened) {
-          // Session opened but reservation patch failed — close the session to avoid orphan state
-          Api.rPost('/dine-in/session/close', { table_id: tableId }).catch(() => {});
-          errEl.textContent = 'Session opened but reservation could not be updated. Session rolled back — please try again.';
-        } else {
-          errEl.textContent = err.message || 'Could not open table session. Please try again.';
-        }
+        errEl.textContent     = err.message || 'Could not seat guest. Please try again.';
         errEl.hidden          = false;
         confirmEl.disabled    = false;
         confirmEl.textContent = 'Seat guest';

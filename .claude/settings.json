@@ -386,11 +386,24 @@
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Nikhil\\\\KravonSAAS\\\\kravon-stack\\\\kravon-engine\\\\backend\\\\\" -Recurse -Directory | Select-Object -ExpandProperty FullName | head -50)",
       "Bash(node -e \"require\\('./api/routes/customers'\\); console.log\\('OK'\\)\")",
       "Bash(grep -E \"\\\\.js$|^d\")",
-      "Bash(git rm *)"
+      "Bash(git rm *)",
+      "Bash(git remote *)",
+      "Bash(xxd)",
+      "Bash(powershell -Command ' *)",
+      "Bash(docker compose *)",
+      "PowerShell(docker --version)",
+      "PowerShell(docker compose -f \"c:/Users/Nikhil/KravonSAAS/kravon-stack/kravon-engine/backend/db/docker/docker-compose.yml\" config 2>&1)",
+      "Bash(powershell -Command \"pg_dump --version\")",
+      "Bash(powershell -Command \"node --version\")",
+      "Bash(powershell -Command \"npm --version\")",
+      "Bash(git checkout *)",
+      "Bash(curl -s --max-time 3 http://localhost:3000/health)",
+      "Bash(echo \"EXIT:$?\")"
     ],
     "additionalDirectories": [
       "\\tmp",
-      "c:\\Users\\Nikhil\\KravonSAAS\\kravon-stack\\kravon-engine\\backend"
+      "c:\\Users\\Nikhil\\KravonSAAS\\kravon-stack\\kravon-engine\\backend",
+      "C:\\Users\\Nikhil\\.claude"
     ]
   }
 }

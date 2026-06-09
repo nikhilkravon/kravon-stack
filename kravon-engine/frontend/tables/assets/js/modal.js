@@ -169,7 +169,7 @@ const TablesModal = (() => {
   }
 
   /* ── Open modal to edit an existing cart entry ── */
-  function openEdit(idx) {
+  async function openEdit(idx) {
     const cartItems = TablesCart.getItems();
     const entry     = cartItems[idx];
     if (!entry) return;
@@ -177,11 +177,21 @@ const TablesModal = (() => {
     const menuItem  = _findMenuItem(entry.id);
     const basePrice = menuItem ? menuItem.price : entry.price;
 
-    _editingIdx = idx;
-    _modalItem  = { id: entry.id, name: entry.name, price: basePrice };
-    _modalQty   = entry.qty;
+    _editingIdx  = idx;
+    _modalItem   = { id: entry.id, name: entry.name, price: basePrice };
+    _modalQty    = entry.qty;
+    _currentItem = menuItem || { id: entry.id, name: entry.name, price: basePrice };
+
+    if (_currentItem.has_variants || _currentItem.customise || _currentItem.is_customizable) {
+      const full = await _fetchItemDetails(entry.id);
+      if (full) _currentItem = { ..._currentItem, ...full };
+    }
 
     _setHeader(entry.name, basePrice, menuItem?.desc);
+    _buildVariants(_currentItem);
+    _buildCustomizations(_currentItem);
+    buildAddons();
+    buildSpice();
     _resetOptions();
 
     if (entry.note) {

@@ -20,6 +20,8 @@ async function getKitchenView(tenant_id) {
          s.id      AS session_id,
          s.opened_at,
          s.covers,
+         s.session_status,
+         s.bill_requested_at,
          json_agg(
            json_build_object(
              'order_id',   o.id,
@@ -39,7 +41,7 @@ async function getKitchenView(tenant_id) {
          FROM orders.order_items oi2 WHERE oi2.order_id = o.id
        ) oi ON TRUE
        WHERE s.tenant_id = $1 AND s.closed_at IS NULL AND s.deleted_at IS NULL
-       GROUP BY t.name, s.id, s.opened_at, s.covers
+       GROUP BY t.name, s.id, s.opened_at, s.covers, s.session_status, s.bill_requested_at
        ORDER BY s.opened_at ASC
        LIMIT 200`,
       [tenant_id]

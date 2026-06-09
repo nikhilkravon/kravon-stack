@@ -107,7 +107,7 @@
     var score = 0;
     var bpts = { 'below-1L': 0, '1-2.5L': 2, '2.5-5L': 3, '5L+': 4 };
     var ppts = { '50-150': 1, '150-300': 2, '300-500': 3, '500+': 3 };
-    var tpts = { 'daily-office': 3, 'conference': 3, 'corporate-offsite': 2, 'product-launch': 2, 'other': 1 };
+    var tpts = { 'corporate-offsite': 3, 'product-launch': 3, 'conference': 2, 'daily-office': 2, 'other': 1 };
     score += (bpts[budgetVal] || 0);
     score += (ppts[paxVal]    || 0);
     score += (tpts[typeVal]   || 1);

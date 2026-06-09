@@ -121,6 +121,13 @@ const KravonAPI = (() => {
   }
 
   /* ── Dine-in ─────────────────────────────────────────────────────────── */
+  async function getDineInBoot(tableId) {
+    const res  = await fetch(_url(`/dine-in/boot?table_id=${encodeURIComponent(tableId)}`));
+    const data = await res.json();
+    if (!res.ok) throw Object.assign(new Error(data.error || 'Request failed'), { status: res.status });
+    return data;
+  }
+
   async function getDineInSessionStatus(tableId) {
     const res  = await fetch(_url(`/dine-in/session/status?table_id=${encodeURIComponent(tableId)}`));
     const data = await res.json();
@@ -129,17 +136,25 @@ const KravonAPI = (() => {
   }
 
   async function createDineInOrder(sessionId, guestName, guestPhone, cartItems, specialNotes) {
-    return _post('/dine-in/order', {
-      session_id:   sessionId,
-      guest_name:   guestName,
-      guest_phone:  guestPhone,
-      items:        cartItems.map(i => ({
-        menu_item_id:   i.id,
-        quantity:       i.qty,
-        customizations: i.note || undefined,
-      })),
-      special_notes: specialNotes || undefined,
+    const idempotencyKey = `dine-${sessionId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const res = await fetch(_url('/dine-in/order'), {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
+      body:    JSON.stringify({
+        session_id:   sessionId,
+        guest_name:   guestName,
+        guest_phone:  guestPhone,
+        items:        cartItems.map(i => ({
+          menu_item_id:   i.id,
+          quantity:       i.qty,
+          customizations: i.note || undefined,
+        })),
+        special_notes: specialNotes || undefined,
+      }),
     });
+    const data = await res.json();
+    if (!res.ok) throw Object.assign(new Error(data.error || 'Request failed'), { status: res.status });
+    return data;
   }
 
   async function getDineInSessionOrders(sessionId) {
@@ -156,10 +171,14 @@ const KravonAPI = (() => {
     });
   }
 
+  async function notifyStaffTableReady(tableId) {
+    return _post('/dine-in/notify-staff', { table_id: tableId });
+  }
+
   return {
     loadConfig, getConfig, createOrder, submitReview, submitLead,
-    getDineInSessionStatus, createDineInOrder,
-    getDineInSessionOrders, requestDineInBill,
+    getDineInBoot, getDineInSessionStatus, createDineInOrder,
+    getDineInSessionOrders, requestDineInBill, notifyStaffTableReady,
   };
 
 })();

@@ -231,10 +231,19 @@ async function createOnlineOrder(tenant, data, idempotencyKey = null) {
  * Create a dine-in order from a QR scan.
  * Called by routes/dine-in.js (POST /order).
  */
-async function createDineInOrder(tenant, { sessionId, guestName, guestPhone, items, specialNotes }) {
+async function createDineInOrder(tenant, { sessionId, guestName, guestPhone, items, specialNotes, idempotencyKey }) {
   const client = await getClient();
   try {
     await client.query('BEGIN');
+
+    // Idempotency check — prevents duplicate kitchen orders on double-tap / retry
+    if (idempotencyKey) {
+      const existing = await repo.findByIdempotencyKey(client, tenant.tenant_id, idempotencyKey);
+      if (existing) {
+        await client.query('ROLLBACK');
+        return { orderId: existing.id, total: Number(existing.total_amount), duplicate: true };
+      }
+    }
 
     // Verify session open
     const sessionRes = await client.query(
@@ -250,8 +259,8 @@ async function createDineInOrder(tenant, { sessionId, guestName, guestPhone, ite
       throw Object.assign(new Error('Session is closed. No more orders can be placed.'), { status: 409 });
     }
 
-    // Customer identity (F02) — resolves or creates
-    await customerService.findOrCreate(client, tenant.tenant_id, {
+    // Customer identity (F02) — resolves or creates; ID now wired to the order row
+    const customerId = await customerService.findOrCreate(client, tenant.tenant_id, {
       phone: guestPhone, name: guestName,
     });
 
@@ -294,12 +303,18 @@ async function createDineInOrder(tenant, { sessionId, guestName, guestPhone, ite
     const guestMeta = { guest_name: guestName, guest_phone: guestPhone };
 
     const orderId = await repo.insertDineInOrder(client, {
-      tenantId: tenant.tenant_id, sessionId, subtotal, specialNotes, guestMeta,
+      tenantId: tenant.tenant_id, customerId, sessionId, subtotal, specialNotes, guestMeta, idempotencyKey,
     });
     await repo.insertDineInOrderItems(client, tenant.tenant_id, orderId, lineItems);
 
+    // Enqueue inside the same transaction — durable delivery even if process restarts
+    await outbox.enqueue(client, tenant.tenant_id, 'dine_in.order_created', {
+      tenantId: tenant.tenant_id, orderId, sessionId, total: subtotal,
+    });
+
     await client.query('COMMIT');
 
+    // Also emit immediately for same-process listeners
     events.emit('dine_in.order_created', {
       tenantId: tenant.tenant_id, orderId, sessionId, total: subtotal,
     });

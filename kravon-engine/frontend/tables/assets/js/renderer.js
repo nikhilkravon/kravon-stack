@@ -322,6 +322,7 @@
               <div class="session-orders-list" id="sessionOrdersList">
                 <div class="session-orders-empty">Loading orders…</div>
               </div>
+              <div class="session-bill-total" id="sessionBillTotal" style="display:none"></div>
             </div>
 
             <button class="btn-primary order-more-btn" data-action="order-more"
@@ -562,7 +563,14 @@
     modalEl.innerHTML = buildCustomModal();
     document.body.appendChild(modalEl.firstElementChild);
 
-    const initialScreen = isDineIn ? 'screenOrdering' : 'screenChoice';
+    let initialScreen;
+    if (!isDineIn) {
+      initialScreen = 'screenChoice';
+    } else if (TC._reentryChoice === 'confirm') {
+      initialScreen = 'screenConfirm';
+    } else {
+      initialScreen = 'screenOrdering';
+    }
     showScreen(initialScreen, false);
     history.replaceState({ screen: initialScreen }, '', window.location.href);
 

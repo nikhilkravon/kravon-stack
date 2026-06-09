@@ -98,13 +98,17 @@ const KitchenView = (() => {
     const orderHtml = orders.length
       ? orders.map(_orderCard).join('')
       : `<div class="text-sm text-muted" style="padding:var(--sp-2) 0">No active orders</div>`;
+    const billBadge = t.bill_requested_at
+      ? `<span class="badge badge-bill-requested" title="Bill requested ${_orderAge(t.bill_requested_at)}">Bill Requested</span>`
+      : '';
 
     return `
-      <div class="kitchen-card">
+      <div class="kitchen-card${t.bill_requested_at ? ' kitchen-card--bill' : ''}">
         <div class="kitchen-card-header">
           <span class="kitchen-table-name">${t.table_name}</span>
           <div style="display:flex;align-items:center;gap:var(--sp-2)">
             ${t.covers ? `<span class="text-sm text-muted">${t.covers} pax</span>` : ''}
+            ${billBadge}
             <span class="badge badge-placed">${_dur(t.opened_at)}</span>
           </div>
         </div>

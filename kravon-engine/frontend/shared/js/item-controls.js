@@ -80,7 +80,7 @@ window.ItemControls = (function () {
           <div class="${cfg.ctrlCls}" role="group" aria-label="Quantity for ${name}">
             <button class="${cfg.decCls}" data-action="${cfg.decAction}" data-${cfg.idAttr}="${id}" aria-label="Decrease quantity">−</button>
             <${tag} class="${cfg.countCls}" aria-live="polite">${qty}</${tag}>
-            <button class="${cfg.incCls}" data-action="${cfg.incAction}" data-${cfg.idAttr}="${id}" aria-label="Increase quantity">+</button>
+            <button class="${cfg.incCls}" data-action="${cfg.customAction}" data-${cfg.idAttr}="${id}" aria-label="Add another ${name}">+</button>
           </div>
           ${customBtn}
         </div>`;

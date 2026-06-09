@@ -147,8 +147,9 @@ const CateringView = (() => {
                 <div class="lead-detail-grid">
                   <div><span class="detail-label">Phone</span> ${lead.contact_phone || '—'}</div>
                   ${lead.contact_email ? `<div><span class="detail-label">Email</span> ${lead.contact_email}</div>` : ''}
-                  ${lead.guest_count_min ? `<div><span class="detail-label">Guests</span> ${lead.guest_count_min}${lead.guest_count_max ? '–' + lead.guest_count_max : ''}</div>` : ''}
-                  ${lead.budget_min ? `<div><span class="detail-label">Budget</span> ₹${Number(lead.budget_min).toLocaleString('en-IN')}${lead.budget_max ? ' – ₹' + Number(lead.budget_max).toLocaleString('en-IN') : ''}</div>` : ''}
+                  ${(lead.custom_fields?.headcount || lead.guest_count_min) ? `<div><span class="detail-label">Guests</span> ${lead.custom_fields?.headcount || lead.guest_count_min}</div>` : ''}
+                  ${(lead.custom_fields?.budget || lead.budget_min) ? `<div><span class="detail-label">Budget</span> ${lead.custom_fields?.budget || ('₹' + Number(lead.budget_min).toLocaleString('en-IN'))}</div>` : ''}
+                  ${_cf(lead,'tier') ? `<div><span class="detail-label">Tier</span> ${_cf(lead,'tier').charAt(0).toUpperCase()+_cf(lead,'tier').slice(1)}</div>` : ''}
                   <div><span class="detail-label">Source</span> ${lead.source || '—'}</div>
                   <div><span class="detail-label">Received</span> ${_ago(lead.created_at)}</div>
                 </div>

@@ -261,6 +261,8 @@ const TablesView = (() => {
     try {
       const data = await Api.rGet(`/dine-in/bill?session_id=${sessionId}`);
       const bill = data.bill;
+      const gst  = bill.gst_snapshot;
+
       const ordersHtml = (bill.orders || []).map(o => `
         <div style="margin-bottom:var(--sp-3)">
           <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--gray-500);margin-bottom:4px">
@@ -273,19 +275,39 @@ const TablesView = (() => {
             </div>`).join('')}
         </div>`).join('');
 
+      const gstHtml = gst ? `
+        <div class="bill-summary-block">
+          <div class="bill-summary-row">
+            <span>Taxable amount</span><span>${_fmt(bill.taxable_amount)}</span>
+          </div>
+          <div class="bill-summary-row">
+            <span>CGST @ ${gst.cgst_rate}%</span><span>${_fmt(bill.cgst_amount)}</span>
+          </div>
+          <div class="bill-summary-row">
+            <span>SGST @ ${gst.sgst_rate}%</span><span>${_fmt(bill.sgst_amount)}</span>
+          </div>
+          ${gst.gstin ? `<div class="bill-summary-row bill-summary-gstin"><span>GSTIN</span><span>${gst.gstin}</span></div>` : ''}
+          ${bill.gst_inconsistent ? `<div class="bill-gst-warn">GST rates varied across orders — review manually.</div>` : ''}
+        </div>` : '';
+
       document.body.insertAdjacentHTML('beforeend', `
         <div class="modal-overlay" id="bill-modal">
           <div class="modal" style="max-width:440px">
             <div class="modal-header">
               <span class="modal-title">Bill — ${bill.table_name}</span>
-              <button class="modal-close" id="bill-modal-close">✕</button>
+              <div style="display:flex;gap:var(--sp-2);align-items:center">
+                <button class="btn btn-secondary btn-sm" id="bill-print-btn">Print</button>
+                <button class="modal-close" id="bill-modal-close">✕</button>
+              </div>
             </div>
-            <div class="modal-body">
+            <div class="modal-body" id="bill-modal-body">
               <div style="font-size:12px;color:var(--gray-500);margin-bottom:var(--sp-4)">
                 ${bill.covers ? `${bill.covers} covers · ` : ''}Opened ${_dur(bill.opened_at)} ago
               </div>
               ${ordersHtml}
-              <div class="cart-total-line" style="margin-top:var(--sp-4)">
+              <div class="bill-divider"></div>
+              ${gstHtml}
+              <div class="cart-total-line" style="margin-top:var(--sp-3)">
                 <span class="cart-total-label">Grand Total</span>
                 <span class="cart-total-val">${_fmt(bill.grand_total)}</span>
               </div>
@@ -296,6 +318,39 @@ const TablesView = (() => {
       const overlay = document.getElementById('bill-modal');
       overlay.querySelector('#bill-modal-close').onclick = () => overlay.remove();
       overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+      overlay.querySelector('#bill-print-btn').onclick = () => {
+        const slug    = Auth.state().slug || '';
+        const content = document.getElementById('bill-modal-body').innerHTML;
+        const win = window.open('', '_blank');
+        win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+          <title>Bill — ${bill.table_name}</title>
+          <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body { font-family: -apple-system, Arial, sans-serif; padding: 24px; font-size: 14px; color: #111; max-width: 360px; margin: 0 auto; }
+            h2 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+            .meta { font-size: 11px; color: #6b7280; margin-bottom: 16px; }
+            .order-item-line { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 13px; }
+            .order-item-name { color: #374151; }
+            .order-item-price { color: #111; font-weight: 500; }
+            .bill-divider { border: none; border-top: 1px solid #e5e7eb; margin: 12px 0; }
+            .bill-summary-block { margin-bottom: 8px; }
+            .bill-summary-row { display: flex; justify-content: space-between; font-size: 12px; color: #6b7280; margin-bottom: 3px; }
+            .bill-summary-gstin { font-size: 11px; font-family: monospace; }
+            .bill-gst-warn { font-size: 11px; color: #d97706; margin-top: 4px; }
+            .cart-total-line { display: flex; justify-content: space-between; font-size: 16px; font-weight: 700; border-top: 2px solid #111; padding-top: 8px; margin-top: 8px; }
+            .slug { font-size: 11px; color: #9ca3af; text-align: center; margin-top: 24px; }
+            @media print { @page { margin: 8mm; } }
+          </style>
+        </head><body>
+          <h2>Bill — ${bill.table_name}</h2>
+          <div class="meta">${bill.covers ? bill.covers + ' covers · ' : ''}${new Date().toLocaleString('en-IN')}</div>
+          ${content}
+          ${slug ? `<div class="slug">${slug}</div>` : ''}
+          <script>window.onload = function() { window.print(); }<\/script>
+        </body></html>`);
+        win.document.close();
+      };
     } catch (err) {
       DashUI.toast('Could not load bill. ' + err.message, 'error');
     }

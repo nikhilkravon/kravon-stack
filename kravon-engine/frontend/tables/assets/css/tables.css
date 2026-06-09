@@ -861,12 +861,41 @@ body[data-error="true"] .tables-error { display: flex; }
 }
 .session-order-name {
   font-weight: 500;
+  flex: 1;
+}
+.session-order-price {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--muted);
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-left: var(--sp-2);
 }
 .session-orders-empty {
   font-size: 13px;
   color: var(--muted);
   text-align: center;
   padding: var(--sp-3) 0;
+}
+.session-bill-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--border);
+  padding: var(--sp-3) 0 0;
+  margin-top: var(--sp-3);
+}
+.session-total-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.session-total-val {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
 }
 
 /* ── Order More button ────────────────────────────────────── */
@@ -1374,6 +1403,210 @@ body[data-error="true"] .tables-error { display: flex; }
 }
 .guest-popup-btn:hover { opacity: 0.9; }
 .guest-popup-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Re-entry overlay (returning guest with active session) ── */
+#reentry-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 900;
+  padding: var(--sp-5);
+}
+#reentry-popup {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: var(--sp-6);
+  width: 100%;
+  max-width: 380px;
+  text-align: center;
+}
+.reentry-icon {
+  font-size: 40px;
+  margin-bottom: var(--sp-3);
+}
+.reentry-table {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: var(--sp-2);
+}
+.reentry-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 var(--sp-2);
+}
+.reentry-sub {
+  font-size: 14px;
+  color: var(--muted);
+  margin: 0 0 var(--sp-4);
+  line-height: 1.5;
+}
+.reentry-items {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-5);
+  text-align: left;
+}
+.reentry-item-row {
+  display: flex;
+  gap: var(--sp-2);
+  padding: 3px 0;
+  font-size: 14px;
+  color: var(--text);
+}
+.reentry-item-qty {
+  color: var(--accent);
+  font-weight: 600;
+  min-width: 28px;
+}
+.reentry-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.reentry-btn {
+  width: 100%;
+  padding: 13px 20px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: opacity var(--t-fast);
+}
+.reentry-btn--primary {
+  background: var(--accent);
+  color: #111;
+}
+.reentry-btn--secondary {
+  background: var(--surface-raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.reentry-btn:hover { opacity: 0.88; }
+
+/* ── Join Table overlay (second customer) ─────────────────── */
+#join-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 900;
+  padding: var(--sp-5);
+}
+#join-popup {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: var(--sp-6);
+  width: 100%;
+  max-width: 360px;
+  text-align: center;
+}
+.join-icon {
+  font-size: 36px;
+  margin-bottom: var(--sp-3);
+}
+.join-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 var(--sp-2);
+}
+.join-sub {
+  font-size: 14px;
+  color: var(--muted);
+  margin: 0 0 var(--sp-5);
+  line-height: 1.5;
+}
+
+/* ── Session not open wall ────────────────────────────────── */
+#not-open-wall {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0d0d0d;
+  padding: 24px;
+  font-family: system-ui, sans-serif;
+}
+.not-open-inner {
+  max-width: 320px;
+  width: 100%;
+  text-align: center;
+}
+.not-open-icon {
+  font-size: 44px;
+  margin-bottom: 16px;
+}
+.not-open-table {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent, #c8a96e);
+  margin-bottom: 10px;
+}
+.not-open-title {
+  color: #f0e8d5;
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 10px;
+}
+.not-open-sub {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 0 28px;
+}
+.not-open-btn {
+  display: block;
+  width: 100%;
+  padding: 13px 20px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  margin-bottom: 12px;
+  transition: opacity 0.15s;
+}
+.not-open-btn--primary {
+  background: var(--accent, #c8a96e);
+  color: #111;
+}
+.not-open-btn--secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+.not-open-btn--notified {
+  background: rgba(39, 174, 96, 0.2);
+  color: #2ecc71;
+  border: 1px solid rgba(39, 174, 96, 0.3);
+}
+.not-open-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.not-open-btn:not(:disabled):hover { opacity: 0.88; }
+.not-open-note {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: 8px;
+  min-height: 18px;
+  line-height: 1.5;
+}
 
 /* ── Table orders live panel ──────────────────────────────── */
 #tableOrdersPanel {

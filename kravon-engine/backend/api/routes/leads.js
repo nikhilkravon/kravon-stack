@@ -34,7 +34,7 @@ router.post('/', async (req, res, next) => {
     const result = await cateringService.createLead(req.tenant, parsed.data);
     events.emit('lead.created', { tenantId: req.tenant.tenant_id, leadId: result.id,
       contactName: parsed.data.name, eventType: parsed.data.event_type ?? null });
-    res.status(201).json({ ok: true, lead: { ref: result.ref } });
+    res.status(201).json({ ok: true, lead: { ref: result.ref, tier: result.tier } });
   } catch (err) { next(err); }
 });
 

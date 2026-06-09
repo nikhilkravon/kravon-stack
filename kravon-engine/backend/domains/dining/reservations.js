@@ -10,6 +10,7 @@
 const { query, getClient } = require('../../db/pool');
 const customerService      = require('../customer/service');
 const events               = require('../../utils/events');
+const sessions             = require('./sessions');
 
 function generateConfirmationCode() {
   return `R${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
@@ -113,7 +114,9 @@ async function create(tenant, {
 
 const VALID_STATUSES = ['pending', 'confirmed', 'seated', 'completed', 'cancelled', 'no_show'];
 
-async function updateStatus(tenantId, reservationId, { status, notes }, staffId) {
+async function updateStatus(tenant, reservationId, { status, notes, table_id }, staffId) {
+  const tenantId = typeof tenant === 'object' ? tenant.tenant_id : tenant;
+
   if (status && !VALID_STATUSES.includes(status)) {
     return { error: `Invalid status. Valid: ${VALID_STATUSES.join(', ')}`, status: 400 };
   }
@@ -130,17 +133,37 @@ async function updateStatus(tenantId, reservationId, { status, notes }, staffId)
     `UPDATE dining.reservations
      SET ${sets.join(', ')}
      WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
-     RETURNING id, status, updated_at`,
+     RETURNING id, status, table_id, party_size, updated_at`,
     params
   );
 
   if (!result.rows.length) return { error: 'Reservation not found', status: 404 };
 
+  const reservation = result.rows[0];
+
   if (status) {
     events.emit('reservation.status_updated', { tenantId, reservationId, status, actorId: staffId });
   }
 
-  return { reservation: result.rows[0] };
+  // Auto-open a dining session when seating a reservation
+  // table_id override from caller (staff picks table in modal) takes priority over reserved table
+  let session = null;
+  const effectiveTableId = table_id || reservation.table_id;
+  if (status === 'seated' && effectiveTableId) {
+    const tenantObj = typeof tenant === 'object' ? tenant : { tenant_id: tenantId };
+    const sessionResult = await sessions.openSession(
+      tenantObj,
+      { table_id: effectiveTableId, covers: reservation.party_size, reservation_id: reservationId },
+      staffId
+    );
+    if (!sessionResult.error) {
+      session = sessionResult;
+    } else {
+      session = { error: sessionResult.error };
+    }
+  }
+
+  return { reservation, session };
 }
 
 async function list(tenantId, { page = 1, limit = 25, status = null } = {}) {

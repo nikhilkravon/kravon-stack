@@ -4,6 +4,7 @@ const express        = require('express');
 const { z }          = require('zod');
 const catalogService = require('../../domains/catalog/service');
 const { requireRestaurantAuth } = require('../middleware/auth');
+const { bustConfigCache } = require('./config');
 
 const router = express.Router();
 
@@ -188,6 +189,7 @@ router.post('/items/:id/variants', requireRestaurantAuth, async (req, res, next)
   if (!parsed.success) return fail(res, parsed);
   try {
     const variant = await catalogService.createVariant(req.tenant.tenant_id, req.params.id, parsed.data);
+    bustConfigCache(req.tenant.tenant_id);
     res.status(201).json({ ok: true, variant });
   } catch (err) { next(err); }
 });
@@ -199,6 +201,7 @@ router.put('/items/:id/variants/:vid', requireRestaurantAuth, async (req, res, n
   try {
     const variant = await catalogService.updateVariant(req.tenant.tenant_id, req.params.vid, parsed.data);
     if (!variant) return res.status(404).json({ error: 'Variant not found' });
+    bustConfigCache(req.tenant.tenant_id);
     res.json({ ok: true, variant });
   } catch (err) { next(err); }
 });
@@ -207,6 +210,7 @@ router.delete('/items/:id/variants/:vid', requireRestaurantAuth, async (req, res
   try {
     const row = await catalogService.deleteVariant(req.tenant.tenant_id, req.params.id, req.params.vid);
     if (!row) return res.status(404).json({ error: 'Variant not found' });
+    bustConfigCache(req.tenant.tenant_id);
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
@@ -227,6 +231,7 @@ router.post('/items/:id/customizations/groups', requireRestaurantAuth, async (re
   if (!parsed.success) return fail(res, parsed);
   try {
     const group = await catalogService.createCustomizationGroup(req.tenant.tenant_id, req.params.id, parsed.data);
+    bustConfigCache(req.tenant.tenant_id);
     res.status(201).json({ ok: true, group });
   } catch (err) { next(err); }
 });
@@ -235,6 +240,7 @@ router.delete('/items/:id/customizations/groups/:gid', requireRestaurantAuth, as
   try {
     const row = await catalogService.deleteCustomizationGroup(req.tenant.tenant_id, req.params.id, req.params.gid);
     if (!row) return res.status(404).json({ error: 'Group not found' });
+    bustConfigCache(req.tenant.tenant_id);
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
@@ -244,6 +250,7 @@ router.post('/items/:id/customizations/groups/:gid/options', requireRestaurantAu
   if (!parsed.success) return fail(res, parsed);
   try {
     const option = await catalogService.createCustomizationOption(req.tenant.tenant_id, req.params.gid, parsed.data);
+    bustConfigCache(req.tenant.tenant_id);
     res.status(201).json({ ok: true, option });
   } catch (err) { next(err); }
 });
@@ -252,6 +259,7 @@ router.delete('/items/:id/customizations/options/:oid', requireRestaurantAuth, a
   try {
     const row = await catalogService.deleteCustomizationOption(req.tenant.tenant_id, req.params.oid);
     if (!row) return res.status(404).json({ error: 'Option not found' });
+    bustConfigCache(req.tenant.tenant_id);
     res.json({ ok: true });
   } catch (err) { next(err); }
 });

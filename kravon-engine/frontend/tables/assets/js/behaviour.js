@@ -16,6 +16,13 @@ function initTablesBehaviour() {
     return null;
   }
 
+  function _saveCart() {
+    const TC = window.TABLE_CONTEXT;
+    if (TC?.isDineIn && TC.sessionId && window.CONFIG?.slug) {
+      TablesCart.save(window.CONFIG.slug, TC.sessionId);
+    }
+  }
+
   /* ── Cart open/close ──────────────────────────────────────── */
   function openCart() {
     const drawer  = document.getElementById('cartDrawer');
@@ -139,6 +146,7 @@ function initTablesBehaviour() {
         const item = _findMenuItem(id);
         if (!item) return;
         TablesCart.addItem(id, item.name, item.price);
+        _saveCart();
         TablesRenderer.updateItemBtn(id);
         TablesRenderer.renderCartDrawer();
         _updateMobileCartLabel();
@@ -186,6 +194,7 @@ function initTablesBehaviour() {
       case 'tables-modal-confirm': {
         const confirmedId = TablesModal.confirm();
         if (confirmedId) {
+          _saveCart();
           TablesRenderer.updateItemBtn(confirmedId);
           TablesRenderer.renderCartDrawer();
           _updateMobileCartLabel();
@@ -206,6 +215,7 @@ function initTablesBehaviour() {
           const item = _findMenuItem(id);
           if (item) TablesCart.addItem(id, item.name, item.price);
         }
+        _saveCart();
         TablesRenderer.updateItemBtn(id);
         TablesRenderer.renderCartDrawer();
         _updateMobileCartLabel();
@@ -220,6 +230,7 @@ function initTablesBehaviour() {
           if (items[i].id === String(id)) { idxToRemove = i; break; }
         }
         if (idxToRemove !== -1) TablesCart.changeQty(idxToRemove, -1);
+        _saveCart();
         TablesRenderer.updateItemBtn(id);
         TablesRenderer.renderCartDrawer();
         _updateMobileCartLabel();
@@ -240,6 +251,7 @@ function initTablesBehaviour() {
         const idx = parseInt(target.dataset.idx, 10);
         const itemBefore = TablesCart.getItems()[idx];
         TablesCart.changeQty(idx, -1);
+        _saveCart();
         if (itemBefore) TablesRenderer.updateItemBtn(itemBefore.id);
         TablesRenderer.renderCartDrawer();
         _updateMobileCartLabel();
@@ -253,6 +265,7 @@ function initTablesBehaviour() {
           TablesCart.changeQty(idx, 1);
           TablesRenderer.updateItemBtn(item.id);
         }
+        _saveCart();
         TablesRenderer.renderCartDrawer();
         _updateMobileCartLabel();
         break;
@@ -504,10 +517,20 @@ function initTablesBehaviour() {
   }
 
   if (TC.isDineIn && TC.tableId) {
-    // Initial orders fetch
+    // Initial orders fetch — also primes screenConfirm when re-entering mid-session
     if (TC.sessionId) {
       KravonAPI.getDineInSessionOrders(TC.sessionId)
-        .then(d => _renderOrdersPanel(d.orders))
+        .then(d => {
+          _renderOrdersPanel(d.orders);
+          if (TC._reentryChoice === 'confirm') {
+            TablesCheckout.renderSessionOrders(d.orders);
+            // Reflect bill-requested state if already set
+            if (TC.billRequested) {
+              const confBtn = document.getElementById('billRequestBtn');
+              if (confBtn) { confBtn.textContent = 'Bill Requested ✓'; confBtn.disabled = true; confBtn.classList.add('bill-requested'); }
+            }
+          }
+        })
         .catch(() => {});
     }
 
@@ -524,7 +547,12 @@ function initTablesBehaviour() {
         ]);
 
         if (!status.open) {
-          _showSessionClosedBanner();
+          // session_status may carry 'paid' even after closed_at is set
+          if (status.session_status === 'paid') {
+            _showPaidScreen();
+          } else {
+            _showSessionClosedBanner();
+          }
           return;
         }
 
@@ -545,6 +573,13 @@ function initTablesBehaviour() {
 
   function _showSessionClosedBanner() {
     if (document.getElementById('sessionClosedBanner')) return;
+
+    // Clear persisted cart — session closed, no further ordering possible
+    const _TC = window.TABLE_CONTEXT;
+    if (_TC?.isDineIn && _TC.sessionId && window.CONFIG?.slug) {
+      TablesCart.clearPersisted(window.CONFIG.slug, _TC.sessionId);
+    }
+
     const banner = document.createElement('div');
     banner.id = 'sessionClosedBanner';
     banner.style.cssText = `
@@ -554,16 +589,136 @@ function initTablesBehaviour() {
     `;
     banner.textContent = 'Your table session has ended. Ask your waiter to re-open it.';
     document.body.prepend(banner);
-    // Disable ordering on both screens
-    const goCheckoutBtn = document.querySelector('[data-action="go-checkout"]');
-    if (goCheckoutBtn) { goCheckoutBtn.disabled = true; goCheckoutBtn.setAttribute('aria-disabled', 'true'); }
-    const orderMoreBtn = document.querySelector('[data-action="order-more"]');
-    if (orderMoreBtn) { orderMoreBtn.disabled = true; orderMoreBtn.setAttribute('aria-disabled', 'true'); }
+    // Disable all interactive ordering controls
+    [
+      '[data-action="go-checkout"]',
+      '[data-action="order-more"]',
+      '[data-action="add-item"]',
+      '[data-action="inc-item"]',
+      '[data-action="open-modal"]',
+    ].forEach(sel => {
+      document.querySelectorAll(sel).forEach(el => {
+        el.disabled = true;
+        el.setAttribute('aria-disabled', 'true');
+      });
+    });
+
+    ['placeOrderBtn', 'requestBillBarBtn', 'billRequestBtn'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.disabled = true; el.setAttribute('aria-disabled', 'true'); }
+    });
+
     // Update session badge on confirm screen
     const badge = document.getElementById('sessionStatusBadge');
     if (badge) {
       badge.classList.add('session-status-badge--closed');
       badge.innerHTML = 'Session Closed';
     }
+  }
+
+  function _showPaidScreen() {
+    if (document.getElementById('paidOverlay')) return;
+
+    // Clear persisted cart and identity — session fully done
+    const _TC = window.TABLE_CONTEXT;
+    if (_TC?.isDineIn && _TC.sessionId && window.CONFIG?.slug) {
+      TablesCart.clearPersisted(window.CONFIG.slug, _TC.sessionId);
+      try { localStorage.removeItem(`kravon:guest:${window.CONFIG.slug}:${_TC.sessionId}`); } catch (_) {}
+    }
+
+    const brandName = window.CONFIG?.brand?.name || 'Us';
+
+    const overlay = document.createElement('div');
+    overlay.id = 'paidOverlay';
+    overlay.style.cssText = `
+      position:fixed;inset:0;z-index:9999;
+      background:#0d0d0d;display:flex;align-items:center;justify-content:center;
+      padding:24px;text-align:center;font-family:system-ui,sans-serif;`;
+    overlay.innerHTML = `
+      <div style="max-width:320px;width:100%">
+        <div style="font-size:48px;margin-bottom:16px">🙏</div>
+        <h1 style="color:#f0e8d5;font-size:22px;font-weight:700;margin:0 0 10px">
+          Thank you for dining with us
+        </h1>
+        <p style="color:rgba(255,255,255,0.5);font-size:14px;line-height:1.6;margin:0 0 28px">
+          Your bill has been settled. We hope you enjoyed your meal at ${Kravon.esc(brandName)}.
+        </p>
+        <div id="paidReviewWrap" style="background:rgba(255,255,255,0.05);border-radius:12px;padding:20px">
+          <div style="color:#f0e8d5;font-size:15px;font-weight:600;margin-bottom:14px">Rate your experience</div>
+          <div id="paidStars" style="display:flex;justify-content:center;gap:8px">
+            ${[1,2,3,4,5].map(n =>
+              `<button class="paid-star-btn" data-stars="${n}"
+                       style="background:none;border:none;cursor:pointer;font-size:32px;opacity:0.35;padding:0"
+                       aria-label="${n} star${n > 1 ? 's' : ''}">★</button>`
+            ).join('')}
+          </div>
+          <div id="paidReviewFeedback" style="display:none;margin-top:14px">
+            <textarea id="paidFeedbackText"
+              style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.08);
+                     border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:#f0e8d5;
+                     padding:10px 12px;font-size:14px;resize:none;outline:none"
+              rows="3" placeholder="Tell us what we can improve…" maxlength="500"></textarea>
+            <button id="paidFeedbackBtn"
+              style="margin-top:10px;width:100%;background:#c8a96e;color:#111;border:none;
+                     border-radius:8px;padding:12px;font-size:14px;font-weight:600;cursor:pointer">
+              Send Feedback
+            </button>
+          </div>
+          <div id="paidReviewGoogle" style="display:none;margin-top:14px">
+            <p style="color:rgba(255,255,255,0.6);font-size:13px;margin:0 0 12px;line-height:1.5">
+              So glad you enjoyed it! Share on Google — it helps us a lot.
+            </p>
+            <a id="paidGoogleLink" href="#" target="_blank" rel="noopener noreferrer"
+               style="display:block;background:#c8a96e;color:#111;border-radius:8px;
+                      padding:12px;font-size:14px;font-weight:600;text-decoration:none">
+              Leave a Google Review ↗
+            </a>
+          </div>
+          <div id="paidReviewThanks" style="display:none;color:rgba(255,255,255,0.5);
+               font-size:14px;margin-top:12px">Thank you for the feedback 🙏</div>
+        </div>
+      </div>`;
+
+    document.body.appendChild(overlay);
+
+    let _stars = 0;
+    overlay.querySelectorAll('.paid-star-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        _stars = parseInt(btn.dataset.stars, 10);
+        overlay.querySelectorAll('.paid-star-btn').forEach((b, i) => {
+          b.style.opacity = i < _stars ? '1' : '0.35';
+        });
+        const TC = window.TABLE_CONTEXT;
+        try {
+          const result = await KravonAPI.submitReview({
+            stars: _stars, order_surface: 'tables',
+            table_identifier: TC.tableName || undefined,
+          });
+          if (result.above_threshold && result.google_review_url) {
+            document.getElementById('paidGoogleLink').href = result.google_review_url;
+            document.getElementById('paidReviewGoogle').style.display = '';
+          } else {
+            document.getElementById('paidReviewFeedback').style.display = '';
+          }
+        } catch (_) {
+          document.getElementById('paidReviewFeedback').style.display = '';
+        }
+      });
+    });
+
+    document.getElementById('paidFeedbackBtn')?.addEventListener('click', async () => {
+      const text = document.getElementById('paidFeedbackText')?.value.trim() || '';
+      const TC   = window.TABLE_CONTEXT;
+      try {
+        if (_stars) {
+          await KravonAPI.submitReview({
+            stars: _stars, feedback: text, order_surface: 'tables',
+            table_identifier: TC.tableName || undefined,
+          });
+        }
+      } catch (_) {}
+      document.getElementById('paidReviewFeedback').style.display = 'none';
+      document.getElementById('paidReviewThanks').style.display   = '';
+    });
   }
 }

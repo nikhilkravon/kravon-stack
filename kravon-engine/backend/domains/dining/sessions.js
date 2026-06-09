@@ -11,7 +11,7 @@ const { query, getClient } = require('../../db/pool');
 const events               = require('../../utils/events');
 const audit                = require('../../utils/audit');
 
-async function openSession(tenant, { table_id, covers }, staffId) {
+async function openSession(tenant, { table_id, covers, reservation_id }, staffId) {
   const tenant_id = tenant.tenant_id;
   const client    = await getClient();
   try {
@@ -39,10 +39,10 @@ async function openSession(tenant, { table_id, covers }, staffId) {
     }
 
     const sessionRes = await client.query(
-      `INSERT INTO dining.sessions (tenant_id, table_id, covers, opened_at)
-       VALUES ($1, $2, $3, NOW())
+      `INSERT INTO dining.sessions (tenant_id, table_id, covers, reservation_id, opened_at)
+       VALUES ($1, $2, $3, $4, NOW())
        RETURNING id, opened_at`,
-      [tenant_id, table_id, covers ?? null]
+      [tenant_id, table_id, covers ?? null, reservation_id ?? null]
     );
 
     await client.query(
@@ -51,16 +51,25 @@ async function openSession(tenant, { table_id, covers }, staffId) {
       [table_id, tenant_id]
     );
 
+    if (reservation_id) {
+      await client.query(
+        `UPDATE dining.reservations
+         SET status = 'seated', updated_at = NOW()
+         WHERE id = $1 AND tenant_id = $2`,
+        [reservation_id, tenant_id]
+      );
+    }
+
     const { id: session_id, opened_at } = sessionRes.rows[0];
     await audit.log(client, {
       tenantId: tenant_id, actorId: staffId, actorType: 'staff',
       action: 'session.open', entityType: 'dining.session', entityId: session_id,
-      newValue: { table_id, covers: covers ?? null },
+      newValue: { table_id, covers: covers ?? null, reservation_id: reservation_id ?? null },
     });
 
     await client.query('COMMIT');
     events.emit('session.opened', { tenantId: tenant_id, sessionId: session_id, tableId: table_id, covers: covers ?? null });
-    return { session_id, table_id, opened_at };
+    return { session_id, table_id, opened_at, reservation_id: reservation_id ?? null };
 
   } catch (err) {
     await client.query('ROLLBACK');
@@ -145,15 +154,28 @@ async function getStatus(tenant_id, table_id) {
     [table_id, tenant_id]
   );
 
-  if (!result.rows.length) return { open: false };
+  if (!result.rows.length) {
+    // No open session — check for recently closed session to surface session_status (e.g. 'paid')
+    const closed = await query(
+      `SELECT s.session_status
+       FROM dining.sessions s
+       WHERE s.table_id = $1 AND s.tenant_id = $2 AND s.deleted_at IS NULL
+       ORDER BY s.closed_at DESC NULLS LAST
+       LIMIT 1`,
+      [table_id, tenant_id]
+    );
+    const lastStatus = closed.rows[0]?.session_status || null;
+    return { open: false, session_status: lastStatus };
+  }
 
   const { id: session_id, opened_at, covers, table_name,
           session_status, bill_owner_name, bill_requested_at } = result.rows[0];
   return {
     open: true, session_id, table_name, opened_at, covers,
     session_status,
-    has_bill_owner: !!bill_owner_name,
-    bill_requested: !!bill_requested_at,
+    has_bill_owner:   !!bill_owner_name,
+    bill_owner_name:  bill_owner_name || null,
+    bill_requested:   !!bill_requested_at,
   };
 }
 
@@ -274,4 +296,37 @@ async function getBill(tenant_id, session_id) {
   };
 }
 
-module.exports = { openSession, closeSession, getStatus, getSessionOrders, requestBill, getBill };
+async function getTableName(tenant_id, table_id) {
+  if (!UUID_RE.test(table_id)) return null;
+  const res = await query(
+    `SELECT name FROM dining.tables WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
+    [table_id, tenant_id]
+  );
+  return res.rows[0]?.name || null;
+}
+
+async function notifyStaffTableReady(tenant, table_id) {
+  if (!UUID_RE.test(table_id)) return { error: 'table_id must be a UUID', status: 400 };
+
+  const res = await query(
+    `SELECT name FROM dining.tables WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
+    [table_id, tenant.tenant_id]
+  );
+  if (!res.rows.length) return { error: 'Table not found.', status: 404 };
+
+  const tableName = res.rows[0].name;
+
+  // Fire in-process event — notification.listeners.js will create the in-app alert
+  events.emit('dine_in.staff_notify', {
+    tenantId: tenant.tenant_id,
+    tableId:  table_id,
+    tableName,
+  });
+
+  return { notified: true };
+}
+
+module.exports = {
+  openSession, closeSession, getStatus, getSessionOrders,
+  requestBill, getBill, getTableName, notifyStaffTableReady,
+};

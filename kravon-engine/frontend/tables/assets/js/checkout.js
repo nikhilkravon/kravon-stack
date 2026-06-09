@@ -159,6 +159,11 @@ const TablesCheckout = (() => {
   function showConfirmScreen(orderId, orderData) {
     TablesRenderer.showScreen('screenConfirm');
     TablesCart.clear();
+    // Clear persisted cart — order successfully placed
+    const _TC = window.TABLE_CONTEXT;
+    if (_TC?.isDineIn && _TC.sessionId && window.CONFIG?.slug) {
+      TablesCart.clearPersisted(window.CONFIG.slug, _TC.sessionId);
+    }
 
     // Update all item button states
     (window.MENU || []).forEach(cat =>
@@ -200,32 +205,48 @@ const TablesCheckout = (() => {
     resetReview();
   }
 
-  /* ── Render aggregated session orders (no guest names) ─────── */
+  /* ── Render aggregated session orders with running total ─────── */
   function renderSessionOrders(orders) {
-    const listEl = document.getElementById('sessionOrdersList');
+    const listEl  = document.getElementById('sessionOrdersList');
+    const totalEl = document.getElementById('sessionBillTotal');
     if (!listEl) return;
 
     if (!orders || !orders.length) {
       listEl.innerHTML = '<div class="session-orders-empty">No orders yet at this table.</div>';
+      if (totalEl) totalEl.style.display = 'none';
       return;
     }
 
-    // Aggregate item quantities across all orders — no guest attribution
-    const totals = new Map();
+    // Aggregate item quantities + running price
+    const totals = new Map(); // name → { qty, price }
+    let grandTotal = 0;
     for (const order of orders) {
+      grandTotal += Number(order.total) || 0;
       for (const item of (order.items || [])) {
-        const key = item.name;
-        totals.set(key, (totals.get(key) || 0) + item.qty);
+        const existing = totals.get(item.name);
+        if (existing) {
+          existing.qty += item.qty;
+        } else {
+          totals.set(item.name, { qty: item.qty, price: Number(item.price) || 0 });
+        }
       }
     }
 
     listEl.innerHTML = [...totals.entries()]
-      .map(([name, qty]) =>
-        `<div class="session-order-row">
+      .map(([name, { qty, price }]) => {
+        const lineTotal = qty * price;
+        return `<div class="session-order-row">
            <span class="session-order-qty">${qty} ×</span>
            <span class="session-order-name">${Kravon.esc(name)}</span>
-         </div>`
-      ).join('');
+           ${price > 0 ? `<span class="session-order-price">₹${lineTotal.toFixed(0)}</span>` : ''}
+         </div>`;
+      }).join('');
+
+    if (totalEl) {
+      totalEl.style.display = '';
+      totalEl.innerHTML = `<span class="session-total-label">Running Total</span>
+        <span class="session-total-val">₹${grandTotal.toFixed(0)}</span>`;
+    }
   }
 
   /* ── Bill request ─────────────────────────────────────────── */

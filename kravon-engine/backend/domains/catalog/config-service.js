@@ -97,9 +97,9 @@ async function getItemDetail(tenantId, itemId) {
     query(
       `SELECT id, name, price
        FROM menu.item_variants
-       WHERE menu_item_id = $1 AND is_available = TRUE AND deleted_at IS NULL
+       WHERE menu_item_id = $1 AND tenant_id = $2 AND is_available = TRUE AND deleted_at IS NULL
        ORDER BY sort_order`,
-      [itemId]
+      [itemId, tenantId]
     ),
     query(
       `SELECT g.id AS group_id, g.name AS group_name, g.group_type,
@@ -108,10 +108,10 @@ async function getItemDetail(tenantId, itemId) {
               o.price_modifier, o.is_default
        FROM menu.customization_groups g
        LEFT JOIN menu.customization_options o
-              ON o.group_id = g.id AND o.is_available = TRUE AND o.deleted_at IS NULL
-       WHERE g.menu_item_id = $1 AND g.deleted_at IS NULL
+              ON o.group_id = g.id AND o.tenant_id = g.tenant_id AND o.is_available = TRUE AND o.deleted_at IS NULL
+       WHERE g.menu_item_id = $1 AND g.tenant_id = $2 AND g.deleted_at IS NULL
        ORDER BY g.position, o.sort_order`,
-      [itemId]
+      [itemId, tenantId]
     ),
   ]);
 

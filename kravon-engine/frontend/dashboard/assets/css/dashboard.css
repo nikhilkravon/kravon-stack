@@ -255,12 +255,14 @@ tbody tr:hover td { background: var(--gray-50); }
   padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;
 }
 .badge::before { content: '●'; font-size: 8px; }
-.badge-placed    { background: var(--amber-100);  color: var(--amber-600);  }
-.badge-preparing { background: var(--blue-100);   color: var(--blue-600);   }
-.badge-ready     { background: var(--purple-100); color: var(--purple-600); }
-.badge-delivered { background: var(--green-100);  color: var(--green-600);  }
-.badge-cancelled { background: var(--gray-100);   color: var(--gray-500);   }
-.badge-pending   { background: var(--amber-100);  color: var(--amber-600);  }
+.badge-placed          { background: var(--amber-100);  color: var(--amber-600);  }
+.badge-preparing       { background: var(--blue-100);   color: var(--blue-600);   }
+.badge-ready           { background: var(--purple-100); color: var(--purple-600); }
+.badge-delivered       { background: var(--green-100);  color: var(--green-600);  }
+.badge-cancelled       { background: var(--gray-100);   color: var(--gray-500);   }
+.badge-pending         { background: var(--amber-100);  color: var(--amber-600);  }
+.badge-bill-requested  { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; animation: bill-pulse 1.6s ease-in-out infinite; }
+@keyframes bill-pulse  { 0%,100% { opacity:1; } 50% { opacity:.65; } }
 
 /* ── Tabs ─────────────────────────────────────────────────────────────────── */
 .tab-bar {
@@ -434,6 +436,7 @@ tbody tr:hover td { background: var(--gray-50); }
 .dash-toast.toast-success { background: var(--green-600); }
 .dash-toast.toast-error   { background: var(--red-600); }
 .dash-toast.toast-info    { background: var(--gray-800); }
+.dash-toast.toast-warn    { background: var(--amber-600); }
 .dash-toast.toast-out     { animation: toast-out .2s ease forwards; }
 @keyframes toast-in  { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes toast-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(8px); } }
@@ -677,6 +680,10 @@ tbody tr:hover td { background: var(--gray-50); }
   overflow: hidden;
   box-shadow: var(--shadow-sm);
 }
+.kitchen-card--bill {
+  border-color: #fde68a;
+  box-shadow: 0 0 0 2px rgba(245,158,11,0.18);
+}
 .kitchen-card-header {
   background: var(--gray-900);
   color: white;
@@ -852,4 +859,37 @@ tbody tr:hover td { background: var(--gray-50); }
   html { font-size: 13px; }
   .dash-content { padding: var(--sp-2); }
   .stat-card    { padding: var(--sp-3); }
+}
+
+/* ── Bill modal: totals & GST breakdown ─────────────────────── */
+.cart-total-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 15px;
+  font-weight: 700;
+  border-top: 1px solid var(--border);
+  padding-top: var(--sp-3);
+}
+.cart-total-label { color: var(--fg); }
+.cart-total-val   { color: var(--fg); font-variant-numeric: tabular-nums; }
+
+.bill-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: var(--sp-3) 0;
+}
+.bill-summary-block { margin-bottom: var(--sp-2); }
+.bill-summary-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--gray-500);
+  margin-bottom: 3px;
+}
+.bill-summary-gstin { font-family: var(--font-mono, monospace); font-size: 11px; }
+.bill-gst-warn {
+  font-size: 11px;
+  color: var(--amber-600, #d97706);
+  margin-top: 4px;
 }
