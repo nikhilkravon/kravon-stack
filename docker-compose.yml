@@ -1,0 +1,74 @@
+version: "3.9"
+
+services:
+  # ── Postgres ────────────────────────────────────────────────────────────────
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kravon
+      POSTGRES_USER: kravon
+      POSTGRES_PASSWORD: kravon
+    ports:
+      - "5432:5432"
+    volumes:
+      - kravon-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kravon -d kravon"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Migrate — runs schema + all migrations then exits ───────────────────────
+  migrate:
+    build:
+      context: ./kravon-engine/backend
+      dockerfile: Dockerfile
+    command: node db/migrate-all.js
+    environment:
+      DATABASE_URL: postgresql://kravon:kravon@db:5432/kravon
+      NODE_ENV: development
+    env_file:
+      - ./kravon-engine/backend/.env.local
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  # ── Backend ─────────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./kravon-engine/backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://kravon:kravon@db:5432/kravon
+      NODE_ENV: development
+      PORT: 3000
+    env_file:
+      - ./kravon-engine/backend/.env.local
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  # ── Frontend ────────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./kravon-engine/frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      BACKEND_URL: http://localhost:3000
+      FRONTEND_URL: http://localhost:8000
+      PORT: 8000
+    env_file:
+      - ./kravon-engine/frontend/.env.local
+
+volumes:
+  kravon-db-data:
