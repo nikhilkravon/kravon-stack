@@ -398,7 +398,22 @@
       "Bash(powershell -Command \"npm --version\")",
       "Bash(git checkout *)",
       "Bash(curl -s --max-time 3 http://localhost:3000/health)",
-      "Bash(echo \"EXIT:$?\")"
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(Start-Process \"http://localhost:8000/dashboard/?slug=royal-tandoor\")",
+      "Bash(cmd /c start \"\" \"http://localhost:8000/dashboard/?slug=royal-tandoor\")",
+      "PowerShell(Start-Process \"http://localhost:8000/dashboard/?slug=royal-tandoor\")",
+      "Bash(node -e \"const fs=require\\('fs'\\); const t=fs.readFileSync\\('server.js','utf8'\\); fs.writeFileSync\\('server.js',t\\);\")",
+      "Bash(findstr :8000)",
+      "Bash(taskkill /PID 19496 /F)",
+      "PowerShell(Stop-Process -Id 19496 -Force)",
+      "PowerShell(Start-Process \"http://localhost:8000/dashboard/?slug=royal-tandoor#orders\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Nikhil\\\\KravonSAAS\\\\kravon-stack\\\\kravon-engine\\\\frontend\\\\orders\\\\\" -Recurse -Filter \"*.js\" | Select-Object -ExpandProperty FullName)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Nikhil\\\\KravonSAAS\\\\kravon-stack\\\\kravon-engine\\\\frontend\\\\\" -Directory | Select-Object Name)",
+      "PowerShell(Stop-Process -Id \\(Get-NetTCPConnection -LocalPort 8000 -State Listen\\).OwningProcess -Force -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-NetTCPConnection -LocalPort 3000,8000 -State Listen -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Id \\(Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue\\).OwningProcess -Force -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Id \\(Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue\\).OwningProcess -Force -ErrorAction SilentlyContinue)",
+      "PowerShell(Stop-Process -Id \\(Get-NetTCPConnection -LocalPort 3000,8000 -State Listen -ErrorAction SilentlyContinue\\).OwningProcess -Force -ErrorAction SilentlyContinue)"
     ],
     "additionalDirectories": [
       "\\tmp",

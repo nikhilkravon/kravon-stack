@@ -533,10 +533,6 @@
       decAction:    'dec-item',
       incAction:    'inc-item',
       addLabel:     '+ Add',
-      keepCustom:   true,
-      customBtnCls: 'add-btn add-btn--customise',
-      customLabel:  'Customise',
-      bothWrapCls:  'item-ctrl-both',
     });
 
     ItemControls.applyAccent(C.brand?.accent, 0.07, 0.2);

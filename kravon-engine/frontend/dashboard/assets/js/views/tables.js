@@ -136,10 +136,15 @@ const TablesView = (() => {
     }
   }
 
+  let _gridAbort = null;
+
   async function _load(el) {
     const grid = el.querySelector('#tables-grid');
     if (!grid) return;
     grid.innerHTML = `<div class="skeleton" style="height:120px;border-radius:var(--radius-lg)"></div>`.repeat(4);
+
+    if (_gridAbort) _gridAbort.abort();
+    _gridAbort = new AbortController();
 
     try {
       const data   = await Api.rGet('/tables');
@@ -165,7 +170,6 @@ const TablesView = (() => {
         if (t.session?.id) _loadSessionOrders(t.session.id);
       });
 
-      // Event delegation
       grid.addEventListener('click', async e => {
         const btn = e.target.closest('[data-action]');
         if (!btn) return;
@@ -249,7 +253,7 @@ const TablesView = (() => {
             DashUI.toast(err.message, 'error');
           }
         }
-      });
+      }, { signal: _gridAbort.signal });
 
     } catch (err) {
       grid.innerHTML = DashUI.errorState(err.message);

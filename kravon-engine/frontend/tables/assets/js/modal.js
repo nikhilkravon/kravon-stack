@@ -250,7 +250,8 @@ const TablesModal = (() => {
   }
 
   function decQty() {
-    _modalQty = Math.max(1, _modalQty - 1);
+    if (_modalQty <= 1) { close(); return; }
+    _modalQty -= 1;
     const el = document.getElementById('tablesModalQty');
     if (el) el.textContent = _modalQty;
     _updateBtn();

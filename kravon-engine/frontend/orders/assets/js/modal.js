@@ -217,9 +217,19 @@ const OrdersModal = (() => {
 
   /* ── Close ───────────────────────────────────────────────── */
   function close() {
-    _editingIdx = -1;
+    _editingIdx  = -1;
+    _modalQty    = 1;
+    _modalItem   = { id: '', name: '', price: 0 };
+    _currentItem = null;
     const modal = document.getElementById('ordersCustomModal');
     if (modal) { modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); }
+  }
+
+  /* ── Reset internal state without touching DOM modal ────── */
+  function resetIfItem(itemId) {
+    if (_currentItem && String(_currentItem.id) === String(itemId)) {
+      close();
+    }
   }
 
   /* ── Qty ─────────────────────────────────────────────────── */
@@ -229,7 +239,8 @@ const OrdersModal = (() => {
     _updateBtn();
   }
   function decQty() {
-    _modalQty = Math.max(1, _modalQty - 1);
+    if (_modalQty <= 1) { close(); return; }
+    _modalQty -= 1;
     document.getElementById('ordersModalQty').textContent = _modalQty;
     _updateBtn();
   }
@@ -385,6 +396,6 @@ const OrdersModal = (() => {
     });
   }
 
-  return { init, open, openEdit, close, incQty, decQty, toggleAddon, setSpice, confirm };
+  return { init, open, openEdit, close, resetIfItem, incQty, decQty, toggleAddon, setSpice, confirm };
 
 })();

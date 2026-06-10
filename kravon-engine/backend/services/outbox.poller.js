@@ -32,7 +32,13 @@ function nextDelay(attempts) {
 }
 
 async function pollOnce() {
-  const client = await getClient();
+  let client;
+  try {
+    client = await getClient();
+  } catch (err) {
+    console.error(JSON.stringify({ level: 'error', event: 'outbox.connect_failed', error: err.message }));
+    return;
+  }
   try {
     await client.query('BEGIN');
 
@@ -82,7 +88,7 @@ async function pollOnce() {
     await client.query('ROLLBACK');
     console.error(JSON.stringify({ level: 'error', event: 'outbox.poll_failed', error: err.message }));
   } finally {
-    client.release();
+    if (client) client.release();
   }
 }
 

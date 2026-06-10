@@ -278,7 +278,8 @@ const CustomizationModal = (function () {
     // Quantity buttons
     qtyMinus.addEventListener('click', () => {
       const qty = parseInt(quantityInput.value);
-      if (qty > 1) quantityInput.value = qty - 1;
+      if (qty <= 1) { close(); return; }
+      quantityInput.value = qty - 1;
       _calculateTotal();
     });
 

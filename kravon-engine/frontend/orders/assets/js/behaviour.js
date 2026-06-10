@@ -197,6 +197,7 @@ function initOrdersBehaviour() {
         for (let i = items.length - 1; i >= 0; i--) {
           if (items[i].id === String(id)) { OrdersCart.changeQty(i, -1); break; }
         }
+        if (OrdersCart.getQtyById(id) === 0) OrdersModal.resetIfItem(id);
         OrdersRenderer.updateItemBtn(id);
         OrdersRenderer.renderCartDrawer();
         _updateMobileCartLabel();
@@ -217,7 +218,10 @@ function initOrdersBehaviour() {
         const idx = parseInt(target.dataset.idx, 10);
         const itemBefore = OrdersCart.getItems()[idx];
         OrdersCart.changeQty(idx, -1);
-        if (itemBefore) OrdersRenderer.updateItemBtn(itemBefore.id);
+        if (itemBefore) {
+          if (OrdersCart.getQtyById(itemBefore.id) === 0) OrdersModal.resetIfItem(itemBefore.id);
+          OrdersRenderer.updateItemBtn(itemBefore.id);
+        }
         OrdersRenderer.renderCartDrawer();
         _updateMobileCartLabel();
         break;

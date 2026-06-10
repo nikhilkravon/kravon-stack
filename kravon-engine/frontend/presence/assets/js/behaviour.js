@@ -182,38 +182,6 @@
       });
     })();
 
-    // Sticky CTA: show a compact CTA when hero scrolls out of view
-    (function setupStickyCta() {
-      const hero = document.querySelector('.p-hero');
-      const navRight = document.querySelector('.p-nav-right');
-      if (!navRight) return;
-
-      let sticky = document.getElementById('pStickyCta');
-      if (!sticky) {
-        sticky = document.createElement('div');
-        sticky.id = 'pStickyCta';
-        sticky.className = 'p-sticky-cta';
-        const primary = navRight.querySelector('.p-btn-primary') || navRight.querySelector('.p-btn');
-        sticky.innerHTML = primary ? primary.outerHTML : '';
-        document.body.appendChild(sticky);
-        sticky.addEventListener('click', function (e) {
-          const a = e.target.closest('a'); if (a) a.click();
-        });
-      }
-
-      if (hero && 'IntersectionObserver' in window) {
-        const obs = new IntersectionObserver(entries => {
-          entries.forEach(en => {
-            if (!en.isIntersecting) sticky.classList.add('visible'); else sticky.classList.remove('visible');
-          });
-        }, { threshold: 0 });
-        obs.observe(hero);
-      } else {
-        window.addEventListener('scroll', function () {
-          if (window.scrollY > 200) sticky.classList.add('visible'); else sticky.classList.remove('visible');
-        });
-      }
-    })();
   };
 
 })();
