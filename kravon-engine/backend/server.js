@@ -132,18 +132,13 @@ app.use((req, res, next) => {
 /* ── Cookie parser ─────────────────────────────────────────────────────────── */
 app.use(cookieParser());
 
+/* ── Media proxy — mount BEFORE helmet/cors so no conflicting headers are set ── */
+// Images are public. Respond with wildcard CORS and no credentials header.
+// helmet and the per-tenant cors() middleware must NOT run for these routes.
+app.use('/v1/media', cors({ origin: '*', credentials: false }), mediaRoutes);
+
 /* ── Security headers ──────────────────────────────────────────────────────── */
 app.use(helmet());
-
-/* ── CORS — media proxy (public, wildcard) ─────────────────────────────────── */
-// /v1/media serves public images — must be BEFORE the per-tenant CORS middleware
-// so the browser gets Access-Control-Allow-Origin: * regardless of request origin.
-app.use('/v1/media', (req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  if (req.method === 'OPTIONS') { res.sendStatus(204); return; }
-  next();
-});
 
 /* ── CORS — per-restaurant origin whitelist ────────────────────────────────── */
 // Must be before rate limiting so OPTIONS preflight requests are answered
@@ -191,9 +186,6 @@ app.get('/health', async (_req, res) => {
 app.use('/v1/webhooks', webhookRoutes);
 app.use('/v1/admin',    adminRoutes);
 app.use('/v1/auth',     authRoutes);
-// Image proxy — serves Railway private bucket objects publicly with long-lived cache headers.
-// Mounted before the per-IP rate limiter so static asset fetches don't consume API quota.
-app.use('/v1/media',    mediaRoutes);
 
 /* ── Restaurant-scoped routes ──────────────────────────────────────────────── */
 // Step 1: resolveRestaurant resolves slug/domain/subdomain → req.tenant
