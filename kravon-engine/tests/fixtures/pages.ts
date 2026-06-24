@@ -107,7 +107,7 @@ export class DashboardPage {
   async login(slug: string, email: string, password: string) {
     // Strategy:
     // 1. Call the login API via page.request so the HttpOnly RT cookie is set
-    //    in the browser context's cookie jar for localhost:3000.
+    //    in the browser context's cookie jar for 127.0.0.1:3000.
     // 2. Inject localStorage keys via addInitScript so they are present on the
     //    very first DOMContentLoaded of the dashboard page — before app.js runs.
     // 3. Navigate once. App.start() → Auth.isLoggedIn() = true → _showDashboard().
@@ -115,7 +115,7 @@ export class DashboardPage {
     // We must NOT do a two-navigation sequence (goto → goto) because if both
     // URLs share the same path+query and differ only in hash, the second goto
     // is treated as a same-document navigation (no page reload, no DOMContentLoaded).
-    const apiBase = process.env.KRAVON_API_URL || 'http://localhost:3000';
+    const apiBase = process.env.KRAVON_API_URL || 'http://127.0.0.1:3000';
 
     // Step 1: get login token + set RT cookie without loading any page.
     const res = await this.page.request.post(`${apiBase}/v1/auth/login`, {

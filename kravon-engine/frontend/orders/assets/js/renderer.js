@@ -301,7 +301,8 @@
               <svg width="36" height="36"><use href="#icon-check"/></svg>
             </div>
             <div class="confirm-heading">Order Placed!</div>
-            <div class="confirm-sub" id="confirmSub">Your order is being prepared.</div>
+            <div class="confirm-status-badge confirm-status-badge--pending" id="confirmStatusBadge">pending</div>
+            <div class="confirm-sub" id="confirmSub"></div>
             <div class="confirm-id" id="confirmOrderId"></div>
             <div class="confirm-meta" id="confirmMeta">
               <div class="confirm-meta-row">

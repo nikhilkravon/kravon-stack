@@ -96,6 +96,14 @@ const KravonAPI = (() => {
     return data;
   }
 
+  /* ── Order status (public — customer tracking) ───────────────────────── */
+  async function getOrderStatus(orderId) {
+    const res  = await fetch(_url(`/orders/${encodeURIComponent(orderId)}/status`));
+    const data = await res.json();
+    if (!res.ok) throw Object.assign(new Error(data.error || 'Request failed'), { status: res.status });
+    return data;
+  }
+
   /* ── Reviews ─────────────────────────────────────────────────────────── */
   /**
    * submitReview(reviewData) → { ok, above_threshold, google_review_url }
@@ -176,7 +184,7 @@ const KravonAPI = (() => {
   }
 
   return {
-    loadConfig, getConfig, createOrder, submitReview, submitLead,
+    loadConfig, getConfig, createOrder, getOrderStatus, submitReview, submitLead,
     getDineInBoot, getDineInSessionStatus, createDineInOrder,
     getDineInSessionOrders, requestDineInBill, notifyStaffTableReady,
   };

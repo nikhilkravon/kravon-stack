@@ -11,6 +11,22 @@ const OrdersCheckout = (() => {
   let _selectedDeliveryType = 'standard';
   let _confirmedOrderId     = null;
   let _reviewStars          = 0;
+  let _pollTimer            = null;
+
+  const STORAGE_KEY = 'kravon_active_order';
+
+  const STATUS_LABELS = {
+    pending:          'Order received — waiting for confirmation',
+    confirmed:        'Order confirmed!',
+    preparing:        'Kitchen is preparing your order',
+    ready:            'Order is ready for pickup by delivery partner',
+    out_for_delivery: 'Out for delivery — on the way!',
+    delivered:        'Delivered! Enjoy your meal.',
+    completed:        'Order complete.',
+    cancelled:        'Order cancelled.',
+  };
+
+  const TERMINAL_STATUSES = new Set(['delivered', 'completed', 'cancelled']);
 
   function init() {
     const O = window.CONFIG?.orders || {};
@@ -116,6 +132,7 @@ const OrdersCheckout = (() => {
 
   /* ── Razorpay ─────────────────────────────────────────────── */
   function _openRazorpay(order) {
+    const customerName = _val('fieldName');
     const options = {
       key:         order.razorpay_key_id,
       order_id:    order.razorpay_order_id,
@@ -124,12 +141,12 @@ const OrdersCheckout = (() => {
       name:        window.CONFIG.brand.name,
       description: 'Direct Delivery Order',
       prefill: {
-        name:    _val('fieldName'),
+        name:    customerName,
         contact: _val('fieldPhone'),
       },
       theme: { color: window.CONFIG.brand.accent || '#c2d62a' },
       handler: function () {
-        _showConfirmation(order.id, order.total);
+        _showConfirmation(order.id, order.total, customerName);
       },
       modal: {
         ondismiss: function () {
@@ -153,9 +170,10 @@ const OrdersCheckout = (() => {
   }
 
   /* ── Confirmation screen ─────────────────────────────────── */
-  function _showConfirmation(orderId, total) {
+  function _showConfirmation(orderId, total, customerName, paymentId, immediatePoll) {
     _confirmedOrderId = orderId;
     _reviewStars = 0;
+    if (paymentId) _selectedPaymentId = paymentId;
 
     OrdersCart.clear();
     (window.MENU || []).forEach(cat =>
@@ -165,13 +183,14 @@ const OrdersCheckout = (() => {
     const O = window.CONFIG?.orders || {};
     const C = window.CONFIG;
 
+    const name   = customerName || _val('fieldName');
     const prefix = (C.brand.name || 'ORD').replace(/[^A-Za-z]/g,'').slice(0,3).toUpperCase();
     _setText('confirmOrderId',  `Order ID: ${prefix}-${orderId}`);
-    _setText('confirmName',     _val('fieldName'));
+    _setText('confirmName',     name);
     _setText('confirmTotal',    `₹${total}`);
     _setText('confirmPayment',  _selectedPaymentId === 'cod' ? 'Pay on Delivery' : 'Online');
     _setText('confirmETA',      O.deliveryEta || '45–60 min');
-    _setText('confirmSub',      'Your order is on its way! We\'ll send updates via WhatsApp.');
+    _updateStatusBadge('pending');
 
     // Wire WhatsApp track button
     const waBtn = document.querySelector('[data-action="track-order"]');
@@ -183,9 +202,84 @@ const OrdersCheckout = (() => {
       waBtn.dataset.waUrl = `https://wa.me/${C.contact.waNumber}?text=${msg}`;
     }
 
+    // Persist so a refresh brings the customer back to this screen
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        orderId,
+        total,
+        name,
+        paymentId: _selectedPaymentId,
+        placedAt:  Date.now(),
+      }));
+    } catch (_) {}
+
     resetReview();
     OrdersRenderer.showScreen('screenConfirm');
     window.scrollTo(0, 0);
+    _startPolling(orderId, immediatePoll);
+  }
+
+  /* ── Status badge ─────────────────────────────────────────── */
+  function _updateStatusBadge(status) {
+    const label = STATUS_LABELS[status] || status;
+    _setText('confirmSub', label);
+
+    const badge = document.getElementById('confirmStatusBadge');
+    if (badge) {
+      badge.textContent  = status.replace(/_/g, ' ');
+      badge.className    = `confirm-status-badge confirm-status-badge--${status}`;
+    }
+  }
+
+  /* ── Status polling ───────────────────────────────────────── */
+  function _startPolling(orderId, immediate) {
+    _stopPolling();
+    let misses = 0;
+
+    async function poll() {
+      try {
+        const { status } = await KravonAPI.getOrderStatus(orderId);
+        misses = 0;
+        _updateStatusBadge(status);
+
+        if (TERMINAL_STATUSES.has(status)) {
+          _stopPolling();
+          try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+          return;
+        }
+      } catch (_) {
+        misses++;
+        if (misses >= 5) _stopPolling();
+      }
+      _pollTimer = setTimeout(poll, 15000);
+    }
+
+    // On fresh placement wait 5s (order just written to DB).
+    // On restore, poll immediately to show real current status.
+    _pollTimer = immediate ? setTimeout(poll, 0) : setTimeout(poll, 5000);
+  }
+
+  function _stopPolling() {
+    if (_pollTimer) { clearTimeout(_pollTimer); _pollTimer = null; }
+  }
+
+  /* ── Restore from localStorage (called by boot) ───────────── */
+  function restoreActiveOrder() {
+    let saved;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return false;
+      saved = JSON.parse(raw);
+    } catch (_) { return false; }
+
+    // Abandon saved state after 6 hours
+    if (!saved?.orderId || Date.now() - saved.placedAt > 6 * 60 * 60 * 1000) {
+      try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
+      return false;
+    }
+
+    _showConfirmation(saved.orderId, saved.total, saved.name, saved.paymentId, true);
+    return true;
   }
 
   /* ── Track order (WhatsApp) ───────────────────────────────── */
@@ -196,6 +290,8 @@ const OrdersCheckout = (() => {
 
   /* ── New order ────────────────────────────────────────────── */
   function newOrder() {
+    _stopPolling();
+    try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
     OrdersCart.clear();
     OrdersRenderer.renderCartDrawer();
     // Reset delivery to standard
@@ -337,6 +433,7 @@ const OrdersCheckout = (() => {
     selectPayment,
     handleRating,
     submitFeedback,
+    restoreActiveOrder,
   };
 
 })();

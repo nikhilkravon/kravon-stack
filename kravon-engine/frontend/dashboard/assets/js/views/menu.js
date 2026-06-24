@@ -201,8 +201,15 @@ const MenuView = (() => {
                   <input name="description" type="text" value="${_esc(item?.description || '')}" maxlength="500">
                 </div>
                 <div class="form-group">
-                  <label>Image URL</label>
-                  <input name="image_url" type="url" value="${_esc(item?.image_url || '')}" maxlength="500" placeholder="https://…">
+                  <label>Item image</label>
+                  <input name="image_url" type="hidden" value="${_esc(item?.image_url || '')}">
+                  <div class="image-upload-zone" id="item-img-zone">
+                    ${item?.image_url
+                      ? `<div class="image-upload-preview"><img src="${_esc(item.image_url)}" alt="Item image"><button type="button" class="image-upload-remove" title="Remove image">✕</button></div>`
+                      : `<button type="button" class="btn btn-secondary btn-sm image-upload-trigger">Upload image</button>`
+                    }
+                  </div>
+                  <p id="item-img-error" class="form-error" style="margin-top:4px" hidden></p>
                 </div>
                 <div class="form-group">
                   <label>Visible on <span class="text-muted">(leave all unchecked = all surfaces)</span></label>
@@ -261,6 +268,9 @@ const MenuView = (() => {
       });
     }
 
+    // Image upload zone
+    _initImageUpload(overlay);
+
     // Details form submit
     overlay.querySelector('#item-form').onsubmit = async e => {
       e.preventDefault();
@@ -289,6 +299,54 @@ const MenuView = (() => {
         btn.disabled = false; btn.textContent = 'Save';
       }
     };
+  }
+
+  // ── Image upload zone ─────────────────────────────────────────────────────
+  function _initImageUpload(overlay) {
+    const zone    = overlay.querySelector('#item-img-zone');
+    const input   = overlay.querySelector('input[name="image_url"]');
+    const errEl   = overlay.querySelector('#item-img-error');
+    if (!zone) return;
+
+    function _setPreview(url) {
+      input.value = url;
+      zone.innerHTML = `<div class="image-upload-preview"><img src="${_esc(url)}" alt="Item image"><button type="button" class="image-upload-remove" title="Remove image">✕</button></div>`;
+      zone.querySelector('.image-upload-remove').addEventListener('click', _clear);
+    }
+
+    function _setTrigger() {
+      zone.innerHTML = `<button type="button" class="btn btn-secondary btn-sm image-upload-trigger">Upload image</button>`;
+      zone.querySelector('.image-upload-trigger').addEventListener('click', _pick);
+    }
+
+    function _clear() { input.value = ''; _setTrigger(); }
+
+    function _pick() {
+      const fileInput = document.createElement('input');
+      fileInput.type   = 'file';
+      fileInput.accept = 'image/*';
+      fileInput.onchange = async () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+        errEl.hidden = true;
+        const btn = zone.querySelector('.image-upload-trigger');
+        if (btn) { btn.disabled = true; btn.textContent = 'Uploading…'; }
+        try {
+          const url = await Api.rUploadMenuImage(file);
+          _setPreview(url);
+        } catch (ex) {
+          errEl.textContent = ex.message; errEl.hidden = false;
+          if (btn) { btn.disabled = false; btn.textContent = 'Upload image'; }
+        }
+      };
+      fileInput.click();
+    }
+
+    // Wire up initial state
+    const removeBtn = zone.querySelector('.image-upload-remove');
+    const triggerBtn = zone.querySelector('.image-upload-trigger');
+    if (removeBtn) removeBtn.addEventListener('click', _clear);
+    if (triggerBtn) triggerBtn.addEventListener('click', _pick);
   }
 
   // ── Variants panel ────────────────────────────────────────────────────────

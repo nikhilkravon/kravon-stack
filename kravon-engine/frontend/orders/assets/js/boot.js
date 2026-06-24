@@ -50,6 +50,10 @@
       window.initOrdersBehaviour();
     }
 
+    // Restore in-flight order so a refresh or returning customer lands on
+    // the confirmation screen instead of an empty menu.
+    if (typeof OrdersCheckout !== 'undefined') OrdersCheckout.restoreActiveOrder();
+
     document.body.removeAttribute('data-loading');
   } catch (err) {
     console.error('[kravon:orders] Failed to boot:', err.message);

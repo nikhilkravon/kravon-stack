@@ -27,7 +27,7 @@ export default defineConfig({
   ],
 
   use: {
-    baseURL:           process.env.KRAVON_FRONTEND_URL || 'http://localhost:8000',
+    baseURL:           process.env.KRAVON_FRONTEND_URL || 'http://127.0.0.1:8000',
     headless:          true,
     viewport:          { width: 390, height: 844 },   // iPhone 14 Pro — matches QR-scan reality
     ignoreHTTPSErrors: true,

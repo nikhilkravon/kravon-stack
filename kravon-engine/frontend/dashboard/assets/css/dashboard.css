@@ -323,6 +323,26 @@ tbody tr:hover td { background: var(--gray-50); }
   background: var(--blue-100); color: var(--blue-700);
 }
 
+/* ── Image upload zone ────────────────────────────────────────────────────── */
+.image-upload-zone { display: flex; align-items: flex-start; gap: var(--sp-2); }
+.image-upload-preview {
+  position: relative; display: inline-block;
+}
+.image-upload-preview img {
+  width: 80px; height: 80px; object-fit: cover;
+  border-radius: var(--radius); border: 1px solid var(--gray-200);
+  display: block;
+}
+.image-upload-remove {
+  position: absolute; top: -6px; right: -6px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--gray-700); color: white;
+  border: none; cursor: pointer; font-size: 10px;
+  display: flex; align-items: center; justify-content: center;
+  line-height: 1;
+}
+.image-upload-remove:hover { background: var(--red-500); }
+
 /* ── Toggle switch ────────────────────────────────────────────────────────── */
 .toggle {
   position: relative; display: inline-block;

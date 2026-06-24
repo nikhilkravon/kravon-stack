@@ -68,7 +68,7 @@ test.describe('Scenario 6 — Order Status Workflow', () => {
 
     // Attempting to revert to "confirmed" should fail at the API level.
     const res = await request.patch(
-      `${process.env.KRAVON_API_URL || 'http://localhost:3000'}/v1/restaurants/${process.env.KRAVON_SLUG || 'demo'}/orders/${orderId}`,
+      `${process.env.KRAVON_API_URL || 'http://127.0.0.1:3000'}/v1/restaurants/${process.env.KRAVON_SLUG || 'demo'}/orders/${orderId}`,
       {
         headers: { Authorization: `Bearer ${staffToken}` },
         data: { status: 'confirmed' },

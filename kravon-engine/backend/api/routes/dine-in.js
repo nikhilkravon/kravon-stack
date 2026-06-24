@@ -44,7 +44,7 @@ const publicLimiter = rateLimit({
 
 const orderLimiter = rateLimit({
   keyGenerator: (req) => `${req.tenant?.tenant_id || 'unknown'}:${req.ip}`,
-  max: 20, windowMs: 60000,
+  max: 60, windowMs: 60000,
   message: { error: 'Too many orders. Please try again later.' }
 });
 

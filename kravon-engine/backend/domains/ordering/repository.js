@@ -17,6 +17,15 @@ async function findById(tenantId, orderId) {
   return res.rows[0] || null;
 }
 
+async function findStatusById(tenantId, orderId) {
+  const res = await query(
+    `SELECT id, status, updated_at FROM orders.orders
+     WHERE id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL`,
+    [orderId, tenantId]
+  );
+  return res.rows[0] || null;
+}
+
 async function findByIdempotencyKey(client, tenantId, key) {
   const res = await client.query(
     `SELECT id, total_amount, metadata FROM orders.orders
@@ -41,7 +50,7 @@ async function insertOrder(client, {
     ) VALUES ($1,$2,$3,'web',$4,$5,$6,$7,$8,0,0,0,$9,$10,$11,$12)
     RETURNING id
   `, [
-    tenantId, customerId, sessionId || null, channel, fulfillmentType,
+    tenantId, customerId, sessionId || null, fulfillmentType,
     orderStatus, subtotal, deliveryFee, taxAmount, total,
     specialNotes || null, JSON.stringify(metadata), idempotencyKey || null,
   ]);
@@ -204,7 +213,7 @@ async function getItems(tenantId, orderId) {
 }
 
 module.exports = {
-  findById, findByIdempotencyKey,
+  findById, findStatusById, findByIdempotencyKey,
   insertOrder, insertDineInOrder,
   insertOrderItems, insertDineInOrderItems,
   updateOrderMetadata, updateStatus,

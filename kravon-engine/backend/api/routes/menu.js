@@ -2,11 +2,35 @@
 
 const express        = require('express');
 const { z }          = require('zod');
+const multer         = require('multer');
 const catalogService = require('../../domains/catalog/service');
 const { requireRestaurantAuth } = require('../middleware/auth');
 const { bustConfigCache } = require('./config');
+const { uploadImage } = require('../../lib/s3');
 
 const router = express.Router();
+
+/* ── Image upload ────────────────────────────────────────────────────────── */
+
+const _upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) return cb(new Error('Only image files allowed'));
+    cb(null, true);
+  },
+});
+
+router.post('/images', requireRestaurantAuth, _upload.single('file'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file provided' });
+    const url = await uploadImage(
+      req.file,
+      `restaurants/${req.tenant.tenant_id}/${req.tenant.slug}/menu-items`
+    );
+    res.json({ ok: true, url });
+  } catch (err) { next(err); }
+});
 
 /* ── Zod schemas ─────────────────────────────────────────────────────────── */
 

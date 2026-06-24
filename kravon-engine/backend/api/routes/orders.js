@@ -136,6 +136,17 @@ router.get('/', requireRestaurantAuth, async (req, res, next) => {
   }
 });
 
+/* ── GET /orders/:id/status (public — customer order tracking) ───────────── */
+router.get('/:id/status', async (req, res, next) => {
+  try {
+    const row = await orderRepo.findStatusById(req.tenant.tenant_id, req.params.id);
+    if (!row) return res.status(404).json({ error: 'Order not found' });
+    res.json({ ok: true, status: row.status, updated_at: row.updated_at });
+  } catch (err) {
+    next(err);
+  }
+});
+
 /* ── GET /orders/:id (admin only) ────────────────────────────────────────── */
 router.get('/:id', requireRestaurantAuth, async (req, res, next) => {
   try {

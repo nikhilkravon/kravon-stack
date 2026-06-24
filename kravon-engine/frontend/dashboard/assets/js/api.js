@@ -42,19 +42,16 @@ const Api = (() => {
   function _slug() { return Auth.state().slug; }
   function _r(path) { return `/v1/restaurants/${_slug()}${path}`; }
 
-  async function rUploadImage(file) {
+  async function _uploadFile(endpoint, file) {
     let token;
     try { token = await Auth.getToken(); }
     catch { window.App?.sessionExpired(); throw new Error('Session expired'); }
-
     const fd = new FormData();
     fd.append('file', file);
-
-    const res = await fetch(`${BASE()}${_r('/presence/images')}`, {
-      method:      'POST',
-      credentials: 'include',
-      headers:     { 'Authorization': `Bearer ${token}` },
-      body:        fd,
+    const res = await fetch(`${BASE()}${endpoint}`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: fd,
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Upload failed');
@@ -77,6 +74,7 @@ const Api = (() => {
     rDel:   (path)       => _req('DELETE', _r(path)),
 
     // File upload
-    rUploadImage,
+    rUploadImage:     (file) => _uploadFile(_r('/presence/images'), file),
+    rUploadMenuImage: (file) => _uploadFile(_r('/menu/images'), file),
   };
 })();
