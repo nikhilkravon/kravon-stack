@@ -19,8 +19,15 @@
  *
  * Rule D — Already correct proxy URLs: skip.
  * Rule E — Non-S3 URLs (github, localhost, cdn.kravon.in): delete the row
- *           for brand.announcements; null out for menu items / brand assets.
+ *           for brand.announcements; null out for menu items / brand assets;
+ *           null out array entries for settings JSONB fields.
  * Rule F — NULL values: skip.
+ *
+ * Covers:
+ *   - brand.assets.url
+ *   - brand.announcements.image_url
+ *   - menu.menu_items.image_url
+ *   - tenant.restaurants.settings->presence->signature_dishes[].image
  *
  * Usage:
  *   node scripts/fix-brand-assets-urls-v2.js --dry-run   # preview only
@@ -132,6 +139,57 @@ async function migrateTable({ table, idCol, urlCol, deleteOnForeign }) {
   return { fixed, deleted, nulled, errors };
 }
 
+// ── Settings JSONB migration ──────────────────────────────────────────────────
+// Rewrites image URLs inside tenant.restaurants.settings->presence->signature_dishes[].image
+
+async function migrateSignatureDishes() {
+  const { rows } = await query(
+    `SELECT id, slug, settings FROM tenant.restaurants WHERE deleted_at IS NULL AND settings IS NOT NULL`
+  );
+
+  let fixed = 0, nulled = 0, skipped = 0, errors = 0;
+
+  for (const row of rows) {
+    const dishes = row.settings?.presence?.signature_dishes;
+    if (!Array.isArray(dishes) || !dishes.length) { skipped++; continue; }
+
+    let changed = false;
+    const updated = dishes.map((d, idx) => {
+      const url = d.image;
+      const cls = classify(url);
+
+      if (cls === 'null' || cls === 'correct') return d;
+
+      if (cls === 's3') {
+        const newUrl = toProxyUrl(url);
+        if (!newUrl || !newUrl.startsWith(`${MEDIA_BASE}/v1/media/`)) {
+          console.error(`  ERROR  [settings:${row.slug}] dish[${idx}] malformed output for: ${url}`);
+          errors++;
+          return d;
+        }
+        console.log(`  FIX    [settings:${row.slug}] dish[${idx}]\n         ${url}\n      -> ${newUrl}`);
+        changed = true;
+        fixed++;
+        return { ...d, image: newUrl };
+      }
+
+      // foreign URL — null it out
+      console.log(`  NULL   [settings:${row.slug}] dish[${idx}]  (foreign URL: ${url})`);
+      changed = true;
+      nulled++;
+      return { ...d, image: null };
+    });
+
+    if (changed && !DRY) {
+      const newSettings = { ...row.settings, presence: { ...row.settings.presence, signature_dishes: updated } };
+      await query(`UPDATE tenant.restaurants SET settings = $1 WHERE id = $2`, [JSON.stringify(newSettings), row.id]);
+    }
+  }
+
+  console.log(`\n  [settings.presence.signature_dishes] tenants=${rows.length} fixed=${fixed} nulled=${nulled} skipped=${skipped} errors=${errors}\n`);
+  return { fixed, nulled, errors };
+}
+
 async function main() {
   if (DRY) console.log('=== DRY RUN — no writes ===\n');
 
@@ -164,6 +222,10 @@ async function main() {
     deleteOnForeign: false,
   });
   totalErrors += r3.errors;
+
+  // tenant.restaurants settings JSONB — signature_dishes[].image
+  const r4 = await migrateSignatureDishes();
+  totalErrors += r4.errors;
 
   if (totalErrors > 0) {
     console.error(`\nFAIL — ${totalErrors} error(s) detected. No further action.`);
