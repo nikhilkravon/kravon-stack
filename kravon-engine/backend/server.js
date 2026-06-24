@@ -86,6 +86,7 @@ const notificationsRoutes  = require('./api/routes/notifications');
 const webhookRoutes        = require('./api/routes/webhooks');
 const adminRoutes     = require('./api/routes/admin');
 const authRoutes      = require('./api/routes/auth');
+const mediaRoutes     = require('./api/routes/media');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -137,6 +138,14 @@ app.use(helmet());
 /* ── CORS — per-restaurant origin whitelist ────────────────────────────────── */
 // Must be before rate limiting so OPTIONS preflight requests are answered
 // immediately without consuming rate limit budget.
+// Chrome Private Network Access — must run BEFORE cors() so the header is
+// present on preflight responses (cors() ends the response for OPTIONS).
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS' && req.headers['access-control-request-private-network']) {
+    res.setHeader('Access-Control-Allow-Private-Network', 'true');
+  }
+  next();
+});
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
@@ -172,6 +181,9 @@ app.get('/health', async (_req, res) => {
 app.use('/v1/webhooks', webhookRoutes);
 app.use('/v1/admin',    adminRoutes);
 app.use('/v1/auth',     authRoutes);
+// Image proxy — serves Railway private bucket objects publicly with long-lived cache headers.
+// Mounted before the per-IP rate limiter so static asset fetches don't consume API quota.
+app.use('/v1/media',    mediaRoutes);
 
 /* ── Restaurant-scoped routes ──────────────────────────────────────────────── */
 // Step 1: resolveRestaurant resolves slug/domain/subdomain → req.tenant
