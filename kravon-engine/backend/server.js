@@ -135,6 +135,16 @@ app.use(cookieParser());
 /* ── Security headers ──────────────────────────────────────────────────────── */
 app.use(helmet());
 
+/* ── CORS — media proxy (public, wildcard) ─────────────────────────────────── */
+// /v1/media serves public images — must be BEFORE the per-tenant CORS middleware
+// so the browser gets Access-Control-Allow-Origin: * regardless of request origin.
+app.use('/v1/media', (req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  if (req.method === 'OPTIONS') { res.sendStatus(204); return; }
+  next();
+});
+
 /* ── CORS — per-restaurant origin whitelist ────────────────────────────────── */
 // Must be before rate limiting so OPTIONS preflight requests are answered
 // immediately without consuming rate limit budget.

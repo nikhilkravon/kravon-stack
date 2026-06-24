@@ -28,8 +28,9 @@ router.get('/*', async (req, res) => {
     const cmd  = new GetObjectCommand({ Bucket: bucket, Key: key });
     const obj  = await s3.send(cmd);
 
-    res.setHeader('Content-Type',  obj.ContentType  || 'application/octet-stream');
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.setHeader('Content-Type',              obj.ContentType  || 'application/octet-stream');
+    res.setHeader('Cache-Control',             'public, max-age=31536000, immutable');
+    res.setHeader('Access-Control-Allow-Origin', '*');
     if (obj.ContentLength) res.setHeader('Content-Length', obj.ContentLength);
     if (obj.ETag)          res.setHeader('ETag', obj.ETag);
 
