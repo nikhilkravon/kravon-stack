@@ -326,7 +326,42 @@ async function notifyStaffTableReady(tenant, table_id) {
   return { notified: true };
 }
 
+async function listClosedSessions(tenant_id, { limit = 50, offset = 0 } = {}) {
+  const result = await query(
+    `SELECT
+       s.id          AS session_id,
+       t.name        AS table_name,
+       s.covers,
+       s.opened_at,
+       s.closed_at,
+       COALESCE(SUM(o.total_amount), 0) AS grand_total,
+       COUNT(o.id)                       AS order_count
+     FROM dining.sessions s
+     JOIN dining.tables t ON t.id = s.table_id
+     LEFT JOIN orders.orders o
+       ON o.session_id = s.id
+       AND o.status NOT IN ('cancelled', 'refunded')
+       AND o.deleted_at IS NULL
+     WHERE s.tenant_id = $1
+       AND s.closed_at IS NOT NULL
+       AND s.deleted_at IS NULL
+     GROUP BY s.id, t.name, s.covers, s.opened_at, s.closed_at
+     ORDER BY s.closed_at DESC
+     LIMIT $2 OFFSET $3`,
+    [tenant_id, limit, offset]
+  );
+
+  const countRes = await query(
+    `SELECT COUNT(*) FROM dining.sessions
+     WHERE tenant_id = $1 AND closed_at IS NOT NULL AND deleted_at IS NULL`,
+    [tenant_id]
+  );
+
+  return { sessions: result.rows, total: parseInt(countRes.rows[0].count, 10) };
+}
+
 module.exports = {
   openSession, closeSession, getStatus, getSessionOrders,
   requestBill, getBill, getTableName, notifyStaffTableReady,
+  listClosedSessions,
 };

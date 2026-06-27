@@ -593,6 +593,52 @@ tbody tr:hover td { background: var(--gray-50); }
   gap: var(--sp-4);
 }
 
+/* ── Tables view tab toggle ─────────────────────────────────── */
+.tab-active {
+  background: var(--brand, #f97316) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+}
+
+/* ── Bill history table ─────────────────────────────────────── */
+.bill-history-table-wrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.bill-history-header,
+.bill-history-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 80px 80px 100px 90px;
+  align-items: center;
+  padding: 10px 16px;
+  gap: var(--sp-3);
+}
+.bill-history-header {
+  background: var(--surface-2, #1a1a1a);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--gray-500);
+}
+.bill-history-row {
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.bill-history-row:hover { background: var(--surface-2, #1a1a1a); }
+.bill-history-table  { font-weight: 600; }
+.bill-history-date   { color: var(--gray-400); font-size: 12px; }
+.bill-history-total  { font-weight: 700; }
+@media (max-width: 640px) {
+  .bill-history-header,
+  .bill-history-row {
+    grid-template-columns: 60px 1fr 70px 80px;
+  }
+  .bill-history-dur,
+  .bill-history-covers { display: none; }
+}
+
 .table-card {
   background: white;
   border: 1px solid var(--gray-200);

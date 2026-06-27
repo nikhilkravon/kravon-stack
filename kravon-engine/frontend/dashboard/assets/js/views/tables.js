@@ -534,49 +534,154 @@ const TablesView = (() => {
     win.document.close();
   }
 
+  // ── Bill history ──────────────────────────────────────────────────────────
+  let _historyOffset = 0;
+  const HISTORY_LIMIT = 50;
+
+  function _fmtDate(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: true,
+    });
+  }
+
+  function _sessionDur(openedAt, closedAt) {
+    if (!openedAt || !closedAt) return '—';
+    const mins = Math.floor((new Date(closedAt) - new Date(openedAt)) / 60000);
+    if (mins < 60) return `${mins}m`;
+    return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+  }
+
+  async function _loadHistory(el, append = false) {
+    const panel = el.querySelector('#bill-history-panel');
+    if (!panel) return;
+
+    if (!append) {
+      _historyOffset = 0;
+      panel.innerHTML = `<div class="skeleton" style="height:48px;border-radius:var(--radius)"></div>`.repeat(6);
+    }
+
+    try {
+      const data     = await Api.rGet(`/dine-in/sessions/closed?limit=${HISTORY_LIMIT}&offset=${_historyOffset}`);
+      const sessions = data.sessions || [];
+      const total    = data.total    || 0;
+
+      if (!append && !sessions.length) {
+        panel.innerHTML = DashUI.emptyState({ icon: '🧾', title: 'No closed sessions yet', body: 'Bills will appear here once sessions are closed.' });
+        return;
+      }
+
+      const rows = sessions.map(s => `
+        <div class="bill-history-row">
+          <div class="bill-history-cell bill-history-table">${s.table_name}</div>
+          <div class="bill-history-cell bill-history-date">${_fmtDate(s.closed_at)}</div>
+          <div class="bill-history-cell bill-history-dur">${_sessionDur(s.opened_at, s.closed_at)}</div>
+          <div class="bill-history-cell bill-history-covers">${s.covers ? s.covers + ' pax' : '—'}</div>
+          <div class="bill-history-cell bill-history-total">${_fmt(s.grand_total)}</div>
+          <div class="bill-history-cell">
+            <button class="btn btn-ghost btn-sm" data-action="history-bill" data-session-id="${s.session_id}">View bill</button>
+          </div>
+        </div>`).join('');
+
+      if (append) {
+        panel.querySelector('#bill-history-rows').insertAdjacentHTML('beforeend', rows);
+      } else {
+        panel.innerHTML = `
+          <div class="bill-history-table-wrap">
+            <div class="bill-history-header">
+              <div class="bill-history-cell">Table</div>
+              <div class="bill-history-cell">Closed</div>
+              <div class="bill-history-cell">Duration</div>
+              <div class="bill-history-cell">Covers</div>
+              <div class="bill-history-cell">Total</div>
+              <div class="bill-history-cell"></div>
+            </div>
+            <div id="bill-history-rows">${rows}</div>
+          </div>
+          ${total > _historyOffset + HISTORY_LIMIT
+            ? `<div style="text-align:center;margin-top:var(--sp-4)">
+                 <button id="history-load-more" class="btn btn-secondary btn-sm">Load more</button>
+               </div>`
+            : ''}`;
+        const loadMore = panel.querySelector('#history-load-more');
+        if (loadMore) loadMore.addEventListener('click', () => {
+          _historyOffset += HISTORY_LIMIT;
+          _loadHistory(el, true);
+        });
+      }
+    } catch (err) {
+      if (!append) panel.innerHTML = DashUI.errorState(err.message);
+    }
+  }
+
   // ── Init ──────────────────────────────────────────────────────────────────
   let _pollTimer       = null;
   let _tables          = [];
   let _elClickHandler  = null;
   let _elCtaHandler    = null;
+  let _activeTab       = 'floor';
+
+  function _switchTab(el, tab) {
+    _activeTab = tab;
+    el.querySelector('#tab-floor').classList.toggle('tab-active', tab === 'floor');
+    el.querySelector('#tab-history').classList.toggle('tab-active', tab === 'history');
+    el.querySelector('#floor-panel').hidden    = tab !== 'floor';
+    el.querySelector('#history-panel-wrap').hidden = tab !== 'history';
+    el.querySelector('#add-table-btn').hidden  = tab !== 'floor';
+    el.querySelector('#download-qr-btn').hidden = tab !== 'floor';
+    if (tab === 'history') _loadHistory(el);
+  }
 
   function init(el) {
     if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
     if (_elClickHandler) { el.removeEventListener('click', _elClickHandler); _elClickHandler = null; }
     if (_elCtaHandler)   { el.removeEventListener('cta',   _elCtaHandler);   _elCtaHandler   = null; }
     _actionInFlight = false;
+    _activeTab = 'floor';
 
     el.innerHTML = `
       <div class="toolbar">
-        <div class="toolbar-left">
-          <span class="text-sm text-muted" id="tables-count"></span>
+        <div class="toolbar-left" style="display:flex;align-items:center;gap:var(--sp-2)">
+          <button id="tab-floor"   class="btn btn-secondary btn-sm tab-active">Floor</button>
+          <button id="tab-history" class="btn btn-secondary btn-sm">History</button>
         </div>
         <div class="toolbar-right">
           <button id="download-qr-btn" class="btn btn-secondary">Download QR Sheet</button>
           <button id="add-table-btn" class="btn btn-primary">+ Add table</button>
         </div>
       </div>
-      <div id="tables-grid" class="tables-grid"></div>`;
+      <div id="floor-panel">
+        <div id="tables-grid" class="tables-grid"></div>
+      </div>
+      <div id="history-panel-wrap" hidden>
+        <div id="bill-history-panel"></div>
+      </div>`;
 
+    el.querySelector('#tab-floor').addEventListener('click',   () => _switchTab(el, 'floor'));
+    el.querySelector('#tab-history').addEventListener('click', () => _switchTab(el, 'history'));
     el.querySelector('#add-table-btn').addEventListener('click', () => _openTableModal(el));
     el.querySelector('#download-qr-btn').addEventListener('click', () => {
       if (!_tables.length) { DashUI.toast('No tables to export.', 'error'); return; }
       _downloadQrPdf(_tables);
     });
 
-    // Single delegated handler on the stable container — removed and re-added on each init().
-    _elClickHandler = e => _handleGridClick(el, e);
+    _elClickHandler = e => {
+      // History bill button
+      const hBtn = e.target.closest('[data-action="history-bill"]');
+      if (hBtn) { _showBill(el, hBtn.dataset.sessionId); return; }
+      _handleGridClick(el, e);
+    };
     el.addEventListener('click', _elClickHandler);
-    // Empty-state CTA dispatches a bubbling 'cta' CustomEvent (DashUI.emptyState pattern).
     _elCtaHandler = () => _openTableModal(el);
     el.addEventListener('cta', _elCtaHandler);
 
     _load(el);
 
     _pollTimer = setInterval(() => {
-      // Silent refresh — only re-render if grid is still mounted
-      if (el.isConnected) _load(el);
-      else { clearInterval(_pollTimer); _pollTimer = null; }
+      if (el.isConnected) {
+        if (_activeTab === 'floor') _load(el);
+      } else { clearInterval(_pollTimer); _pollTimer = null; }
     }, 15000);
 
     const observer = new MutationObserver(() => {

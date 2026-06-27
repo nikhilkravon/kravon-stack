@@ -16,6 +16,7 @@
  *   POST /session/request-bill   (public)
  *   POST /order                  (public)
  *   GET  /kitchen                (staff JWT)
+ *   GET  /sessions/closed         (staff JWT) — paginated bill history
  *   GET  /bill                   (staff JWT)
  *   POST /reservations           (public)
  *   GET  /reservations           (staff JWT)
@@ -189,6 +190,16 @@ router.post('/order', publicLimiter, orderLimiter, async (req, res, next) => {
 router.get('/kitchen', requireRestaurantAuth, async (req, res, next) => {
   try {
     const result = await kitchen.getKitchenView(req.tenant.tenant_id);
+    res.json({ ok: true, ...result });
+  } catch (err) { next(err); }
+});
+
+/* ── GET /sessions/closed ───────────────────────────────────────────────── */
+router.get('/sessions/closed', requireRestaurantAuth, async (req, res, next) => {
+  try {
+    const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit,  10) || 50));
+    const offset = Math.max(0,               parseInt(req.query.offset, 10) || 0);
+    const result = await sessions.listClosedSessions(req.tenant.tenant_id, { limit, offset });
     res.json({ ok: true, ...result });
   } catch (err) { next(err); }
 });
