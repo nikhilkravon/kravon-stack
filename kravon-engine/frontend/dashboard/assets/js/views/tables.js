@@ -270,6 +270,7 @@ const TablesView = (() => {
 
   // ── Bill modal ────────────────────────────────────────────────────────────
   async function _showBill(el, sessionId) {
+    document.getElementById('bill-modal')?.remove();
     try {
       const data = await Api.rGet(`/dine-in/bill?session_id=${sessionId}`);
       const bill = data.bill;
@@ -400,6 +401,7 @@ const TablesView = (() => {
 
   // ── Add/Edit table modal ──────────────────────────────────────────────────
   function _openTableModal(viewEl, table = null) {
+    document.getElementById('table-modal')?.remove();
     const isEdit = !!table;
     document.body.insertAdjacentHTML('beforeend', `
       <div class="modal-overlay" id="table-modal">
