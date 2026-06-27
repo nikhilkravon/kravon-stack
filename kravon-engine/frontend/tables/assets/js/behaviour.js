@@ -292,6 +292,11 @@ function initTablesBehaviour() {
         closeCart();
         TablesRenderer.showScreen('screenCheckout');
         TablesRenderer.renderCheckoutSummary();
+        // Reset place-order button — may be disabled from a previous successful order
+        const placeBtn = document.getElementById('placeOrderBtn');
+        if (placeBtn) { placeBtn.disabled = false; placeBtn.textContent = 'Place Order'; }
+        const placeNote = document.getElementById('placeOrderNote');
+        if (placeNote) placeNote.textContent = '';
         _syncFab('screenCheckout');
         window.scrollTo(0, 0);
         break;
