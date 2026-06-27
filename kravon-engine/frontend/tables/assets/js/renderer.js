@@ -446,7 +446,7 @@
             <span id="cartTotalVal" class="cart-total-val">₹0</span>
           </div>
           <button class="btn-primary" data-action="go-checkout">
-            Proceed to Checkout →
+            ${TC.isDineIn ? 'Place Order →' : 'Proceed to Checkout →'}
           </button>
         </div>
       </div>`;
