@@ -55,8 +55,9 @@
       drawer.setAttribute('aria-hidden', 'false');
       backdrop.setAttribute('aria-hidden', 'false');
       // populate drawer with nav-right content if empty
+      // Query from #app to avoid picking up the hidden static-shell nav
       if (drawer.innerHTML.trim() === '') {
-        const right = document.querySelector('.p-nav-right');
+        const right = document.querySelector('#app .p-nav-right') || document.querySelector('.p-nav-right');
         if (right) drawer.innerHTML = right.innerHTML;
       }
       // focus first focusable element inside drawer and enable trap

@@ -10,6 +10,11 @@ const NotifBell = (() => {
   const badge    = () => document.getElementById('notif-badge');
   const dropdown = () => document.getElementById('notif-dropdown');
 
+  function esc(str) {
+    if (str == null) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
   function relativeTime(iso) {
     const diff = (Date.now() - new Date(iso).getTime()) / 1000;
     if (diff < 60)   return 'just now';
@@ -62,8 +67,8 @@ const NotifBell = (() => {
           <div class="notif-item ${n.read_at ? '' : 'unread'}" data-id="${n.id}">
             <span class="notif-dot priority-${n.priority}"></span>
             <div class="notif-content">
-              <div class="notif-title">${Kravon.esc(n.title)}</div>
-              ${n.body ? `<div class="notif-body">${Kravon.esc(n.body)}</div>` : ''}
+              <div class="notif-title">${esc(n.title)}</div>
+              ${n.body ? `<div class="notif-body">${esc(n.body)}</div>` : ''}
               <div class="notif-time">${relativeTime(n.created_at)}</div>
             </div>
           </div>`).join('')}`;
@@ -100,9 +105,12 @@ const NotifBell = (() => {
     if (dd) dd.style.display = 'none';
   }
 
+  let _initialized = false;
+
   function init() {
     const b = bell();
-    if (!b) return;
+    if (!b || _initialized) return;
+    _initialized = true;
 
     b.addEventListener('click', (e) => {
       e.stopPropagation();

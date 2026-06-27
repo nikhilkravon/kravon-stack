@@ -3,7 +3,7 @@
 /**
  * Auth — token lifecycle management
  *
- * Access token (15 min): kept in memory only, never persisted.
+ * Access token (15 min): kept in memory + sessionStorage (survives page refresh, cleared on tab close).
  * Refresh token (30 day): stored in an HttpOnly cookie set by the server.
  *   The frontend never reads or stores the RT — it's invisible to JS.
  *   All auth requests use credentials:'include' so the cookie is sent automatically.
@@ -18,8 +18,7 @@ const Auth = (() => {
   const K_STAFF = 'krv_staff';
   const K_SLUG  = 'krv_slug';
 
-  let _at    = null;  // access token string (in memory only)
-  let _atExp = 0;     // unix seconds
+  const K_AT = 'krv_at';
 
   // ── JWT decode (no verify — trust the server) ─────────────────────────────
   function _decodeJwt(token) {
@@ -29,10 +28,17 @@ const Auth = (() => {
     } catch { return null; }
   }
 
+  // Access token: short-lived (15 min), stored in sessionStorage so page refresh
+  // doesn't force re-login. sessionStorage is tab-scoped and cleared when the tab
+  // closes — not persisted across browser sessions like localStorage.
+  let _at    = sessionStorage.getItem(K_AT) || null;
+  let _atExp = _at ? (_decodeJwt(_at)?.exp || 0) : 0;
+
   function _storeAt(token) {
     _at    = token;
     const payload = _decodeJwt(token);
     _atExp = payload?.exp || 0;
+    sessionStorage.setItem(K_AT, token);
   }
 
   // ── Public ─────────────────────────────────────────────────────────────────
@@ -112,6 +118,7 @@ const Auth = (() => {
 
   function clear() {
     _at = null; _atExp = 0;
+    sessionStorage.removeItem(K_AT);
     localStorage.removeItem(K_STAFF);
     localStorage.removeItem(K_SLUG);
   }

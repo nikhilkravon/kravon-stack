@@ -274,7 +274,7 @@ body[data-error] #errorFallback { display: block; }
 @media (max-width: 640px) {
   .p-nav-center { display: none; }
   .p-nav-toggle { display: inline-flex; align-items: center; }
-  .p-nav-right { gap: 6px; }
+  .p-nav-right  { display: none; } /* drawer handles CTAs on mobile */
   .p-hero-content { grid-template-columns: 1fr; }
 }
 
@@ -295,22 +295,6 @@ body[data-error] #errorFallback { display: block; }
 .p-lightbox img { max-width: 92%; max-height: 86%; border-radius: 8px; box-shadow: 0 20px 60px rgba(0,0,0,0.7); }
 .p-lightbox-close { position: absolute; top: 20px; right: 20px; background: transparent; border: none; color: #fff; font-size: 18px; cursor: pointer; }
 
-/* Sticky CTA that appears when hero scrolls out of view */
-.p-sticky-cta {
-  position: fixed;
-  left: 50%;
-  transform: translateX(-50%) translateY(120%);
-  bottom: 22px;
-  z-index: 380;
-  transition: transform 320ms var(--p-ease), opacity 240ms;
-  opacity: 0;
-}
-.p-sticky-cta.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
-.p-sticky-cta .p-btn { box-shadow: 0 10px 30px rgba(0,0,0,0.45); }
-
-@media (min-width: 1024px) {
-  .p-sticky-cta { display: none; }
-}
 
 /* Static nav logo (optional) */
 .p-nav-logo {

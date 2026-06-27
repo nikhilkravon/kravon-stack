@@ -136,15 +136,10 @@ const TablesView = (() => {
     }
   }
 
-  let _gridAbort = null;
-
   async function _load(el) {
     const grid = el.querySelector('#tables-grid');
     if (!grid) return;
     grid.innerHTML = `<div class="skeleton" style="height:120px;border-radius:var(--radius-lg)"></div>`.repeat(4);
-
-    if (_gridAbort) _gridAbort.abort();
-    _gridAbort = new AbortController();
 
     try {
       const data   = await Api.rGet('/tables');
@@ -159,7 +154,6 @@ const TablesView = (() => {
           body:  'Add your first table to start managing dine-in sessions.',
           cta:   '+ Add table',
         });
-        grid.querySelector('.btn')?.addEventListener('click', () => _openTableModal());
         return;
       }
 
@@ -170,93 +164,102 @@ const TablesView = (() => {
         if (t.session?.id) _loadSessionOrders(t.session.id);
       });
 
-      grid.addEventListener('click', async e => {
-        const btn = e.target.closest('[data-action]');
-        if (!btn) return;
-        const action = btn.dataset.action;
-
-        if (action === 'open-session') {
-          // Inline covers form inside the card
-          const card = btn.closest('.table-card');
-          const existingForm = card.querySelector('.inline-covers-form');
-          if (existingForm) { existingForm.remove(); return; }
-          const form = document.createElement('div');
-          form.className = 'inline-covers-form inline-add-form';
-          form.innerHTML = `
-            <div class="form-group" style="margin-bottom:var(--sp-2)">
-              <label>Number of covers</label>
-              <input type="number" min="1" max="50" placeholder="e.g. 2" class="covers-input" style="width:100%">
-            </div>
-            <div style="display:flex;gap:var(--sp-1)">
-              <button class="btn btn-primary btn-sm covers-confirm">Open session</button>
-              <button class="btn btn-ghost btn-sm covers-cancel">Cancel</button>
-            </div>`;
-          btn.closest('.table-card-actions').insertAdjacentElement('afterend', form);
-          form.querySelector('.covers-cancel').onclick = () => form.remove();
-          form.querySelector('.covers-confirm').onclick = async () => {
-            const val    = form.querySelector('.covers-input').value;
-            const covers = val ? parseInt(val, 10) : undefined;
-            const saveBtn = form.querySelector('.covers-confirm');
-            saveBtn.disabled = true; saveBtn.textContent = 'Opening…';
-            try {
-              await Api.rPost('/dine-in/session/open', { table_id: btn.dataset.tableId, covers });
-              DashUI.toast(`Session opened for ${btn.dataset.table}`, 'success');
-              _load(el);
-            } catch (err) {
-              DashUI.toast('Could not open session. ' + err.message, 'error');
-              saveBtn.disabled = false; saveBtn.textContent = 'Open session';
-            }
-          };
-        }
-
-        if (action === 'close-session') {
-          const ok = await DashUI.confirm(
-            `Close session for <strong>${btn.dataset.table}</strong>? This will finalise the bill.`,
-            { title: 'Close session', confirmLabel: 'Close & Bill', danger: true }
-          );
-          if (!ok) return;
-          btn.disabled = true;
-          try {
-            await Api.rPost('/dine-in/session/close', { session_id: btn.dataset.sessionId });
-            DashUI.toast(`Session closed for ${btn.dataset.table}`, 'success');
-            _load(el);
-          } catch (err) {
-            DashUI.toast('Could not close session. ' + err.message, 'error');
-            btn.disabled = false;
-          }
-        }
-
-        if (action === 'view-bill') {
-          _showBill(el, btn.dataset.sessionId);
-        }
-
-        if (action === 'show-qr') {
-          _showQr(btn.dataset.tableId, btn.dataset.tableName);
-        }
-
-        if (action === 'edit-table') {
-          const tableData = tables.find(t => t.id === btn.dataset.tableId);
-          _openTableModal(tableData);
-        }
-
-        if (action === 'delete-table') {
-          const ok = await DashUI.confirm(
-            `Delete table <strong>${btn.dataset.table}</strong>? This cannot be undone.`,
-            { title: 'Delete table', confirmLabel: 'Delete', danger: true }
-          );
-          if (!ok) return;
-          try {
-            await Api.rDel(`/tables/${btn.dataset.tableId}`);
-            DashUI.toast(`Table ${btn.dataset.table} deleted`, 'success');
-            _load(el);
-          } catch (err) {
-            DashUI.toast(err.message, 'error');
-          }
-        }
-      }, { signal: _gridAbort.signal });
-
     } catch (err) {
       grid.innerHTML = DashUI.errorState(err.message);
+    }
+  }
+
+  // Single delegated click handler attached once in init() on the stable el container.
+  // Uses a module-level guard to prevent concurrent async actions from racing.
+  let _actionInFlight = false;
+
+  async function _handleGridClick(el, e) {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+
+    if (action === 'open-session') {
+      const card = btn.closest('.table-card');
+      const existingForm = card.querySelector('.inline-covers-form');
+      if (existingForm) { existingForm.remove(); return; }
+      const form = document.createElement('div');
+      form.className = 'inline-covers-form inline-add-form';
+      form.innerHTML = `
+        <div class="form-group" style="margin-bottom:var(--sp-2)">
+          <label>Number of covers</label>
+          <input type="number" min="1" max="50" placeholder="e.g. 2" class="covers-input" style="width:100%">
+        </div>
+        <div style="display:flex;gap:var(--sp-1)">
+          <button class="btn btn-primary btn-sm covers-confirm">Open session</button>
+          <button class="btn btn-ghost btn-sm covers-cancel">Cancel</button>
+        </div>`;
+      btn.closest('.table-card-actions').insertAdjacentElement('afterend', form);
+      form.querySelector('.covers-cancel').onclick = () => form.remove();
+      form.querySelector('.covers-confirm').onclick = async () => {
+        const val    = form.querySelector('.covers-input').value;
+        const covers = val ? parseInt(val, 10) : undefined;
+        const saveBtn = form.querySelector('.covers-confirm');
+        saveBtn.disabled = true; saveBtn.textContent = 'Opening…';
+        try {
+          await Api.rPost('/dine-in/session/open', { table_id: btn.dataset.tableId, covers });
+          DashUI.toast(`Session opened for ${btn.dataset.table}`, 'success');
+          _load(el);
+        } catch (err) {
+          DashUI.toast('Could not open session. ' + err.message, 'error');
+          saveBtn.disabled = false; saveBtn.textContent = 'Open session';
+        }
+      };
+      return;
+    }
+
+    // Non-confirm actions — always available, no guard needed
+    if (action === 'view-bill') { _showBill(el, btn.dataset.sessionId); return; }
+    if (action === 'show-qr')   { _showQr(btn.dataset.tableId, btn.dataset.tableName); return; }
+    if (action === 'edit-table') {
+      const tableData = _tables.find(t => t.id === btn.dataset.tableId);
+      if (!tableData) { _load(el); return; }
+      _openTableModal(el, tableData);
+      return;
+    }
+
+    // Confirm-gated actions — guard prevents stacking multiple dialogs
+    if (_actionInFlight) return;
+    _actionInFlight = true;
+
+    try {
+      if (action === 'close-session') {
+        const ok = await DashUI.confirm(
+          `Close session for <strong>${btn.dataset.table}</strong>? This will finalise the bill.`,
+          { title: 'Close session', confirmLabel: 'Close & Bill', danger: true }
+        );
+        if (!ok) return;
+        btn.disabled = true;
+        try {
+          await Api.rPost('/dine-in/session/close', { session_id: btn.dataset.sessionId });
+          DashUI.toast(`Session closed for ${btn.dataset.table}`, 'success');
+          _load(el);
+        } catch (err) {
+          DashUI.toast('Could not close session. ' + err.message, 'error');
+          btn.disabled = false;
+        }
+      }
+
+      if (action === 'delete-table') {
+        const ok = await DashUI.confirm(
+          `Delete table <strong>${btn.dataset.table}</strong>? This cannot be undone.`,
+          { title: 'Delete table', confirmLabel: 'Delete', danger: true }
+        );
+        if (!ok) return;
+        try {
+          await Api.rDel(`/tables/${btn.dataset.tableId}`);
+          DashUI.toast(`Table ${btn.dataset.table} deleted`, 'success');
+          _load(el);
+        } catch (err) {
+          DashUI.toast(err.message, 'error');
+        }
+      }
+    } finally {
+      _actionInFlight = false;
     }
   }
 
@@ -391,7 +394,7 @@ const TablesView = (() => {
   }
 
   // ── Add/Edit table modal ──────────────────────────────────────────────────
-  function _openTableModal(table = null) {
+  function _openTableModal(viewEl, table = null) {
     const isEdit = !!table;
     document.body.insertAdjacentHTML('beforeend', `
       <div class="modal-overlay" id="table-modal">
@@ -454,9 +457,7 @@ const TablesView = (() => {
         }
         close();
         DashUI.toast(isEdit ? 'Table updated.' : 'Table added.', 'success');
-        // Reload the tables view
-        const content = document.getElementById('dash-content');
-        if (content) TablesView.init(content);
+        _load(viewEl);
       } catch (ex) {
         err.textContent = ex.message; err.hidden = false;
         btn.disabled = false; btn.textContent = 'Save';
@@ -527,11 +528,16 @@ const TablesView = (() => {
   }
 
   // ── Init ──────────────────────────────────────────────────────────────────
-  let _pollTimer = null;
-  let _tables    = [];
+  let _pollTimer       = null;
+  let _tables          = [];
+  let _elClickHandler  = null;
+  let _elCtaHandler    = null;
 
   function init(el) {
     if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+    if (_elClickHandler) { el.removeEventListener('click', _elClickHandler); _elClickHandler = null; }
+    if (_elCtaHandler)   { el.removeEventListener('cta',   _elCtaHandler);   _elCtaHandler   = null; }
+    _actionInFlight = false;
 
     el.innerHTML = `
       <div class="toolbar">
@@ -545,11 +551,19 @@ const TablesView = (() => {
       </div>
       <div id="tables-grid" class="tables-grid"></div>`;
 
-    el.querySelector('#add-table-btn').addEventListener('click', () => _openTableModal());
+    el.querySelector('#add-table-btn').addEventListener('click', () => _openTableModal(el));
     el.querySelector('#download-qr-btn').addEventListener('click', () => {
       if (!_tables.length) { DashUI.toast('No tables to export.', 'error'); return; }
       _downloadQrPdf(_tables);
     });
+
+    // Single delegated handler on the stable container — removed and re-added on each init().
+    _elClickHandler = e => _handleGridClick(el, e);
+    el.addEventListener('click', _elClickHandler);
+    // Empty-state CTA dispatches a bubbling 'cta' CustomEvent (DashUI.emptyState pattern).
+    _elCtaHandler = () => _openTableModal(el);
+    el.addEventListener('cta', _elCtaHandler);
+
     _load(el);
 
     _pollTimer = setInterval(() => {

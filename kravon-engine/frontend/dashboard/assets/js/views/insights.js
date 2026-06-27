@@ -74,6 +74,7 @@ const InsightsView = (() => {
   }
 
   async function _load(el, days) {
+    if (!el.isConnected) return;
     el.querySelector('#insights-stats').innerHTML = `
       <div class="stat-grid">
         ${[1,2,3,4].map(() => `<div class="stat-card"><div class="skeleton skeleton-line short" style="height:28px"></div></div>`).join('')}
@@ -85,6 +86,8 @@ const InsightsView = (() => {
         Api.rGet('/insights/summary'),
         Api.rGet(`/insights/orders?days=${days}`),
       ]);
+
+      if (!el.isConnected) return;
 
       const o         = summary.orders    || {};
       const leads     = summary.leads     || {};
@@ -105,6 +108,7 @@ const InsightsView = (() => {
       }
 
     } catch (err) {
+      if (!el.isConnected) return;
       el.querySelector('#insights-stats').innerHTML = DashUI.errorState(err.message);
     }
   }
