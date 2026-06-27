@@ -432,8 +432,8 @@
       renderHero(),
       renderStory(),
       renderSignatureDishes(),
-      renderGallery(),
       renderFeatured(),
+      renderGallery(),
       renderTimeline(),
       renderContact(),
     ];

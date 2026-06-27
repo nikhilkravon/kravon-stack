@@ -133,9 +133,25 @@ const CONTACT_LINKS = [
 const FEATURED = [
   {
     title:       'Royal Weekend Feast',
-    description: 'Enjoy 20% off on signature grills, biryanis, and family platters every weekend.',
+    description: 'Enjoy 20% off on signature grills, biryanis, and family platters every Saturday and Sunday. Dine-in only.',
     image:       IMG('promo', 'promo-001.jpg'),
     ctaLabel:    'Reserve Your Table',
+    ctaUrl:      '/presence/reservation.html',
+    active:      true,
+  },
+  {
+    title:       'Iftar Special Thali',
+    description: 'A curated evening thali — slow-cooked nihari, roomali roti, shahi tukda, and a welcome sherbet. Every evening through the festive season.',
+    image:       IMG('promo', 'promo-001.jpg'),
+    ctaLabel:    'Book a Table',
+    ctaUrl:      '/presence/reservation.html',
+    active:      true,
+  },
+  {
+    title:       'Chef\'s Table — Live Tandoor Night',
+    description: 'Six-course tasting menu prepared at the tandoor, live in front of your table. Limited covers every Friday. Advance booking required.',
+    image:       IMG('promo', 'promo-001.jpg'),
+    ctaLabel:    'Reserve a Seat',
     ctaUrl:      '/presence/reservation.html',
     active:      true,
   },
@@ -282,7 +298,7 @@ async function seed() {
         [tenantId, f.title, f.description, f.image, f.ctaLabel, f.ctaUrl, f.active]
       );
     }
-    console.log('[royal-tandoor] brand.announcements seeded (1 promo)');
+    console.log(`[royal-tandoor] brand.announcements seeded (${FEATURED.length} promos)`);
 
     // ── 7. Staff account ──────────────────────────────────────────────────
     const passwordHash = await bcrypt.hash(STAFF.password, 10);
