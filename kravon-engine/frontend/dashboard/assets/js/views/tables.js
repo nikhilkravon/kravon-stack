@@ -43,6 +43,10 @@ const TablesView = (() => {
       ? '<span class="table-urgency-badge table-urgency-badge--warn">60+ min</span>'
       : '';
 
+    const guestsWaitingBadge = t.staff_notify_at
+      ? `<div class="guests-waiting-alert">Guests Waiting</div>`
+      : '';
+
     const billRequestedBadge = session?.bill_requested
       ? `<div class="bill-requested-alert">Bill Requested</div>`
       : '';
@@ -57,6 +61,7 @@ const TablesView = (() => {
           <span class="table-card-name">${t.name}</span>
           <span class="table-card-cap">${t.capacity || '—'} pax</span>
         </div>
+        ${guestsWaitingBadge}
         ${badge}
         ${billRequestedBadge}
         ${session ? `

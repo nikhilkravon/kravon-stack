@@ -22,7 +22,16 @@ async function listTables(tenantId) {
             AND o.status NOT IN ('cancelled','refunded')
             AND o.deleted_at IS NULL),
          0
-       ) AS session_total
+       ) AS session_total,
+       (SELECT n.created_at
+        FROM notifications.notifications n
+        WHERE n.tenant_id = $1
+          AND n.type = 'dine_in.staff_notify'
+          AND n.entity_id = t.id::text
+          AND n.read_at IS NULL
+        ORDER BY n.created_at DESC
+        LIMIT 1
+       ) AS staff_notify_at
      FROM dining.tables t
      LEFT JOIN dining.sessions s
        ON s.table_id = t.id AND s.closed_at IS NULL AND s.deleted_at IS NULL

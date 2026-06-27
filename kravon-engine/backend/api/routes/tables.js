@@ -24,16 +24,23 @@ const UpdateTableSchema = z.object({
 router.get('/', async (req, res, next) => {
   try {
     const rows = await diningRepo.listTables(req.tenant.tenant_id);
-    res.json({ ok: true, tables: rows.map(r => ({
+    const tables = rows.map(r => ({
       id: r.id, name: r.name, capacity: r.capacity, floor: r.floor,
       status: r.status, qr_code: r.qr_code, is_active: r.is_active, created_at: r.created_at,
+      staff_notify_at: r.staff_notify_at || null,
       session: r.session_id ? {
         id: r.session_id, opened_at: r.session_opened_at, covers: r.session_covers,
         total: Number(r.session_total), session_status: r.session_status,
         bill_owner: r.session_bill_owner, bill_requested: !!r.session_bill_requested_at,
         bill_requested_at: r.session_bill_requested_at,
       } : null,
-    }))});
+    }));
+    // Sort: guests waiting first, then occupied (open session), then the rest
+    tables.sort((a, b) => {
+      const rank = t => t.staff_notify_at ? 0 : t.session ? 1 : 2;
+      return rank(a) - rank(b);
+    });
+    res.json({ ok: true, tables });
   } catch (err) { next(err); }
 });
 
