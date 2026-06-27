@@ -27,7 +27,7 @@ async function listTables(tenantId) {
         FROM notifications.notifications n
         WHERE n.tenant_id = $1
           AND n.type = 'dine_in.staff_notify'
-          AND n.entity_id = t.id::text
+          AND n.entity_id = t.id
           AND n.read_at IS NULL
         ORDER BY n.created_at DESC
         LIMIT 1
