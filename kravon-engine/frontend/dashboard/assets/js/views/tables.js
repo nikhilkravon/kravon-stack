@@ -141,6 +141,8 @@ const TablesView = (() => {
     }
   }
 
+  let _loadError = false;
+
   async function _load(el) {
     const grid = el.querySelector('#tables-grid');
     if (!grid) return;
@@ -148,6 +150,7 @@ const TablesView = (() => {
 
     try {
       const data   = await Api.rGet('/tables');
+      _loadError = false;
       const tables = data.tables || [];
       _tables = tables;
 
@@ -170,6 +173,7 @@ const TablesView = (() => {
       });
 
     } catch (err) {
+      _loadError = true;
       grid.innerHTML = DashUI.errorState(err.message);
     }
   }
@@ -638,6 +642,7 @@ const TablesView = (() => {
     if (_elClickHandler) { el.removeEventListener('click', _elClickHandler); _elClickHandler = null; }
     if (_elCtaHandler)   { el.removeEventListener('cta',   _elCtaHandler);   _elCtaHandler   = null; }
     _actionInFlight = false;
+    _loadError = false;
     _activeTab = 'floor';
 
     el.innerHTML = `
@@ -680,7 +685,7 @@ const TablesView = (() => {
 
     _pollTimer = setInterval(() => {
       if (el.isConnected) {
-        if (_activeTab === 'floor') _load(el);
+        if (_activeTab === 'floor' && !_loadError) _load(el);
       } else { clearInterval(_pollTimer); _pollTimer = null; }
     }, 15000);
 
