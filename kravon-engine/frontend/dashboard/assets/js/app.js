@@ -94,12 +94,12 @@ const App = (() => {
     // Notification bell
     if (typeof NotifBell !== 'undefined') NotifBell.init();
 
-    // hash-based routing
-    const hash = location.hash.slice(1) || 'overview';
-    navigate(hash in VIEWS ? hash : 'overview');
+    // hash-based routing — strip query params before view lookup
+    function _hashView() { return (location.hash.slice(1) || 'overview').split('?')[0]; }
+    navigate(_hashView() in VIEWS ? _hashView() : 'overview');
 
     window.addEventListener('hashchange', () => {
-      const v = location.hash.slice(1);
+      const v = _hashView();
       if (v in VIEWS && v !== _currentView) navigate(v);
     });
 
@@ -290,8 +290,8 @@ const App = (() => {
     const titleEl = $('dash-view-title');
     if (titleEl) titleEl.textContent = VIEW_TITLES[viewName] || viewName;
 
-    // Sync hash without re-firing hashchange
-    if (location.hash.slice(1) !== viewName) {
+    // Sync hash without re-firing hashchange (preserve existing ?params if same view)
+    if ((location.hash.slice(1) || '').split('?')[0] !== viewName) {
       history.replaceState(null, '', `#${viewName}`);
     }
 
