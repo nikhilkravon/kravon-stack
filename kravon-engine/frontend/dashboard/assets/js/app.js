@@ -103,6 +103,15 @@ const App = (() => {
       if (v in VIEWS && v !== _currentView) navigate(v);
     });
 
+    // Direct nav-item clicks — handles case where hash is already set
+    // (hashchange won't fire if the hash doesn't change)
+    document.querySelectorAll('.dash-nav-item[data-view]').forEach(a => {
+      a.addEventListener('click', (e) => {
+        const v = a.dataset.view;
+        if (v in VIEWS) { e.preventDefault(); navigate(v); }
+      });
+    });
+
     $('dash-logout').addEventListener('click', async () => {
       await Auth.logout();
       location.reload();
