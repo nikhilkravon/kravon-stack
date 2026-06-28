@@ -69,7 +69,7 @@
     nav.innerHTML = `
       <div class="p-nav-inner">
           <div class="p-nav-brand">
-            ${C.brand.logoUrl ? `<img src="${Kravon.esc(C.brand.logoUrl)}" alt="${Kravon.esc(C.brand.name)} logo" class="p-nav-logo">` : ''}
+            ${C.brand.logoUrl ? `<img src="${Kravon.esc(C.brand.logoUrl)}" alt="${Kravon.esc(C.brand.name)} logo" class="p-nav-logo" onerror="this.style.display='none'">` : ''}
             <div>
               <div class="p-nav-name">${Kravon.esc(C.brand.name)}</div>
               <div class="p-nav-tagline">${Kravon.esc(C.brand.tagline)}</div>
@@ -84,6 +84,13 @@
           <div class="p-nav-right">
             ${buildCtAs('', true)}
           </div>
+          <button class="p-nav-toggle" id="pNavToggle" aria-label="Open menu" aria-expanded="false">
+            <svg width="22" height="16" viewBox="0 0 22 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect y="1" width="22" height="2" rx="1" fill="currentColor" />
+              <rect y="7" width="22" height="2" rx="1" fill="currentColor" />
+              <rect y="13" width="22" height="2" rx="1" fill="currentColor" />
+            </svg>
+          </button>
       </div>`;
 
     window.addEventListener('scroll', () => {
@@ -110,7 +117,7 @@
 
     const slidesHtml = slideshowImgs.map((src, i) => `
       <div class="p-hero-slide${i === 0 ? ' active' : ''}" aria-hidden="true">
-        <img src="${Kravon.esc(src)}" alt="" loading="${i === 0 ? 'eager' : 'lazy'}">
+        <img src="${Kravon.esc(src)}" alt="" loading="${i === 0 ? 'eager' : 'lazy'}" onerror="this.src='assets/images/hero-bg.svg'">
       </div>`).join('');
 
     const section = el('section', 'p-hero');
@@ -178,7 +185,7 @@
             ${factsHtml ? `<div class="p-story-facts">${factsHtml}</div>` : ''}
           </div>
           <div class="p-story-image reveal">
-            <img src="${Kravon.esc(C.story?.image || C.hero?.image || 'assets/images/about.svg')}" alt="Restaurant interior — ${Kravon.esc(C.brand.name)}" loading="lazy">
+            <img src="${Kravon.esc(C.story?.image || C.hero?.image || 'assets/images/about.svg')}" alt="Restaurant interior — ${Kravon.esc(C.brand.name)}" loading="lazy" onerror="this.src='assets/images/about.svg'">
           </div>
         </div>
       </div>`;
@@ -248,7 +255,7 @@
 
     const imgsHtml = tagged.map((item, i) => `
       <div class="p-gallery-item reveal" data-cat="${item.cat}">
-        <img src="${Kravon.esc(item.url)}" alt="Gallery photo ${i + 1}" loading="lazy">
+        <img src="${Kravon.esc(item.url)}" alt="Gallery photo ${i + 1}" loading="lazy" onerror="this.closest('.p-gallery-item').style.display='none'">
       </div>`).join('');
 
     const section = el('section', 'p-gallery p-section');
@@ -286,7 +293,7 @@
 
     const cardsHtml = items.map(f => `
       <article class="p-rcard reveal">
-        ${f.image ? `<img src="${Kravon.esc(f.image)}" alt="${Kravon.esc(f.title || '')}" loading="lazy" style="width:100%;border-radius:8px;margin-bottom:var(--sp-3)">` : ''}
+        ${f.image ? `<img src="${Kravon.esc(f.image)}" alt="${Kravon.esc(f.title || '')}" loading="lazy" style="width:100%;border-radius:8px;margin-bottom:var(--sp-3)" onerror="this.style.display='none'">` : ''}
         <div class="p-rcard-name" style="font-size:15px;font-weight:600">${Kravon.esc(f.title || '')}</div>
         <blockquote class="p-rcard-text">${Kravon.esc(f.description || '')}</blockquote>
         ${f.ctaLabel && f.ctaUrl ? `<a href="${Kravon.esc(f.ctaUrl)}?slug=${encodeURIComponent(C.slug || '')}" class="p-btn p-btn-secondary" style="margin-top:var(--sp-3)">${Kravon.esc(f.ctaLabel)}</a>` : ''}
