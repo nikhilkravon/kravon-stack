@@ -83,6 +83,8 @@ const staffRoutes     = require('./api/routes/staff');
 const customersRoutes      = require('./api/routes/customers');
 const settingsRoutes       = require('./api/routes/settings');
 const notificationsRoutes  = require('./api/routes/notifications');
+const auditLogRoutes       = require('./api/routes/audit-log');
+const settlementRoutes     = require('./api/routes/settlement');
 const webhookRoutes        = require('./api/routes/webhooks');
 const adminRoutes     = require('./api/routes/admin');
 const authRoutes      = require('./api/routes/auth');
@@ -275,6 +277,19 @@ app.use('/v1/restaurants/:slug/settings',
 app.use('/v1/restaurants/:slug/notifications',
   resolveRestaurant,
   notificationsRoutes
+);
+
+// Audit log: staff action history
+app.use('/v1/restaurants/:slug/audit-log',
+  resolveRestaurant,
+  auditLogRoutes
+);
+
+// Settlement engine: financial layer between orders and invoices
+app.use('/v1/restaurants/:slug/settlements',
+  resolveRestaurant,
+  requireFeature('has_tables'),
+  settlementRoutes
 );
 
 /* ── 404 ───────────────────────────────────────────────────────────────────── */

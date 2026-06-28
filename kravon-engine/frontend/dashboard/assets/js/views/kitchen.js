@@ -59,16 +59,34 @@ const KitchenView = (() => {
     }
   }
 
+  function _allergenTags(allergens) {
+    if (!allergens || !allergens.length) return '';
+    const ICONS = { gluten: '🌾', dairy: '🥛', nuts: '🥜', egg: '🥚', soy: '🫘', shellfish: '🦐', fish: '🐟' };
+    return allergens.map(a => {
+      const icon = ICONS[a.toLowerCase()] || '⚠';
+      return `<span style="display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:600;padding:1px 5px;border-radius:4px;background:var(--red-50);color:var(--red-600);border:1px solid var(--red-100)">${icon} ${a}</span>`;
+    }).join(' ');
+  }
+
   function _orderCard(o) {
     const ageClass   = _orderAgeClass(o.created_at, o.status);
     const ageLabel   = _orderAge(o.created_at);
     const next       = KITCHEN_NEXT[o.status];
     const chLabel    = CHANNEL_LABEL[o.fulfillment_type] || o.fulfillment_type || '';
 
-    const items = (o.items || []).map(i => `
-      <div class="order-item-line">
-        <span class="order-item-name">${i.name} × ${i.qty}${i.note ? ` <em style="color:var(--amber-600)">(${i.note})</em>` : ''}</span>
-      </div>`).join('');
+    const items = (o.items || []).map(i => {
+      const allergens = _allergenTags(i.allergens);
+      return `
+        <div class="order-item-line" style="flex-direction:column;align-items:flex-start;gap:2px">
+          <div style="display:flex;align-items:baseline;gap:var(--sp-2)">
+            <span class="order-item-name" style="font-weight:600">${i.name} × ${i.qty}</span>
+            ${i.note ? `<em style="color:var(--amber-600);font-size:12px">${i.note}</em>` : ''}
+          </div>
+          ${allergens ? `<div style="margin-top:2px;display:flex;flex-wrap:wrap;gap:3px">${allergens}</div>` : ''}
+        </div>`;
+    }).join('');
+
+    const orderNotes = o.notes || o.special_instructions;
 
     return `
       <div class="kitchen-order-card" data-order-id="${o.order_id}">
@@ -83,6 +101,11 @@ const KitchenView = (() => {
           </div>
         </div>
         ${items}
+        ${orderNotes ? `
+          <div style="margin-top:var(--sp-2);padding:6px 8px;background:var(--amber-50);border-radius:4px;border-left:3px solid var(--amber-600)">
+            <span style="font-size:11px;font-weight:700;color:var(--amber-600);text-transform:uppercase;letter-spacing:.04em">Note</span>
+            <p style="font-size:12px;color:var(--gray-700);margin-top:2px">${orderNotes}</p>
+          </div>` : ''}
         ${next ? `
           <div style="margin-top:var(--sp-3)">
             <button class="btn btn-primary btn-sm kitchen-order-action"

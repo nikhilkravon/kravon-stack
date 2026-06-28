@@ -127,8 +127,10 @@ router.get('/', requireRestaurantAuth, async (req, res, next) => {
     const limit   = Math.min(100,   Math.max(1, parseInt(req.query.limit, 10) || 25));
     const { orders, total } = await orderRepo.listPaginated(req.tenant.tenant_id, {
       page, limit,
-      status:  req.query.status  || null,
-      channel: req.query.channel || null,
+      status:           req.query.status           || null,
+      channel:          req.query.channel          || null,
+      fulfillment_type: req.query.fulfillment_type || null,
+      search:           req.query.search           || null,
     });
     res.json({ ok: true, orders, total, page, limit, pages: Math.ceil(total / limit) });
   } catch (err) {

@@ -14,36 +14,42 @@ const App = (() => {
   // Views grouped by domain — add future views here when their modules are built
   const VIEWS = {
     // Operations
-    overview:     OverviewView,
-    orders:       OrdersView,
-    tables:       TablesView,
-    kitchen:      KitchenView,
-    reservations: ReservationsView,
+    overview:       OverviewView,
+    orders:         OrdersView,
+    tables:         TablesView,
+    kitchen:        KitchenView,
+    reservations:   ReservationsView,
+    'bill-history': BillHistoryView,
     // Customers & Sales
-    customers:    CustomersView,
-    catering:     CateringView,
-    insights:     InsightsView,
+    customers:      CustomersView,
+    catering:       CateringView,
+    insights:       InsightsView,
     // Digital Experience
-    presence:     PresenceView,
-    menu:         MenuView,
+    presence:       PresenceView,
+    menu:           MenuView,
     // Administration
-    staff:        StaffView,
-    settings:     SettingsView,
+    staff:          StaffView,
+    settings:       SettingsView,
+    'audit-log':    AuditLogView,
+    'settlement':   SettlementView,
   };
 
   const VIEW_TITLES = {
-    overview:     'Overview',
-    orders:       'Orders',
-    tables:       'Tables',
-    kitchen:      'Kitchen',
-    reservations: 'Reservations',
-    customers:    'Customers',
-    catering:     'Catering Leads',
-    insights:     'Insights',
-    presence:     'Website & Brand',
-    menu:         'Menu',
-    staff:        'Staff',
-    settings:     'Settings',
+    overview:       'Overview',
+    orders:         'Orders',
+    tables:         'Tables',
+    kitchen:        'Kitchen',
+    reservations:   'Reservations',
+    'bill-history': 'Bill History',
+    customers:      'Customers',
+    catering:       'Catering Leads',
+    insights:       'Insights',
+    presence:       'Website & Brand',
+    menu:           'Menu',
+    staff:          'Staff',
+    settings:       'Settings',
+    'audit-log':    'Audit Log',
+    'settlement':   'Settlement',
   };
 
   let _currentView = null;

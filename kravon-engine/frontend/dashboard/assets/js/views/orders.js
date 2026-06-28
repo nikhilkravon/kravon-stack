@@ -179,6 +179,7 @@ const OrdersView = (() => {
     const params = new URLSearchParams({ page, limit: 25 });
     const status = _tabStatus(tab);
     if (status) params.set('status', status);
+    if (_state.search) params.set('search', _state.search);
     return `/orders?${params}`;
   }
 
@@ -244,13 +245,8 @@ const OrdersView = (() => {
     }
 
     try {
-      const data = await Api.rGet(_buildUrl(_state.tab, _state.page));
-      let orders = (data.orders || []).filter(o => {
-        if (!_state.search) return true;
-        const s = _state.search.toLowerCase();
-        return (o.customer_name  || '').toLowerCase().includes(s) ||
-               (o.customer_phone || '').includes(s);
-      });
+      const data   = await Api.rGet(_buildUrl(_state.tab, _state.page));
+      const orders = data.orders || [];
 
       if (!orders.length) {
         tbody.innerHTML = `
@@ -258,7 +254,7 @@ const OrdersView = (() => {
             ${DashUI.emptyState({
               icon:  '🛍',
               title: _state.search ? 'No orders match your search' : 'No orders here yet',
-              body:  _state.search ? 'Try a different name or phone number.' : 'Orders will appear here when customers place them.',
+              body:  _state.search ? 'Try a different name, phone, item, or note.' : 'Orders will appear here when customers place them.',
             })}
           </td></tr>`;
       } else {
@@ -373,7 +369,7 @@ const OrdersView = (() => {
       </div>
       <div class="card">
         <div class="card-header">
-          <input id="orders-search" class="search-input" type="search" placeholder="Search by name or phone…">
+          <input id="orders-search" class="search-input" type="search" placeholder="Search by name, phone, item or note…">
           <div style="display:flex;align-items:center;gap:var(--sp-3)">
             <button id="orders-new-badge" class="badge badge-placed" style="display:none;cursor:pointer" title="Click to dismiss">+0 new</button>
             <button id="orders-notify-btn" class="btn btn-secondary btn-sm" title="Enable sound and browser notifications for new orders">🔔 Enable alerts</button>

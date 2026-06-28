@@ -197,10 +197,49 @@ router.get('/kitchen', requireRestaurantAuth, async (req, res, next) => {
 /* ── GET /sessions/closed ───────────────────────────────────────────────── */
 router.get('/sessions/closed', requireRestaurantAuth, async (req, res, next) => {
   try {
-    const limit  = Math.min(100, Math.max(1, parseInt(req.query.limit,  10) || 50));
-    const offset = Math.max(0,               parseInt(req.query.offset, 10) || 0);
-    const result = await sessions.listClosedSessions(req.tenant.tenant_id, { limit, offset });
+    const limit        = Math.min(100, Math.max(1, parseInt(req.query.limit,  10) || 50));
+    const offset       = Math.max(0,               parseInt(req.query.offset, 10) || 0);
+    const date_from    = req.query.date_from    || null;
+    const date_to      = req.query.date_to      || null;
+    const table_search = req.query.table_search || null;
+    const payment_mode = req.query.payment_mode || null;
+    const result = await sessions.listClosedSessions(req.tenant.tenant_id, {
+      limit, offset, date_from, date_to, table_search, payment_mode,
+    });
     res.json({ ok: true, ...result });
+  } catch (err) { next(err); }
+});
+
+/* ── GET /sessions/closed/export ─────────────────────────────────────────── */
+router.get('/sessions/closed/export', requireRestaurantAuth, async (req, res, next) => {
+  try {
+    const date_from    = req.query.date_from    || null;
+    const date_to      = req.query.date_to      || null;
+    const table_search = req.query.table_search || null;
+    const payment_mode = req.query.payment_mode || null;
+    const { sessions: rows } = await sessions.listClosedSessionsExport(req.tenant.tenant_id, {
+      date_from, date_to, table_search, payment_mode,
+    });
+
+    const header = ['Session ID', 'Table', 'Covers', 'Opened At', 'Closed At', 'Orders', 'Total (₹)', 'Payment Mode'];
+    const esc    = v => (v == null ? '' : String(v).replace(/"/g, '""'));
+    const lines  = [
+      header.map(h => `"${h}"`).join(','),
+      ...rows.map(r => [
+        r.session_id,
+        esc(r.table_name),
+        r.covers ?? '',
+        r.opened_at ? new Date(r.opened_at).toISOString() : '',
+        r.closed_at ? new Date(r.closed_at).toISOString() : '',
+        r.order_count,
+        r.grand_total.toFixed(2),
+        esc(r.payment_method),
+      ].map(v => `"${v}"`).join(',')),
+    ];
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="bill-history-${Date.now()}.csv"`);
+    res.send('﻿' + lines.join('\r\n')); // BOM for Excel
   } catch (err) { next(err); }
 });
 

@@ -83,4 +83,56 @@ router.get('/orders', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+/* ── Revenue by channel ──────────────────────────────────────────────────── */
+router.get('/by-channel', async (req, res, next) => {
+  try {
+    const rawDays = parseInt(req.query.days, 10);
+    const days    = Number.isFinite(rawDays) ? Math.min(Math.max(rawDays, 1), 365) : 30;
+    const data    = await intelligenceService.getRevenueByChannel(req.tenant.tenant_id, days);
+    res.json({ ok: true, data });
+  } catch (err) { next(err); }
+});
+
+/* ── Orders by hour of day ───────────────────────────────────────────────── */
+router.get('/by-hour', async (req, res, next) => {
+  try {
+    const rawDays = parseInt(req.query.days, 10);
+    const days    = Number.isFinite(rawDays) ? Math.min(Math.max(rawDays, 1), 365) : 30;
+    const data    = await intelligenceService.getOrdersByHour(req.tenant.tenant_id, days);
+    res.json({ ok: true, data });
+  } catch (err) { next(err); }
+});
+
+/* ── Top selling items ───────────────────────────────────────────────────── */
+router.get('/top-items', async (req, res, next) => {
+  try {
+    const rawDays  = parseInt(req.query.days,  10);
+    const rawLimit = parseInt(req.query.limit, 10);
+    const days     = Number.isFinite(rawDays)  ? Math.min(Math.max(rawDays,  1), 365) : 30;
+    const limit    = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1),  30) : 15;
+    const data     = await intelligenceService.getTopItems(req.tenant.tenant_id, days, limit);
+    res.json({ ok: true, data });
+  } catch (err) { next(err); }
+});
+
+/* ── Table occupancy ─────────────────────────────────────────────────────── */
+router.get('/occupancy', async (req, res, next) => {
+  try {
+    const rawDays = parseInt(req.query.days, 10);
+    const days    = Number.isFinite(rawDays) ? Math.min(Math.max(rawDays, 1), 365) : 30;
+    const data    = await intelligenceService.getTableOccupancy(req.tenant.tenant_id, days);
+    res.json({ ok: true, data });
+  } catch (err) { next(err); }
+});
+
+/* ── Avg prep time + dining duration ─────────────────────────────────────── */
+router.get('/timings', async (req, res, next) => {
+  try {
+    const rawDays = parseInt(req.query.days, 10);
+    const days    = Number.isFinite(rawDays) ? Math.min(Math.max(rawDays, 1), 365) : 30;
+    const data    = await intelligenceService.getAvgPrepAndDining(req.tenant.tenant_id, days);
+    res.json({ ok: true, data });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

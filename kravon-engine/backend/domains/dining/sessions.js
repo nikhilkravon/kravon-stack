@@ -344,42 +344,89 @@ async function notifyStaffTableReady(tenant, table_id) {
   return { notified: true };
 }
 
-async function listClosedSessions(tenant_id, { limit = 50, offset = 0 } = {}) {
-  const result = await query(
-    `SELECT
-       s.id          AS session_id,
-       t.name        AS table_name,
-       s.covers,
-       s.opened_at,
-       s.closed_at,
-       COALESCE(SUM(o.total_amount), 0) AS grand_total,
-       COUNT(o.id)                       AS order_count
-     FROM dining.sessions s
-     JOIN dining.tables t ON t.id = s.table_id
-     LEFT JOIN orders.orders o
-       ON o.session_id = s.id
-       AND o.status NOT IN ('cancelled', 'refunded')
-       AND o.deleted_at IS NULL
-     WHERE s.tenant_id = $1
-       AND s.closed_at IS NOT NULL
-       AND s.deleted_at IS NULL
-     GROUP BY s.id, t.name, s.covers, s.opened_at, s.closed_at
-     ORDER BY s.closed_at DESC
-     LIMIT $2 OFFSET $3`,
-    [tenant_id, limit, offset]
-  );
+function _buildClosedSessionsQuery(tenant_id, {
+  limit = 50, offset = 0,
+  date_from = null, date_to = null,
+  table_search = null, payment_mode = null,
+} = {}) {
+  const params  = [tenant_id];
+  const filters = [
+    `s.tenant_id = $1`,
+    `s.closed_at IS NOT NULL`,
+    `s.deleted_at IS NULL`,
+  ];
 
-  const countRes = await query(
-    `SELECT COUNT(*) FROM dining.sessions
-     WHERE tenant_id = $1 AND closed_at IS NOT NULL AND deleted_at IS NULL`,
-    [tenant_id]
-  );
+  if (date_from) { params.push(date_from); filters.push(`s.closed_at >= $${params.length}`); }
+  if (date_to)   { params.push(date_to);   filters.push(`s.closed_at <  $${params.length}`); }
+  if (table_search) { params.push(`%${table_search}%`); filters.push(`t.name ILIKE $${params.length}`); }
+  if (payment_mode) { params.push(payment_mode); filters.push(`o2.payment_method = $${params.length}`); }
 
-  return { sessions: result.rows, total: parseInt(countRes.rows[0].count, 10) };
+  const where = filters.join(' AND ');
+  return { params, where };
+}
+
+async function listClosedSessions(tenant_id, opts = {}) {
+  const { limit = 50, offset = 0 } = opts;
+  const { params, where } = _buildClosedSessionsQuery(tenant_id, opts);
+
+  const [result, countRes] = await Promise.all([
+    query(
+      `SELECT
+         s.id          AS session_id,
+         t.name        AS table_name,
+         s.covers,
+         s.opened_at,
+         s.closed_at,
+         COALESCE(SUM(o.total_amount) FILTER (WHERE o.status NOT IN ('cancelled','refunded')), 0) AS grand_total,
+         COUNT(o.id)   FILTER (WHERE o.status NOT IN ('cancelled','refunded'))                    AS order_count,
+         o2.payment_method
+       FROM dining.sessions s
+       JOIN dining.tables t ON t.id = s.table_id
+       LEFT JOIN orders.orders o
+         ON o.session_id = s.id AND o.deleted_at IS NULL
+       LEFT JOIN LATERAL (
+         SELECT metadata->>'payment_method' AS payment_method
+         FROM orders.orders
+         WHERE session_id = s.id AND deleted_at IS NULL
+         ORDER BY created_at ASC LIMIT 1
+       ) o2 ON TRUE
+       WHERE ${where}
+       GROUP BY s.id, t.name, s.covers, s.opened_at, s.closed_at, o2.payment_method
+       ORDER BY s.closed_at DESC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, offset]
+    ),
+    query(
+      `SELECT COUNT(DISTINCT s.id) AS total
+       FROM dining.sessions s
+       JOIN dining.tables t ON t.id = s.table_id
+       LEFT JOIN LATERAL (
+         SELECT metadata->>'payment_method' AS payment_method
+         FROM orders.orders
+         WHERE session_id = s.id AND deleted_at IS NULL
+         ORDER BY created_at ASC LIMIT 1
+       ) o2 ON TRUE
+       WHERE ${where}`,
+      params
+    ),
+  ]);
+
+  return {
+    sessions: result.rows.map(r => ({
+      ...r,
+      grand_total: Number(r.grand_total),
+      order_count: Number(r.order_count),
+    })),
+    total: parseInt(countRes.rows[0].total, 10),
+  };
+}
+
+async function listClosedSessionsExport(tenant_id, opts = {}) {
+  return listClosedSessions(tenant_id, { ...opts, limit: 5000, offset: 0 });
 }
 
 module.exports = {
   openSession, closeSession, getStatus, getSessionOrders,
   requestBill, getBill, getTableName, notifyStaffTableReady,
-  listClosedSessions,
+  listClosedSessions, listClosedSessionsExport,
 };

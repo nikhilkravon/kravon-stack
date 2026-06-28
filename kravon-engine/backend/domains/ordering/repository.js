@@ -135,7 +135,7 @@ async function confirmByRazorpayOrderId(client, razorpayOrderId, razorpayPayment
   return res.rows[0] || null;
 }
 
-async function listPaginated(tenantId, { page = 1, limit = 25, status = null, channel = null, fulfillment_type = null } = {}) {
+async function listPaginated(tenantId, { page = 1, limit = 25, status = null, channel = null, fulfillment_type = null, search = null } = {}) {
   const params  = [tenantId];
   const filters = ['o.tenant_id = $1', 'o.deleted_at IS NULL'];
 
@@ -156,6 +156,17 @@ async function listPaginated(tenantId, { page = 1, limit = 25, status = null, ch
   if (fulfillment_type) {
     params.push(fulfillment_type);
     filters.push(`o.fulfillment_type = $${params.length}`);
+  }
+  if (search) {
+    params.push(`%${search}%`);
+    const p = params.length;
+    // Search customer name, phone, item name, and special instructions
+    filters.push(
+      `(c.name ILIKE $${p} OR c.phone ILIKE $${p} OR o.special_instructions ILIKE $${p} OR EXISTS (
+        SELECT 1 FROM orders.order_items oi2
+        WHERE oi2.order_id = o.id AND (oi2.item_name ILIKE $${p} OR oi2.special_note ILIKE $${p})
+      ))`
+    );
   }
 
   const where  = `WHERE ${filters.join(' AND ')}`;
