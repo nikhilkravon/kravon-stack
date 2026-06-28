@@ -67,6 +67,15 @@ async function openSession(tenant, { table_id, covers, reservation_id }, staffId
       newValue: { table_id, covers: covers ?? null, reservation_id: reservation_id ?? null },
     });
 
+    // Clear any pending "guests waiting" notifications for this table
+    await client.query(
+      `UPDATE notifications.notifications
+       SET read_at = NOW()
+       WHERE tenant_id = $1 AND type = 'dine_in.staff_notify'
+         AND entity_id = $2 AND read_at IS NULL`,
+      [tenant_id, table_id]
+    );
+
     await client.query('COMMIT');
     events.emit('session.opened', { tenantId: tenant_id, sessionId: session_id, tableId: table_id, covers: covers ?? null });
     return { session_id, table_id, opened_at, reservation_id: reservation_id ?? null };
@@ -118,6 +127,15 @@ async function closeSession(tenant, { session_id }, staffId) {
       action: 'session.close', entityType: 'dining.session', entityId: session_id,
       newValue: { table_id, total_billed: totalRupees },
     });
+
+    // Clear any pending "guests waiting" notifications for this table
+    await client.query(
+      `UPDATE notifications.notifications
+       SET read_at = NOW()
+       WHERE tenant_id = $1 AND type = 'dine_in.staff_notify'
+         AND entity_id = $2 AND read_at IS NULL`,
+      [tenant_id, table_id]
+    );
 
     await client.query('COMMIT');
     events.emit('session.closed', { tenantId: tenant_id, sessionId: session_id, tableId: table_id, totalBilled: totalRupees });
