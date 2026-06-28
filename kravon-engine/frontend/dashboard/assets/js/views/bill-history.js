@@ -273,7 +273,6 @@ const BillHistoryView = (() => {
     el.querySelector('#bh-prev').addEventListener('click', () => { _state.page--; _load(el); });
     el.querySelector('#bh-next').addEventListener('click', () => { _state.page++; _load(el); });
 
-    _updateExport();
     _load(el);
   }
 
