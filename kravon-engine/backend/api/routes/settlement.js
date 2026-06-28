@@ -94,7 +94,7 @@ router.patch('/:id', async (req, res, next) => {
   const parsed = UpdateNotesSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
   try {
-    const updated = await require('../../domains/billing/repository').updateSettlementNotes(
+    const updated = await repo.updateSettlementNotes(
       null, req.tenant.tenant_id, req.params.id, parsed.data.notes,
     );
     if (!updated) return res.status(404).json({ error: 'Settlement not found.' });

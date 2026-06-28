@@ -282,6 +282,7 @@ app.use('/v1/restaurants/:slug/notifications',
 // Audit log: staff action history
 app.use('/v1/restaurants/:slug/audit-log',
   resolveRestaurant,
+  requireFeature('has_insights'),
   auditLogRoutes
 );
 

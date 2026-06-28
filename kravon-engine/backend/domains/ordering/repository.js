@@ -199,7 +199,13 @@ async function listPaginated(tenantId, { page = 1, limit = 25, status = null, ch
        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
       [...params, limit, offset]
     ),
-    query(`SELECT COUNT(*) AS total FROM orders.orders o ${where}`, params),
+    query(
+      `SELECT COUNT(*) AS total
+       FROM orders.orders o
+       LEFT JOIN customer.customers c ON c.id = o.customer_id AND c.deleted_at IS NULL
+       ${where}`,
+      params
+    ),
   ]);
 
   return {

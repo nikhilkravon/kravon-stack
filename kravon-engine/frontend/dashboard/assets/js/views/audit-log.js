@@ -56,7 +56,7 @@ const AuditLogView = (() => {
     const email    = log.actor_email ? `<span class="text-sm text-muted">${log.actor_email}</span>` : '';
     const entity   = log.entity_type ? `<span class="badge" style="font-size:10px;background:var(--gray-100);color:var(--gray-600)">${_entityLabel(log.entity_type)}</span>` : '';
     const entityId = log.entity_id ? `<span class="text-sm text-muted" style="font-family:monospace;font-size:10px">${String(log.entity_id).slice(-8)}</span>` : '';
-    const hasDiff  = log.before || log.after;
+    const hasDiff  = log.before_state || log.after_state;
 
     return `
       <tr class="audit-row${hasDiff ? ' audit-row--expandable' : ''}" data-log-id="${log.id}">
@@ -80,8 +80,8 @@ const AuditLogView = (() => {
       ${hasDiff ? `<tr class="audit-detail-row" id="audit-detail-${log.id}" style="display:none">
         <td colspan="5" style="padding:0">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);padding:var(--sp-3);background:var(--gray-50);border-bottom:1px solid var(--gray-200)">
-            ${log.before ? `<div><div class="text-sm" style="font-weight:600;color:var(--red-600);margin-bottom:4px">Before</div><pre style="font-size:11px;background:var(--gray-100);border-radius:4px;padding:var(--sp-2);overflow:auto;max-height:160px;white-space:pre-wrap">${JSON.stringify(log.before, null, 2)}</pre></div>` : '<div></div>'}
-            ${log.after  ? `<div><div class="text-sm" style="font-weight:600;color:var(--green-600);margin-bottom:4px">After</div><pre style="font-size:11px;background:var(--gray-100);border-radius:4px;padding:var(--sp-2);overflow:auto;max-height:160px;white-space:pre-wrap">${JSON.stringify(log.after, null, 2)}</pre></div>` : '<div></div>'}
+            ${log.before_state ? `<div><div class="text-sm" style="font-weight:600;color:var(--red-600);margin-bottom:4px">Before</div><pre style="font-size:11px;background:var(--gray-100);border-radius:4px;padding:var(--sp-2);overflow:auto;max-height:160px;white-space:pre-wrap">${JSON.stringify(log.before_state, null, 2)}</pre></div>` : '<div></div>'}
+            ${log.after_state  ? `<div><div class="text-sm" style="font-weight:600;color:var(--green-600);margin-bottom:4px">After</div><pre style="font-size:11px;background:var(--gray-100);border-radius:4px;padding:var(--sp-2);overflow:auto;max-height:160px;white-space:pre-wrap">${JSON.stringify(log.after_state, null, 2)}</pre></div>` : '<div></div>'}
           </div>
         </td>
       </tr>` : ''}`;

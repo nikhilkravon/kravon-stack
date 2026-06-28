@@ -526,8 +526,12 @@ async function generateInvoice(tenant, settlementId, staffId, staffRoles) {
   const client = await getClient();
   try {
     await client.query('BEGIN');
-    const existingVersions = await repo.listInvoices(tenantId, settlementId);
-    const version     = existingVersions.length + 1;
+    // Read version inside the transaction so concurrent requests don't both compute version=1
+    const existingVersions = await client.query(
+      `SELECT id FROM billing.invoices WHERE settlement_id = $1 AND tenant_id = $2 FOR UPDATE`,
+      [settlementId, tenantId],
+    );
+    const version     = existingVersions.rows.length + 1;
     const invoiceNumber = await repo.nextInvoiceNumber(client, tenantId);
     const invoice     = await repo.insertInvoice(client, tenantId, settlementId, {
       snapshot, generatedBy: staffId, version, invoiceNumber,
