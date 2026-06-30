@@ -96,6 +96,7 @@ async function create(tenant, {
     events.emit('reservation.created', {
       tenantId: tenant_id, reservationId: reservationRes.rows[0].id,
       partySize: party_size, reservationTime: reservationAt.toISOString(),
+      contactName: customer_name, notes: dietary_notes ?? null,
     });
 
     return {

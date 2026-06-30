@@ -24,6 +24,9 @@ const audit     = require('../../utils/audit');
 const orderRepo = require('../ordering/repository');
 const { query } = require('../../db/pool');
 
+// ── Lead repository (lazy-loaded to avoid circular deps) ────────────────────
+function _leadRepo() { return require('../catering/repository'); }
+
 // ── Capability constants ─────────────────────────────────────────────────────
 
 const CAP = {
@@ -207,6 +210,231 @@ async function createFromSession(tenant, sessionId, staffId) {
   } finally {
     client.release();
   }
+}
+
+// ── Create settlement from delivery/takeaway order ───────────────────────────
+
+/**
+ * createFromOrder(tenant, orderId, staffId)
+ *
+ * Creates a settlement from a delivery or takeaway order.
+ * Mirrors order items as ORDER_ITEM lines. Idempotent.
+ */
+async function createFromOrder(tenant, orderId, staffId) {
+  const tenantId = tenant.tenant_id;
+
+  const existing = await repo.findSettlementByOrder(tenantId, orderId);
+  if (existing) return { settlement: _fmtSettlement(existing) };
+
+  const orderRes = await query(
+    `SELECT o.id, o.total_amount, o.subtotal_amount, o.tax_amount, o.fulfillment_type,
+            o.special_instructions, o.metadata,
+            o.metadata->>'customer_name' AS customer_name,
+            json_agg(json_build_object(
+              'id', oi.id, 'name', oi.item_name, 'qty', oi.quantity,
+              'unit_price', oi.unit_price, 'total_price', oi.total_price,
+              'special_note', oi.special_note, 'menu_item_id', oi.menu_item_id
+            ) ORDER BY oi.id) AS items
+     FROM orders.orders o
+     JOIN orders.order_items oi ON oi.order_id = o.id
+     WHERE o.id = $1::uuid AND o.tenant_id = $2
+       AND o.status NOT IN ('cancelled','refunded') AND o.deleted_at IS NULL
+     GROUP BY o.id`,
+    [orderId, tenantId],
+  );
+  if (!orderRes.rows.length) return { error: 'Order not found or not billable.', status: 404 };
+  const order = orderRes.rows[0];
+
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+
+    const label = `${order.fulfillment_type || 'order'} — ${order.customer_name || 'Guest'}`.trim();
+    const settlement = await repo.createSettlement(client, {
+      tenantId, orderId, notes: label, createdBy: staffId,
+    });
+    const sid = settlement.id;
+    let sortOrder = 0;
+
+    const lineRows   = [];
+    const lineParams = [];
+    for (const item of order.items) {
+      const unit_paise   = calc.paise(item.unit_price);
+      const amount_paise = Math.round(unit_paise * item.qty);
+      const base = lineParams.length;
+      lineRows.push(`($${base+1},$${base+2},$${base+3},$${base+4},$${base+5},$${base+6},$${base+7},$${base+8},$${base+9},$${base+10},$${base+11})`);
+      lineParams.push(
+        tenantId, sid, calc.LINE.ORDER_ITEM,
+        orderId, item.id,
+        item.name + (item.special_note ? ` — ${item.special_note}` : ''),
+        item.qty, unit_paise, amount_paise,
+        false, sortOrder++,
+      );
+    }
+    if (lineRows.length) {
+      await client.query(
+        `INSERT INTO billing.settlement_lines
+           (tenant_id, settlement_id, line_type, source_order_id, source_order_item_id,
+            description, quantity, unit_price_paise, amount_paise, is_comp, sort_order)
+         VALUES ${lineRows.join(',')}`,
+        lineParams,
+      );
+    }
+
+    const finalTotals = await _recalcAndSave(client, tenantId, sid);
+    await repo.insertRevision(client, tenantId, sid, {
+      actorId: staffId, changeType: 'status_change',
+      afterState: { status: 'draft', source: 'order', order_id: orderId },
+    });
+    await audit.log(client, {
+      tenantId, actorId: staffId, action: 'settlement.create',
+      entityType: 'billing.settlement', entityId: sid,
+      newValue: { order_id: orderId, item_count: order.items.length },
+    });
+
+    await client.query('COMMIT');
+    return { settlement: _fmtSettlement(finalTotals) };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+// ── Create settlement from catering lead ─────────────────────────────────────
+
+/**
+ * createFromCatering(tenant, leadId, staffId)
+ *
+ * Creates a settlement from a catering lead. Idempotent.
+ * Catering settlements start as a blank draft — staff populate lines manually
+ * since catering quotes are bespoke.
+ */
+async function createFromCatering(tenant, leadId, staffId) {
+  const tenantId = tenant.tenant_id;
+
+  const existing = await repo.findSettlementByLead(tenantId, leadId);
+  if (existing) return { settlement: _fmtSettlement(existing) };
+
+  const leadRes = await query(
+    `SELECT id, contact_name, event_date, event_type
+     FROM catering.leads
+     WHERE id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL`,
+    [leadId, tenantId],
+  );
+  if (!leadRes.rows.length) return { error: 'Catering lead not found.', status: 404 };
+  const lead = leadRes.rows[0];
+
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+
+    const label = `${lead.event_type || 'Catering'} — ${lead.contact_name}`;
+    const settlement = await repo.createSettlement(client, {
+      tenantId, leadId, notes: label, createdBy: staffId,
+    });
+    const sid = settlement.id;
+
+    const finalTotals = await _recalcAndSave(client, tenantId, sid);
+    await repo.insertRevision(client, tenantId, sid, {
+      actorId: staffId, changeType: 'status_change',
+      afterState: { status: 'draft', source: 'catering', lead_id: leadId },
+    });
+    await audit.log(client, {
+      tenantId, actorId: staffId, action: 'settlement.create',
+      entityType: 'billing.settlement', entityId: sid,
+      newValue: { lead_id: leadId },
+    });
+
+    await client.query('COMMIT');
+    return { settlement: _fmtSettlement(finalTotals) };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+// ── Create manual settlement ─────────────────────────────────────────────────
+
+/**
+ * createManual(tenant, { notes, internal_ref }, staffId)
+ *
+ * Creates a blank settlement not linked to any source transaction.
+ * Staff populate all lines manually.
+ */
+async function createManual(tenant, { notes = null, internal_ref = null } = {}, staffId) {
+  const tenantId = tenant.tenant_id;
+
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+
+    const settlement = await repo.createSettlement(client, {
+      tenantId, notes, createdBy: staffId,
+    });
+    const sid = settlement.id;
+
+    // Store internal_ref if provided
+    if (internal_ref) {
+      await client.query(
+        `UPDATE billing.settlements SET internal_ref = $1 WHERE id = $2`,
+        [internal_ref, sid],
+      );
+    }
+
+    const finalTotals = await _recalcAndSave(client, tenantId, sid);
+    await repo.insertRevision(client, tenantId, sid, {
+      actorId: staffId, changeType: 'status_change',
+      afterState: { status: 'draft', source: 'manual' },
+    });
+    await audit.log(client, {
+      tenantId, actorId: staffId, action: 'settlement.create',
+      entityType: 'billing.settlement', entityId: sid,
+      newValue: { source: 'manual', notes },
+    });
+
+    await client.query('COMMIT');
+    // Re-fetch to get internal_ref in response
+    const updated = await repo.findSettlement(null, tenantId, sid);
+    return { settlement: _fmtSettlement(updated || finalTotals) };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+// ── List settlements (invoice dashboard) ─────────────────────────────────────
+
+async function listSettlements(tenantId, filters) {
+  const { settlements, total } = await repo.listSettlements(tenantId, filters);
+  const page  = filters.page  || 1;
+  const limit = filters.limit || 50;
+  return {
+    settlements: settlements.map(s => ({
+      id:               s.id,
+      status:           s.status,
+      source_type:      s.source_type,
+      total_paise:      s.total_paise,
+      paid_paise:       s.paid_paise,
+      balance_paise:    Math.max(0, (s.total_paise || 0) - (s.paid_paise || 0)),
+      total:            calc.toRupees(s.total_paise),
+      notes:            s.notes,
+      internal_ref:     s.internal_ref,
+      table_name:       s.table_name  || null,
+      customer_name:    s.customer_name || s.lead_name || null,
+      fulfillment_type: s.fulfillment_type || null,
+      created_at:       s.created_at,
+      finalized_at:     s.finalized_at,
+    })),
+    total,
+    page,
+    pages: Math.ceil(total / limit),
+  };
 }
 
 // ── Get settlement with lines ─────────────────────────────────────────────────
@@ -458,8 +686,9 @@ async function recordPayment(tenant, settlementId, paymentData, staffId, staffRo
       recordedBy: staffId,
     });
 
-    // Update paid_paise denorm
-    const totalPaid = await repo.sumPayments(client, settlementId);
+    // Update paid_paise denorm — floor at 0 so refunds cannot push it negative
+    const rawPaid   = await repo.sumPayments(client, settlementId);
+    const totalPaid = Math.max(0, rawPaid);
     await repo.updatePaidPaise(client, settlementId, totalPaid);
 
     await repo.insertRevision(client, tenantId, settlementId, {
@@ -575,8 +804,8 @@ function _fmtSettlement(s) {
     tip:                calc.toRupees(s.tip_paise),
     round_off:          calc.toRupees(s.round_off_paise),
     total:              calc.toRupees(s.total_paise),
-    paid:               calc.toRupees(s.paid_paise),
-    balance:            calc.toRupees(Math.max(0, s.total_paise - s.paid_paise)),
+    paid:               calc.toRupees(Math.max(0, s.paid_paise)),
+    balance:            calc.toRupees(Math.max(0, s.total_paise - Math.max(0, s.paid_paise))),
     // Raw paise for client-side calculation without float arithmetic
     subtotal_paise:     s.subtotal_paise,
     discount_paise:     s.discount_paise,
@@ -584,7 +813,7 @@ function _fmtSettlement(s) {
     tip_paise:          s.tip_paise,
     round_off_paise:    s.round_off_paise,
     total_paise:        s.total_paise,
-    paid_paise:         s.paid_paise,
+    paid_paise:         Math.max(0, s.paid_paise),
     gst_snapshot:       s.gst_snapshot,
     finalized_at:       s.finalized_at,
     voided_at:          s.voided_at,
@@ -645,7 +874,9 @@ function _fmtTotals(s) {
 
 module.exports = {
   CAP, hasCap,
-  createFromSession, getSettlement, getSettlementBySession,
+  createFromSession, createFromOrder, createFromCatering, createManual,
+  listSettlements,
+  getSettlement, getSettlementBySession,
   addLine, editLine, removeLine,
   finalizeSettlement, voidSettlement,
   recordPayment, generateInvoice, getRevisions,

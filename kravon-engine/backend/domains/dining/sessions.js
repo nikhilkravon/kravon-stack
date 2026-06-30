@@ -98,7 +98,8 @@ async function closeSession(tenant, { session_id }, staffId) {
       `SELECT COALESCE(SUM(total_amount), 0) AS total
        FROM orders.orders
        WHERE session_id = $1 AND tenant_id = $2
-         AND status NOT IN ('cancelled', 'refunded') AND deleted_at IS NULL`,
+         AND status NOT IN ('cancelled', 'refunded') AND deleted_at IS NULL
+       FOR UPDATE`,
       [session_id, tenant_id]
     );
     const totalRupees = parseFloat(totalRes.rows[0].total);
@@ -138,8 +139,24 @@ async function closeSession(tenant, { session_id }, staffId) {
     );
 
     await client.query('COMMIT');
-    events.emit('session.closed', { tenantId: tenant_id, sessionId: session_id, tableId: table_id, totalBilled: totalRupees });
-    return { session_id, closed_at, total_billed: totalRupees };
+
+    // Create settlement after COMMIT so a crash between the two doesn't leave
+    // an orphaned settlement pointing at an unclosed session.
+    let settlement_id = null;
+    let settlementTotal = totalRupees;
+    try {
+      const billingService = require('../billing/service');
+      const settlResult = await billingService.createFromSession(tenant, session_id, staffId);
+      if (settlResult.settlement) {
+        settlement_id   = settlResult.settlement.id;
+        settlementTotal = settlResult.settlement.total ?? totalRupees;
+      }
+    } catch (settlErr) {
+      // Non-fatal: session close already committed; settlement can be created manually.
+    }
+
+    events.emit('session.closed', { tenantId: tenant_id, sessionId: session_id, tableId: table_id, totalBilled: settlementTotal });
+    return { session_id, closed_at, total_billed: totalRupees, settlement_id };
 
   } catch (err) {
     await client.query('ROLLBACK');
@@ -234,11 +251,17 @@ async function requestBill(tenant_id, { session_id, requested_by }) {
          bill_requested_by = COALESCE(bill_requested_by, $3),
          updated_at        = NOW()
      WHERE id = $1 AND tenant_id = $2 AND closed_at IS NULL AND deleted_at IS NULL
-     RETURNING id, session_status, bill_requested_at`,
+     RETURNING id, session_status, bill_requested_at, table_id`,
     [session_id, tenant_id, requested_by ?? null]
   );
 
   if (!result.rows.length) return { error: 'Session not found or already closed.', status: 404 };
+
+  const tableRow = await query(
+    `SELECT name FROM dining.tables WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
+    [result.rows[0].table_id, tenant_id]
+  );
+  const tableName = tableRow.rows[0]?.name || 'Unknown table';
 
   events.emit('dine_in.bill_requested', { tenantId: tenant_id, sessionId: session_id, requestedBy: requested_by ?? null });
   return { bill_requested_at: result.rows[0].bill_requested_at };

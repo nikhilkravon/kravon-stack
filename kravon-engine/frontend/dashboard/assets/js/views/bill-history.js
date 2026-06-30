@@ -176,11 +176,25 @@ const BillHistoryView = (() => {
               </div>
             </div>
             ${bill.gst_snapshot?.gstin ? `<div class="bill-summary-row text-muted" style="font-size:11px">GSTIN: ${bill.gst_snapshot.gstin}</div>` : ''}
-            <div style="margin-top:var(--sp-3)">
+            <div style="margin-top:var(--sp-3);display:flex;gap:var(--sp-2);flex-wrap:wrap">
               <a href="#settlement?session_id=${sessionId}" class="btn btn-primary btn-sm">Open Settlement Editor →</a>
+              <button class="btn btn-secondary btn-sm bh-print-bill" data-session-id="${sessionId}">🖨 Print Bill</button>
             </div>
           </div>
         </div>`;
+      inner.querySelector('.bh-print-bill')?.addEventListener('click', () => {
+        const base  = window.KRAVON_API_BASE || 'http://localhost:3000';
+        const slug  = App.slug;
+        const token = Auth.state()?.token;
+        const url   = `${base}/v1/restaurants/${slug}/dine-in/bill/render?session_id=${sessionId}`;
+        const w = window.open('', '_blank');
+        w.document.write(`<script>
+          fetch(${JSON.stringify(url)}, { headers: { Authorization: 'Bearer ${token}' } })
+            .then(r => r.text()).then(html => {
+              document.open(); document.write(html); document.close();
+            });
+        <\/script>`);
+      });
     } catch {
       inner.innerHTML = '<div class="text-sm text-muted">Could not load bill details.</div>';
     }
@@ -188,10 +202,52 @@ const BillHistoryView = (() => {
 
   function _resetPage() { _state.page = 1; }
 
+  async function _loadEod(el, date) {
+    const body = el.querySelector('#bh-eod-body');
+    if (!body) return;
+    try {
+      const data = await Api.rGet(`/settlements/eod-report?date=${date}`);
+      const METHOD_LABEL = { cash: 'Cash', upi: 'UPI', card: 'Card', razorpay: 'Razorpay', wallet: 'Wallet', other: 'Other' };
+      const methodHtml = (data.by_method || []).map(m =>
+        `<span style="margin-right:var(--sp-4)">${METHOD_LABEL[m.method] || m.method}: <strong>${_fmt(m.total_paise / 100)}</strong></span>`
+      ).join('') || '<span class="text-muted">No payments recorded</span>';
+      body.innerHTML = `
+        <div style="display:flex;flex-wrap:wrap;gap:var(--sp-3);align-items:baseline">
+          <div><span class="text-muted text-sm">Revenue</span><br>
+            <span style="font-size:20px;font-weight:700">${_fmt(data.total_revenue_paise / 100)}</span>
+            <span class="text-muted text-sm">&nbsp;${data.settlements_count} bills</span></div>
+          <div style="flex:1;min-width:200px">
+            <div class="text-muted text-sm" style="margin-bottom:2px">By method</div>
+            ${methodHtml}
+          </div>
+          <div>
+            <span class="text-muted text-sm">Discounts</span><br>
+            <span style="color:var(--red-600);font-weight:600">${_fmt(data.total_discount_paise / 100)}</span>
+          </div>
+          <div>
+            <span class="text-muted text-sm">Comps</span><br>
+            <span style="color:var(--orange-600,#c96a00);font-weight:600">${_fmt(data.total_comp_paise / 100)}</span>
+          </div>
+        </div>`;
+    } catch {
+      body.innerHTML = '<span class="text-sm text-muted">Could not load summary.</span>';
+    }
+  }
+
   function init(el) {
     _state = { page: 1, limit: 50, date_from: '', date_to: '', table_search: '', payment_mode: '' };
 
     el.innerHTML = `
+      <div class="card" id="bh-eod-card" style="margin-bottom:var(--sp-3)">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--sp-3) var(--sp-4) var(--sp-2)">
+          <span style="font-weight:600;font-size:14px">Day Summary</span>
+          <input type="date" id="bh-eod-date" class="search-input" style="width:150px">
+        </div>
+        <div id="bh-eod-body" style="padding:0 var(--sp-4) var(--sp-3)">
+          <span class="text-sm text-muted">Loading…</span>
+        </div>
+      </div>
+
       <div class="toolbar" style="flex-wrap:wrap;gap:var(--sp-2)">
         <div class="toolbar-left" style="flex-wrap:wrap;gap:var(--sp-2)">
           <input id="bh-table-search" class="search-input" type="search"
@@ -272,6 +328,14 @@ const BillHistoryView = (() => {
 
     el.querySelector('#bh-prev').addEventListener('click', () => { _state.page--; _load(el); });
     el.querySelector('#bh-next').addEventListener('click', () => { _state.page++; _load(el); });
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const eodDateEl = el.querySelector('#bh-eod-date');
+    if (eodDateEl) {
+      eodDateEl.value = todayStr;
+      eodDateEl.addEventListener('change', e => _loadEod(el, e.target.value));
+    }
+    _loadEod(el, todayStr);
 
     _load(el);
   }

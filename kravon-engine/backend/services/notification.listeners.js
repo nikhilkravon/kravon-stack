@@ -1,15 +1,18 @@
 'use strict';
 
 /**
- * notification.listeners.js — Maps platform events → in-app notifications + WhatsApp.
+ * notification.listeners.js — Maps platform events → channels.
  *
- * F09 fix: domain events now trigger both:
- *   1. In-app notification (notif.create → notifications.notifications table)
- *   2. WhatsApp/outbound dispatch via notify.service (Communications platform service)
+ * Each listener block is the single place that declares which channels
+ * an event fires on. Adding a new channel means editing the listener
+ * block for that event (or the corresponding notify.service method) —
+ * never the domain that emits the event.
  *
- * Call registerAll() once at server boot. Each listener is a pure mapping.
- * To add a new notification: add one events.on() block below.
- * To add a new channel: add to the listener block, do not modify domain code.
+ * Channels per event:
+ *   Bell    — notif.create()         → notifications.notifications table
+ *   WA      — notify.*()             → whatsapp.js → Meta Cloud API
+ *   Email   — notify.*()             → email.js → Resend
+ *   Webhook — notify.orderConfirmed  → webhook.js → tenant.webhook_url
  */
 
 const events  = require('../utils/events');
@@ -17,7 +20,7 @@ const notif   = require('./notification.service');
 const notify  = require('./notify.service');
 const { query } = require('../db/pool');
 
-/* ── Tenant loader — minimal object for notify.service calls ─────────────── */
+/* ── Tenant loader — minimal shape for notify.service calls ──────────────── */
 
 async function loadTenantForNotify(tenantId) {
   const res = await query(
@@ -42,14 +45,13 @@ async function loadTenantForNotify(tenantId) {
 }
 
 function registerAll() {
-  /* ── Orders ─────────────────────────────────────────────────────────────── */
 
-  // order.created is emitted for all confirmed online orders (COD/offline).
-  // Razorpay orders emit this after payment.captured via webhooks.js.
+  /* ── Orders ──────────────────────────────────────────────────────────────── */
+
+  // Bell: ✅  WA: ✅ (kitchen + customer)  Webhook: ✅
   events.on('order.created', async ({ tenantId, orderId, total, channel }) => {
     const surface = channel === 'qr' ? 'Dine-in' : channel === 'web' ? 'Delivery' : 'Table';
 
-    // In-app notification
     notif.create({
       tenantId, type: 'order.created', priority: 'SUCCESS',
       title: 'New order received',
@@ -58,7 +60,6 @@ function registerAll() {
       metadata: { orderId, total, channel },
     });
 
-    // F09: load the full order for WhatsApp formatting
     try {
       const [orderRes, tenantObj] = await Promise.all([
         query(
@@ -77,21 +78,20 @@ function registerAll() {
       if (orderRes.rows.length && tenantObj) {
         const order = orderRes.rows[0];
         const meta  = order.metadata || {};
-        const orderForNotify = {
+        notify.orderConfirmed(tenantObj, {
           ...order,
-          customer_name:    meta.customer_name,
-          customer_phone:   meta.customer_phone,
-          order_surface:    order.fulfillment_type === 'delivery' ? 'orders' : 'tables',
-          table_identifier: meta.table_identifier,
-          delivery_address: meta.delivery_address,
-          delivery_locality:meta.delivery_locality,
-          payment_method:   meta.payment_method,
-          total:            Number(order.total_amount),
-          subtotal:         Number(order.subtotal_amount),
-          delivery_fee:     Number(order.delivery_charge || 0),
-          items_json:       JSON.stringify(order.items_agg || []),
-        };
-        notify.orderConfirmed(tenantObj, orderForNotify).catch(err =>
+          customer_name:     meta.customer_name,
+          customer_phone:    meta.customer_phone,
+          order_surface:     order.fulfillment_type === 'delivery' ? 'orders' : 'tables',
+          table_identifier:  meta.table_identifier,
+          delivery_address:  meta.delivery_address,
+          delivery_locality: meta.delivery_locality,
+          payment_method:    meta.payment_method,
+          total:             Number(order.total_amount),
+          subtotal:          Number(order.subtotal_amount),
+          delivery_fee:      Number(order.delivery_charge || 0),
+          items_json:        JSON.stringify(order.items_agg || []),
+        }).catch(err =>
           console.error(JSON.stringify({ level: 'error', event: 'listener.order_notify_failed',
             tenantId, orderId, message: err.message }))
         );
@@ -102,6 +102,7 @@ function registerAll() {
     }
   });
 
+  // Bell: ✅
   events.on('order.status_updated', ({ tenantId, orderId, status, actorId }) => {
     notif.create({
       tenantId, type: 'order.status_updated',
@@ -114,8 +115,9 @@ function registerAll() {
     });
   });
 
-  /* ── Dine-in orders (separate event, smaller payload) ────────────────────── */
+  /* ── Dine-in orders ──────────────────────────────────────────────────────── */
 
+  // Bell: ✅
   events.on('dine_in.order_created', ({ tenantId, orderId, sessionId, total }) => {
     notif.create({
       tenantId, type: 'dine_in.order_created', priority: 'INFO',
@@ -127,7 +129,8 @@ function registerAll() {
 
   /* ── Reservations ────────────────────────────────────────────────────────── */
 
-  events.on('reservation.created', ({ tenantId, reservationId, partySize, reservationTime }) => {
+  // Bell: ✅  WA: ✅ (owner)
+  events.on('reservation.created', async ({ tenantId, reservationId, partySize, reservationTime, contactName, notes }) => {
     notif.create({
       tenantId, type: 'reservation.created', priority: 'SUCCESS',
       title: 'New reservation',
@@ -135,8 +138,25 @@ function registerAll() {
       entityType: 'dining.reservations', entityId: reservationId, actorType: 'customer',
       metadata: { reservationId, partySize, reservationTime },
     });
+
+    try {
+      const tenantObj = await loadTenantForNotify(tenantId);
+      if (tenantObj) {
+        notify.reservationCreated(tenantObj, {
+          id: reservationId, contact_name: contactName,
+          party_size: partySize, reservation_time: reservationTime, notes,
+        }).catch(err =>
+          console.error(JSON.stringify({ level: 'error', event: 'listener.reservation_wa_failed',
+            tenantId, reservationId, message: err.message }))
+        );
+      }
+    } catch (err) {
+      console.error(JSON.stringify({ level: 'error', event: 'listener.reservation_notify_error',
+        tenantId, reservationId, message: err.message }));
+    }
   });
 
+  // Bell: ✅
   events.on('reservation.status_updated', ({ tenantId, reservationId, status, actorId }) => {
     notif.create({
       tenantId, type: 'reservation.status_updated',
@@ -155,6 +175,7 @@ function registerAll() {
 
   /* ── Catering Leads ──────────────────────────────────────────────────────── */
 
+  // Bell: ✅
   events.on('lead.created', ({ tenantId, leadId, contactName, eventType }) => {
     notif.create({
       tenantId, type: 'lead.created', priority: 'SUCCESS',
@@ -165,6 +186,7 @@ function registerAll() {
     });
   });
 
+  // Bell: ✅
   events.on('lead.status_updated', ({ tenantId, leadId, status, actorId }) => {
     notif.create({
       tenantId, type: 'lead.status_updated',
@@ -180,6 +202,7 @@ function registerAll() {
     }
   });
 
+  // Bell: ✅
   events.on('lead.converted', ({ tenantId, leadId }) => {
     notif.create({
       tenantId, type: 'lead.converted', priority: 'SUCCESS',
@@ -192,16 +215,23 @@ function registerAll() {
 
   /* ── Dine-In Sessions ────────────────────────────────────────────────────── */
 
+  // Bell: ✅  WA: ✅ (owner)
+  // Single event: dine_in.bill_requested. bill.requested is removed (was duplicate).
   events.on('dine_in.bill_requested', async ({ tenantId, sessionId, requestedBy }) => {
     try {
-      const res = await query(
-        `SELECT t.name AS table_name
-         FROM dining.sessions s
-         JOIN dining.tables t ON t.id = s.table_id
-         WHERE s.id = $1 AND s.tenant_id = $2 LIMIT 1`,
-        [sessionId, tenantId]
-      );
-      const tableName = res.rows[0]?.table_name || 'table';
+      const [tableRes, tenantObj] = await Promise.all([
+        query(
+          `SELECT t.name AS table_name
+           FROM dining.sessions s
+           JOIN dining.tables t ON t.id = s.table_id
+           WHERE s.id = $1 AND s.tenant_id = $2 LIMIT 1`,
+          [sessionId, tenantId]
+        ),
+        loadTenantForNotify(tenantId),
+      ]);
+
+      const tableName = tableRes.rows[0]?.table_name || 'Unknown table';
+
       notif.create({
         tenantId, type: 'dine_in.bill_requested', priority: 'WARNING',
         title: 'Bill requested',
@@ -209,12 +239,20 @@ function registerAll() {
         entityType: 'dining.sessions', entityId: sessionId, actorType: 'customer',
         metadata: { sessionId, requestedBy },
       });
+
+      if (tenantObj) {
+        notify.billRequested(tenantObj, tableName, sessionId).catch(err =>
+          console.error(JSON.stringify({ level: 'error', event: 'listener.bill_wa_failed',
+            tenantId, sessionId, message: err.message }))
+        );
+      }
     } catch (err) {
       console.error(JSON.stringify({ level: 'error', event: 'listener.bill_req_failed',
         tenantId, sessionId, message: err.message }));
     }
   });
 
+  // Bell: ✅
   events.on('dine_in.staff_notify', ({ tenantId, tableId, tableName }) => {
     notif.create({
       tenantId, type: 'dine_in.staff_notify', priority: 'WARNING',
@@ -225,6 +263,7 @@ function registerAll() {
     });
   });
 
+  // Bell: ✅
   events.on('session.opened', ({ tenantId, sessionId, tableId, covers }) => {
     notif.create({
       tenantId, type: 'session.opened', priority: 'INFO',
@@ -235,6 +274,7 @@ function registerAll() {
     });
   });
 
+  // Bell: ✅
   events.on('session.closed', ({ tenantId, sessionId, tableId, totalBilled }) => {
     notif.create({
       tenantId, type: 'session.closed', priority: 'INFO',
@@ -247,6 +287,7 @@ function registerAll() {
 
   /* ── Reviews ─────────────────────────────────────────────────────────────── */
 
+  // Bell: ✅
   events.on('review.submitted', ({ tenantId, stars, orderId }) => {
     notif.create({
       tenantId, type: 'review.submitted',
@@ -260,10 +301,11 @@ function registerAll() {
 
   /* ── Customer Governance ─────────────────────────────────────────────────── */
 
-  events.on('customer.created', ({ tenantId, customerId, phone }) => {
-    // Silent — no in-app notification for customer creation (high volume)
+  events.on('customer.created', () => {
+    // Silent — high volume, no bell notification
   });
 
+  // Bell: ✅
   events.on('customer.export_requested', ({ tenantId, customerId, actorId }) => {
     notif.create({
       tenantId, type: 'customer.export_requested', priority: 'INFO',
@@ -273,6 +315,7 @@ function registerAll() {
     });
   });
 
+  // Bell: ✅
   events.on('customer.delete_requested', ({ tenantId, customerId, actorId }) => {
     notif.create({
       tenantId, type: 'customer.delete_requested', priority: 'WARNING',
@@ -282,6 +325,7 @@ function registerAll() {
     });
   });
 
+  // Bell: ✅
   events.on('customer.correct_requested', ({ tenantId, customerId, actorId }) => {
     notif.create({
       tenantId, type: 'customer.correct_requested', priority: 'INFO',
@@ -293,6 +337,7 @@ function registerAll() {
 
   /* ── Governance / Exports ────────────────────────────────────────────────── */
 
+  // Bell: ✅
   events.on('settings.exported', ({ tenantId, jobId, actorId }) => {
     notif.create({
       tenantId, type: 'settings.exported', priority: 'INFO',

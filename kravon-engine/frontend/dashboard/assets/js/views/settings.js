@@ -302,8 +302,16 @@ const SettingsView = (() => {
     const acceptsOrdersToggle = el.querySelector('#accepts-orders-toggle');
     const acceptsOrdersStatus = el.querySelector('#accepts-orders-status');
     if (acceptsOrdersToggle) {
-      acceptsOrdersToggle.addEventListener('change', async () => {
-        const val = acceptsOrdersToggle.checked;
+      acceptsOrdersToggle.addEventListener('change', async (e) => {
+        const willDisable = !e.target.checked;
+        if (willDisable) {
+          const ok = await DashUI.confirm(
+            'Stop accepting new orders? Customers will see the restaurant as closed.',
+            { title: 'Close ordering', confirmLabel: 'Yes, close ordering', danger: true }
+          );
+          if (!ok) { e.target.checked = true; return; }
+        }
+        const val = e.target.checked;
         try {
           await Api.rPatch('/config', { accepts_orders: val });
           if (acceptsOrdersStatus) {
@@ -312,7 +320,7 @@ const SettingsView = (() => {
           }
         } catch (ex) {
           DashUI.toast(ex.message || 'Could not update ordering status.', 'error');
-          acceptsOrdersToggle.checked = !val;
+          e.target.checked = !val;
         }
       });
     }

@@ -79,7 +79,8 @@ router.post('/session/close', requireRestaurantAuth, async (req, res, next) => {
   if (!parsed.success) return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
   try {
     const result = await sessions.closeSession(req.tenant, parsed.data, req.auth?.staffId);
-    sendResult(res, result);
+    if (result.error) return res.status(result.status || 500).json({ error: result.error });
+    res.json({ ok: true, session_id: result.session_id, settlement_id: result.settlement_id || null });
   } catch (err) { next(err); }
 });
 
@@ -251,6 +252,40 @@ router.get('/bill', requireRestaurantAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+/* ── GET /bill/render?session_id=xxx — printable GST bill ─────────────── */
+router.get('/bill/render', requireRestaurantAuth, async (req, res, next) => {
+  try {
+    const { query: dbQuery } = require('../../db/pool');
+    const renderer = require('../../services/bill.renderer');
+
+    const [billResult, restaurantRes] = await Promise.all([
+      sessions.getBill(req.tenant.tenant_id, req.query.session_id),
+      dbQuery(
+        `SELECT r.name, r.settings,
+                l.address, l.city, l.phone
+         FROM tenant.restaurants r
+         LEFT JOIN tenant.locations l
+                ON l.tenant_id = r.id AND l.is_active = TRUE
+         WHERE r.id = $1 LIMIT 1`,
+        [req.tenant.tenant_id]
+      ),
+    ]);
+
+    if (billResult.error) return res.status(billResult.status || 404).json({ error: billResult.error });
+
+    const row = restaurantRes.rows[0] || {};
+    const restaurant = {
+      name:     row.name,
+      settings: row.settings || {},
+      location: { address: row.address, city: row.city, phone: row.phone },
+    };
+
+    const html = renderer.renderSessionBill(billResult.bill, restaurant);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (err) { next(err); }
+});
+
 /* ── POST /reservations ───────────────────────────────────────────────────── */
 const ReservationSchema = z.object({
   customer_name:    z.string().min(1).max(100),
@@ -279,8 +314,11 @@ router.get('/reservations', requireRestaurantAuth, async (req, res, next) => {
   try {
     const page  = Math.min(10000, Math.max(1, parseInt(req.query.page,  10) || 1));
     const limit = Math.min(100,   Math.max(1, parseInt(req.query.limit, 10) || 25));
+    const status = req.query.upcoming_only === 'true'
+      ? 'upcoming'
+      : (req.query.status || null);
     const { reservations: list, total } = await reservations.list(req.tenant.tenant_id, {
-      page, limit, status: req.query.status || null,
+      page, limit, status,
     });
     res.json({ ok: true, reservations: list, total, page, limit, pages: Math.ceil(total / limit) });
   } catch (err) { next(err); }

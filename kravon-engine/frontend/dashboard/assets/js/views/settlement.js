@@ -202,7 +202,10 @@ const SettlementView = (() => {
           <div class="card" style="margin-top:var(--sp-4)">
             <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
               <span class="card-title">Payments</span>
-              ${_can('PAYMENT') && s.status !== 'voided' ? `<button id="stl-add-payment-btn" class="btn btn-secondary btn-sm">+ Payment</button>` : ''}
+              <div style="display:flex;gap:var(--sp-2)">
+                ${_can('PAYMENT') && s.status !== 'voided' ? `<button id="stl-add-payment-btn" class="btn btn-secondary btn-sm">+ Payment</button>` : ''}
+                ${_can('PAYMENT') && s.status === 'finalized' ? `<button id="stl-add-refund-btn" class="btn btn-secondary btn-sm" style="color:var(--red-600)">Refund</button>` : ''}
+              </div>
             </div>
             <div id="stl-payments-wrap">
               ${_renderPaymentsHtml()}
@@ -312,6 +315,7 @@ const SettlementView = (() => {
     _el.querySelector('#stl-invoice-btn')?.addEventListener('click', _handleInvoice);
     _el.querySelector('#stl-history-btn')?.addEventListener('click', _handleHistory);
     _el.querySelector('#stl-add-payment-btn')?.addEventListener('click', _handleAddPayment);
+    _el.querySelector('#stl-add-refund-btn')?.addEventListener('click', _handleAddRefund);
 
     // Line actions
     _el.querySelector('#stl-add-item-btn')?.addEventListener('click', () => _openLineModal('MANUAL_ITEM'));
@@ -614,13 +618,17 @@ const SettlementView = (() => {
 
     modal.querySelector('#inv-close-btn').addEventListener('click', () => modal.remove());
     modal.querySelector('#inv-print-btn').addEventListener('click', () => {
-      const area = modal.querySelector('#inv-print-area').innerHTML;
+      const base = window.KRAVON_API_BASE || 'http://localhost:3000';
+      const slug  = App.slug;
+      const token = Auth.state()?.token;
+      const url   = `${base}/v1/restaurants/${slug}/settlements/${_sid()}/invoice/${invoice.id}/render`;
       const w = window.open('', '_blank');
-      w.document.write(`<html><head><title>Invoice ${invoice.invoice_number}</title>
-        <style>body{font-family:sans-serif;padding:32px}table{width:100%;border-collapse:collapse}@media print{button{display:none}}</style>
-        </head><body>${area}</body></html>`);
-      w.document.close();
-      w.print();
+      w.document.write(`<script>
+        fetch(${JSON.stringify(url)}, { headers: { Authorization: 'Bearer ${token}' } })
+          .then(r => r.text()).then(html => {
+            document.open(); document.write(html); document.close();
+          });
+      <\/script>`);
     });
   }
 
@@ -711,6 +719,58 @@ const SettlementView = (() => {
         DashUI.toast('Payment recorded.', 'success');
       } catch (err) {
         btn.disabled = false; btn.textContent = 'Record payment';
+        DashUI.toast(err.message, 'error');
+      }
+    });
+  }
+
+  // ── Add refund modal ──────────────────────────────────────────────────────
+  async function _handleAddRefund() {
+    const modal = _modal(`
+      <div class="modal-header"><h3>Record Refund</h3></div>
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:var(--sp-3)">
+        <label>
+          <span class="label">Method</span>
+          <select id="rf-method" class="input">
+            ${Object.entries(METHOD_LABELS).map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}
+          </select>
+        </label>
+        <label>
+          <span class="label">Refund amount (₹)</span>
+          <input id="rf-amount" type="number" class="input" min="0.01" step="0.01" placeholder="0.00" />
+        </label>
+        <label>
+          <span class="label">Reference (optional)</span>
+          <input id="rf-ref" class="input" placeholder="e.g. UPI ref" />
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button id="rf-cancel" class="btn btn-secondary">Cancel</button>
+        <button id="rf-save" class="btn btn-primary" style="background:var(--red-600)">Record Refund</button>
+      </div>`);
+
+    modal.querySelector('#rf-cancel').addEventListener('click', () => modal.remove());
+    modal.querySelector('#rf-save').addEventListener('click', async () => {
+      const btn = modal.querySelector('#rf-save');
+      btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        const amt = parseFloat(modal.querySelector('#rf-amount').value);
+        if (isNaN(amt) || amt <= 0) throw new Error('Enter a valid refund amount.');
+        const method    = modal.querySelector('#rf-method').value;
+        const reference = modal.querySelector('#rf-ref').value?.trim() || undefined;
+
+        const data = await _apiPost('/payments', { method, amount_paise: -Math.round(amt * 100), is_refund: true, reference });
+        _payments.push(data.payment);
+        _settlement.paid_paise    = data.paid_paise;
+        _settlement.paid          = data.paid_paise / 100;
+        _settlement.balance_paise = data.balance_paise;
+
+        _el.querySelector('#stl-payments-wrap').innerHTML = _renderPaymentsHtml();
+        _el.querySelector('#stl-totals-wrap').innerHTML   = _renderTotalsHtml();
+        modal.remove();
+        DashUI.toast('Refund recorded.', 'success');
+      } catch (err) {
+        btn.disabled = false; btn.textContent = 'Record Refund';
         DashUI.toast(err.message, 'error');
       }
     });

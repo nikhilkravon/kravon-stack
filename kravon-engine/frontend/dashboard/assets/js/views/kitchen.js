@@ -48,6 +48,12 @@ const KitchenView = (() => {
     preparing: { status: 'ready',     label: 'Mark Ready' },
   };
 
+  // Queue handoff: ready delivery → out_for_delivery; ready pickup → completed
+  const QUEUE_READY_NEXT = {
+    delivery: { status: 'out_for_delivery', label: 'Hand to Rider →' },
+    pickup:   { status: 'completed',        label: 'Collected ✓' },
+  };
+
   async function _updateOrderStatus(orderId, status, cardEl) {
     try {
       await Api.rPatch(`/orders/${orderId}`, { status });
@@ -68,10 +74,12 @@ const KitchenView = (() => {
     }).join(' ');
   }
 
-  function _orderCard(o) {
+  function _orderCard(o, queueMode = false) {
     const ageClass   = _orderAgeClass(o.created_at, o.status);
     const ageLabel   = _orderAge(o.created_at);
-    const next       = KITCHEN_NEXT[o.status];
+    const next       = queueMode && o.status === 'ready'
+      ? (QUEUE_READY_NEXT[o.fulfillment_type] || null)
+      : KITCHEN_NEXT[o.status];
     const chLabel    = CHANNEL_LABEL[o.fulfillment_type] || o.fulfillment_type || '';
 
     const items = (o.items || []).map(i => {
@@ -119,7 +127,7 @@ const KitchenView = (() => {
   function _tableCard(t) {
     const orders    = t.orders || [];
     const orderHtml = orders.length
-      ? orders.map(_orderCard).join('')
+      ? orders.map(o => _orderCard(o)).join('')
       : `<div class="text-sm text-muted" style="padding:var(--sp-2) 0">No active orders</div>`;
     const billBadge = t.bill_requested_at
       ? `<span class="badge badge-bill-requested" title="Bill requested ${_orderAge(t.bill_requested_at)}">Bill Requested</span>`
@@ -180,7 +188,7 @@ const KitchenView = (() => {
               <span class="kitchen-table-name">${o.fulfillment_type === 'delivery' ? 'Delivery' : 'Pickup'}</span>
               <span class="text-sm text-muted">${o.customer_name || ''}</span>
             </div>
-            <div class="kitchen-orders">${_orderCard(o)}</div>
+            <div class="kitchen-orders">${_orderCard(o, true)}</div>
           </div>`).join('')}` : '';
 
       grid.innerHTML = tables.map(_tableCard).join('') + queueSection;

@@ -10,7 +10,7 @@ Kravon is a **multi-tenant Restaurant Operating System** sold as SaaS to Indian 
 - **Deployment:** Backend on Railway, frontend on Vercel. Single backend process serves all tenants.
 - **Auth:** JWT (15 min) + SHA-256 hashed refresh tokens (30 day) in `tenant.staff_sessions`
 - **Scale:** Early production. Real tenants, real orders. One Node process, one Postgres instance.
-- **Maturity:** Core platform complete. Working on operational completeness and self-serve onboarding.
+- **Maturity:** Core platform complete. Operational completeness in progress. Self-serve onboarding is the main remaining market gap.
 - **Built by:** Solo founder (Nikhil). Pragmatic, fast, production-focused.
 
 ---
@@ -77,20 +77,21 @@ Feature gates are enforced in `server.js` via `requireFeature('has_tables')` bef
 
 ## 6. Current Priorities
 
-**P0 — In progress, unblock first:**
-- Kitchen order actions (confirm/ready from kitchen view)
-- Tables auto-refresh (live polling on dashboard)
-- Reservation ↔ Session linking
-- GST bill generation
+**P0 — Next to build:**
+- Kitchen order actions (confirm/ready from kitchen view) — **NEXT**
+- Tables auto-refresh (live polling on kitchen + tables views)
+- Settings cache bust (`PATCH /settings/restaurant` and `/notifications` don't call `bustConfigCache`)
 
 **P1 — Next:**
-- Founder Command Center (cross-tenant health dashboard)
-- Usage analytics per tenant
-- Tenant health monitoring
+- Self-serve onboarding (sign-up → restaurant creation → first config) — biggest market gap
+- Razorpay end-to-end validation
 
 **P2 — Backlog:**
-- Self-serve onboarding (sign-up → restaurant creation → first config)
+- Founder Command Center (cross-tenant health dashboard)
 - Billing ledger + plan upgrades
+
+**Not a priority (founder decision):**
+- Reservation ↔ Session linking
 
 **Do not introduce new modules unless explicitly requested.**
 
@@ -111,7 +112,8 @@ kravon-stack/
         routes/                   ← thin handlers, delegate to domain services
           config.js               ← GET /config (public) + bustConfigCache()
           orders.js               ← create + list + detail + status update
-          dine-in.js              ← QR ordering, kitchen, sessions, bill
+          dine-in.js              ← QR ordering, kitchen, sessions, bill, bill/render
+          settlement.js           ← settlement engine + invoice render
           leads.js                ← catering pipeline
           presence.js             ← brand/content editor
           insights.js             ← analytics dashboard
@@ -128,9 +130,10 @@ kravon-stack/
         presence/                 ← brand content editor
         tenancy/                  ← restaurant settings
       services/
-        notification.listeners.js ← events → in-app + WhatsApp
+        notification.listeners.js ← events → in-app + WhatsApp (generator discriminator comments)
         notification.service.js   ← writes to notifications.notifications
-        notify.service.js         ← WhatsApp / webhook dispatch
+        notify.service.js         ← unified dispatcher: WA / webhook / email (email wired, not yet called)
+        bill.renderer.js          ← renderSessionBill() + renderInvoiceSnapshot() → self-contained HTML
         outbox.poller.js          ← polls event_outbox every 5s
       db/
         pool.js                   ← query(), getClient()
@@ -171,6 +174,7 @@ Multi-schema PostgreSQL (v20). All queries scoped by `tenant_id`.
 | `catering.*` | leads, events |
 | `customer.*` | customers, data_requests |
 | `notifications.*` | notifications |
+| `billing.*` | settlements, settlement_lines, payments, invoices, settlement_revisions |
 | `platform.*` | event_outbox, schema_migrations, audit_log, export_jobs |
 
 **`orders.orders` critical columns:**
@@ -196,11 +200,19 @@ Multi-schema PostgreSQL (v20). All queries scoped by `tenant_id`.
 
 **Event outbox** — Enqueue into `platform.event_outbox` *inside the same transaction* as the domain write (`domains/ordering/outbox.js`). `outbox.poller.js` delivers with `SELECT FOR UPDATE SKIP LOCKED` every 5s. Durable — survives process restart.
 
-**Domain events** — `utils/events.js` (Node EventEmitter). `notification.listeners.js` maps events → in-app notifications + WhatsApp. Immediate, in-process. Outbox is the durable fallback for cross-process delivery.
+**Domain events** — `utils/events.js` (Node EventEmitter). `notification.listeners.js` maps events → channels via generator discriminator comments (`// Bell: ✅  WA: ✅ (owner)`). Outbox is the durable fallback for cross-process delivery.
+
+**Notification channels** — `notify.service.js` is the unified dispatcher. Each exported function documents its channel matrix. Email infra (`integrations/email.js` via Resend) is imported but not yet called from any listener — ready to wire.
 
 **Zod validation** — All write endpoints validate request body before touching the DB. Schema lives in the route file.
 
 **Response envelope** — `{ ok: true, ... }` on success. `{ error: string }` on failure. Never break this convention.
+
+**Paise invariant** — All monetary amounts stored and computed as integer paise. `calc.paise()`, `calc.toRupees()` in `domains/billing/calculator.js`. Never store floats.
+
+**Settlement engine** — `domains/billing/service.js`. Key invariants: `guardEditable()` blocks writes on finalized/voided; `_recalcAndSave()` recomputes totals from lines after every change; `ROLE_CAPS` map controls which staff roles can perform which billing actions; `paid_paise` floored at 0 (refunds cannot push it negative).
+
+**Bill rendering** — `services/bill.renderer.js`. Two functions: `renderSessionBill(bill, restaurant)` for dine-in/live bills; `renderInvoiceSnapshot(snapshot, invoiceNumber, generatedAt)` for finalized settlement invoices. Returns self-contained HTML with inline CSS, print-optimised at 320px (receipt width). No PDF library — browser handles print natively.
 
 ---
 
@@ -213,43 +225,43 @@ Multi-schema PostgreSQL (v20). All queries scoped by `tenant_id`.
 - Presence/brand editor: transactional, Zod-validated
 - Per-tenant rate limiting (orders: 30/min, auth: 10/min)
 - In-app notification system (bell feed)
-- WhatsApp + webhook dispatch
+- WhatsApp + webhook dispatch; email infra wired (Resend), not yet called
 - Customer CRM + DPDP governance
 - Insights / analytics dashboard
-- QR dine-in: sessions, kitchen view, bill request
+- QR dine-in: sessions, unified `/boot` endpoint, kitchen view with action buttons, bill request
+- Kitchen view: `tables[]` (dine-in by session) + `queue[]` (delivery/pickup); 10s auto-poll; action buttons (confirm → preparing → ready); bill_requested badge
 - Catering lead pipeline with scoring
+- Settlement engine: draft → open → finalized → voided; lines, discounts, comps, payments, audit trail, invoice generation
+- GST bill render: `GET /dine-in/bill/render?session_id=` and `GET /settlements/:id/invoice/:invoiceId/render` — printable HTML
+- Bill History view: expand-to-detail, Print Bill button
 - Operator dashboard: 12 views, vanilla JS SPA
 - Customer-facing frontends: presence, orders, tables, catering, review
+- Staff management: role-based, transactional role changes, audit logged
 
 ---
 
 ## 11. Known Gaps (Ranked)
 
-1. **Kitchen actions** — staff can view queue but cannot confirm/ready orders from kitchen UI
-2. **Tables auto-refresh** — dashboard table view requires manual refresh
-3. **Reservation ↔ Session** — no link between a reservation and the dining session it becomes
-4. **GST bill generation** — snapshot stored in metadata but no bill render endpoint
-5. **QR boot** — `GET /dine-in/session?table_id=` needs to return `{ status, session, orders }` in one call (currently 2 sequential calls)
-6. **Customers list** — missing `total_spend`, `order_count`, `last_order_at`
-7. **Kitchen `bill_requested`** — flag not surfaced in kitchen view
-8. **Settings cache bust** — `PATCH /settings/restaurant` and `/notifications` don't call `bustConfigCache`
-9. **`unique_customers` metric** — misleading label (sums daily new acquisitions, not DISTINCT count)
-10. **`/config` duplication** — `flatItems` + `categories` return same items twice; `is_customizable` + `customise` are identical booleans
-11. **Self-serve onboarding** — no sign-up flow or restaurant creation wizard
-12. **Billing** — no subscription management or plan upgrade flow
-13. **Razorpay** — zero real transactions verified end-to-end
+1. **Tables auto-refresh** — kitchen and table views poll at 10s but tables *dashboard* view has no live polling
+2. **Settings cache bust** — `PATCH /settings/restaurant` and `/notifications` don't call `bustConfigCache`
+3. **Self-serve onboarding** — no sign-up flow or restaurant creation wizard (biggest market gap)
+4. **Razorpay** — webhook handler implemented; no confirmed live end-to-end payment tested
+5. **Customers list** — missing `total_spend`, `order_count`, `last_order_at`
+6. **`unique_customers` metric** — misleading label (sums daily new acquisitions, not DISTINCT count)
+7. **`/config` duplication** — `flatItems` + `categories` return same items twice; `is_customizable` + `customise` are identical booleans
+8. **Billing** — no subscription management or plan upgrade flow
+9. **Email notifications** — Resend infra wired, no listener calls it yet (order receipt, reservation confirm, catering ack)
 
 ---
 
 ## 12. Known Operational Gaps
 
-These affect live restaurant workflows and influence many future decisions:
+These affect live restaurant workflows:
 
-- **Kitchen status updates** — orders confirmed/readied via dashboard only, not from kitchen screen
-- **Tables auto-refresh** — kitchen and table views require manual reload; no live polling
-- **Reservation → Session workflow** — reservations exist but don't automatically open a dining session
-- **Bill generation** — GST snapshot is stored in `orders.orders.metadata` but there is no `/bill` endpoint that renders it
-- **Razorpay production validation** — webhook handler is implemented; no confirmed live payment flow tested
+- **Tables dashboard auto-refresh** — kitchen auto-polls (10s), but the tables view in the dashboard requires manual reload
+- **Settings cache bust** — restaurant settings changes (hours, delivery fees, etc.) don't bust the 60s config cache immediately
+- **Razorpay production validation** — webhook handler implemented; no confirmed live payment flow tested end-to-end
+- **Email channel** — infra exists (`integrations/email.js`, Resend), imported in `notify.service.js`, but no listener calls it
 
 ---
 

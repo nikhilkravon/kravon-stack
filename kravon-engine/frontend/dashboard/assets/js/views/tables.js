@@ -244,8 +244,13 @@ const TablesView = (() => {
         if (!ok) return;
         btn.disabled = true;
         try {
-          await Api.rPost('/dine-in/session/close', { session_id: btn.dataset.sessionId });
+          const data = await Api.rPost('/dine-in/session/close', { session_id: btn.dataset.sessionId });
           DashUI.toast(`Session closed for ${btn.dataset.table}`, 'success');
+          if (data.settlement_id) {
+            history.pushState(null, '', `#settlement?id=${data.settlement_id}`);
+            App.navigate('settlement');
+            return;
+          }
           _load(el);
         } catch (err) {
           DashUI.toast('Could not close session. ' + err.message, 'error');

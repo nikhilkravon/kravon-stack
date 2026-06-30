@@ -20,6 +20,7 @@ const App = (() => {
     kitchen:        KitchenView,
     reservations:   ReservationsView,
     'bill-history': BillHistoryView,
+    invoices:       InvoicesView,
     // Customers & Sales
     customers:      CustomersView,
     catering:       CateringView,
@@ -41,6 +42,7 @@ const App = (() => {
     kitchen:        'Kitchen',
     reservations:   'Reservations',
     'bill-history': 'Bill History',
+    invoices:       'Invoices',
     customers:      'Customers',
     catering:       'Catering Leads',
     insights:       'Insights',

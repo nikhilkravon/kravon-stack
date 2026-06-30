@@ -30,6 +30,100 @@ async function findSettlementBySession(tenantId, sessionId) {
   return res.rows[0] || null;
 }
 
+async function findSettlementByOrder(tenantId, orderId) {
+  const res = await query(
+    `SELECT * FROM billing.settlements
+     WHERE order_id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL
+     ORDER BY created_at DESC LIMIT 1`,
+    [orderId, tenantId],
+  );
+  return res.rows[0] || null;
+}
+
+async function findSettlementByLead(tenantId, leadId) {
+  const res = await query(
+    `SELECT * FROM billing.settlements
+     WHERE lead_id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL
+     ORDER BY created_at DESC LIMIT 1`,
+    [leadId, tenantId],
+  );
+  return res.rows[0] || null;
+}
+
+async function listSettlements(tenantId, {
+  page = 1, limit = 50, status = null, source = null,
+  search = null, date_from = null, date_to = null,
+} = {}) {
+  const params  = [tenantId];
+  const filters = ['s.tenant_id = $1', 's.deleted_at IS NULL'];
+
+  if (status) {
+    params.push(status);
+    filters.push(`s.status = $${params.length}`);
+  }
+  if (source === 'dine_in') {
+    filters.push('s.session_id IS NOT NULL');
+  } else if (source === 'order') {
+    filters.push('s.order_id IS NOT NULL AND s.session_id IS NULL');
+  } else if (source === 'catering') {
+    filters.push('s.lead_id IS NOT NULL');
+  } else if (source === 'manual') {
+    filters.push('s.session_id IS NULL AND s.order_id IS NULL AND s.lead_id IS NULL');
+  }
+  if (date_from) {
+    params.push(date_from);
+    filters.push(`s.created_at >= $${params.length}`);
+  }
+  if (date_to) {
+    params.push(date_to);
+    filters.push(`s.created_at <= $${params.length}`);
+  }
+  if (search) {
+    params.push(`%${search}%`);
+    const p = params.length;
+    filters.push(`(s.notes ILIKE $${p} OR s.internal_ref ILIKE $${p})`);
+  }
+
+  const where  = `WHERE ${filters.join(' AND ')}`;
+  const offset = (page - 1) * limit;
+
+  const [listRes, countRes] = await Promise.all([
+    query(
+      `SELECT s.id, s.status, s.session_id, s.order_id, s.lead_id,
+              s.total_paise, s.paid_paise, s.notes, s.internal_ref,
+              s.created_at, s.finalized_at,
+              CASE
+                WHEN s.session_id IS NOT NULL THEN 'dine_in'
+                WHEN s.order_id   IS NOT NULL THEN 'order'
+                WHEN s.lead_id    IS NOT NULL THEN 'catering'
+                ELSE 'manual'
+              END AS source_type,
+              t.name AS table_name,
+              o.metadata->>'customer_name'  AS customer_name,
+              o.metadata->>'fulfillment_type' AS fulfillment_type,
+              l.contact_name AS lead_name
+       FROM billing.settlements s
+       LEFT JOIN dining.sessions  ss ON ss.id = s.session_id
+       LEFT JOIN dining.tables    t  ON t.id  = ss.table_id
+       LEFT JOIN orders.orders    o  ON o.id  = s.order_id
+       LEFT JOIN catering.leads   l  ON l.id  = s.lead_id
+       ${where}
+       ORDER BY s.created_at DESC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, offset],
+    ),
+    query(
+      `SELECT COUNT(*) AS total FROM billing.settlements s ${where}`,
+      params,
+    ),
+  ]);
+
+  return {
+    settlements: listRes.rows,
+    total: parseInt(countRes.rows[0].total, 10),
+  };
+}
+
 async function createSettlement(client, {
   tenantId, sessionId = null, orderId = null, leadId = null,
   notes = null, createdBy = null,
@@ -318,7 +412,8 @@ async function sumPayments(client, settlementId) {
 }
 
 module.exports = {
-  findSettlement, findSettlementBySession,
+  findSettlement, findSettlementBySession, findSettlementByOrder, findSettlementByLead,
+  listSettlements,
   createSettlement, updateSettlementTotals, updateSettlementStatus,
   updateSettlementNotes, updatePaidPaise,
   listLines, insertLine, updateLine, softDeleteLine,

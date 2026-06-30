@@ -114,15 +114,18 @@ const StaffView = (() => {
                 <label>Phone <span class="text-muted">(optional)</span></label>
                 <input name="phone" type="tel" value="${existing?.phone || ''}" maxlength="30">
               </div>
-              ${!isEdit ? `
               <div class="form-group">
                 <label>Role</label>
                 <select name="role">
-                  <option value="staff">Staff</option>
-                  <option value="manager">Manager</option>
-                  <option value="kitchen">Kitchen</option>
+                  <option value="staff"    ${existing?.roles?.[0] === 'staff'    ? 'selected' : ''}>Staff</option>
+                  <option value="manager"  ${existing?.roles?.[0] === 'manager'  ? 'selected' : ''}>Manager</option>
+                  <option value="kitchen"  ${existing?.roles?.[0] === 'kitchen'  ? 'selected' : ''}>Kitchen</option>
+                  <option value="cashier"  ${existing?.roles?.[0] === 'cashier'  ? 'selected' : ''}>Cashier</option>
+                  <option value="host"     ${existing?.roles?.[0] === 'host'     ? 'selected' : ''}>Host</option>
+                  <option value="catering" ${existing?.roles?.[0] === 'catering' ? 'selected' : ''}>Catering</option>
                 </select>
               </div>
+              ${!isEdit ? `
               <div class="form-group">
                 <label>Password</label>
                 <input name="password" type="password" required minlength="8" maxlength="200" placeholder="Min 8 characters">
@@ -159,12 +162,14 @@ const StaffView = (() => {
       const name     = fd.get('name')?.trim();
       const phone    = fd.get('phone')?.trim();
       const password = fd.get('password')?.trim();
+      const role     = fd.get('role');
       if (name)     body.name  = name;
       if (phone)    body.phone = phone;
       if (password) body.password = password;
+      // Only send role if it changed (avoids redundant DELETE+INSERT on every edit)
+      if (role && (!isEdit || role !== existing?.roles?.[0])) body.role = role;
       if (!isEdit) {
         body.email = fd.get('email')?.trim();
-        body.role  = fd.get('role');
       }
 
       try {

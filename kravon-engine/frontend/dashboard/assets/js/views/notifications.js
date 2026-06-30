@@ -129,7 +129,7 @@ const NotifBell = (() => {
     });
 
     loadUnreadCount();
-    setInterval(loadUnreadCount, 60_000);
+    setInterval(loadUnreadCount, 15_000);
   }
 
   return { init, loadUnreadCount };

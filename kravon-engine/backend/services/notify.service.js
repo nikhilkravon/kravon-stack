@@ -1,70 +1,63 @@
 /**
  * SERVICE — notify.service.js
- * Dispatches WhatsApp notifications and outbound webhooks after order/lead events.
+ * Unified outbound channel dispatcher: WhatsApp, Email, Webhook.
  *
- * Called from:
- *   - services/order.service.js  (offline/COD immediate path)
- *   - api/routes/webhooks.js     (Razorpay payment.captured path)
- *   - services/lead.service.js   (catering lead creation)
+ * Each exported function maps one business event to its channel matrix.
+ * Channels are declared per-function — add a channel here, not in listeners.
  *
- * All dispatches are async — a notification failure NEVER crashes the order flow.
+ * Channel matrix:
+ *   orderConfirmed      — WA (kitchen + customer), Webhook
+ *   leadReceived        — WA (owner), Webhook
+ *   reservationCreated  — WA (owner)
+ *   billRequested       — WA (owner)
+ *   reviewRequest       — WA (customer)
  *
- * Architecture:
- * - This service owns message formatting (surface-aware: Tables vs Orders).
- * - It calls integrations/whatsapp.js and integrations/webhook.js.
- * - It never calls external APIs directly.
- *
- * V10 changes from V9:
- *   - Uses req.tenant shape (rest_id instead of id)
- *   - Outbound webhook moved to integrations/webhook.js (isolated module)
- *   - leadReceived now also fires outbound webhook
+ * All dispatches are fire-and-forget. A channel failure NEVER crashes the
+ * business flow. Failures are logged with structured JSON.
  */
 
 'use strict';
 
-const whatsapp      = require('../integrations/whatsapp');
-const webhookBus    = require('../integrations/webhook');
-const { query }     = require('../db/pool');
+const whatsapp   = require('../integrations/whatsapp');
+const email      = require('../integrations/email');
+const webhookBus = require('../integrations/webhook');
+const { query }  = require('../db/pool');
 
-const FRONTEND_URL  = (process.env.KRAVON_FRONTEND_URL || 'https://kravon.in').replace(/\/$/, '');
+const FRONTEND_URL = (process.env.KRAVON_FRONTEND_URL || 'https://kravon.in').replace(/\/$/, '');
 
-/* ── Helpers ──────────────────────────────────────────────────────────────── */
+/* ── Internal helpers ─────────────────────────────────────────────────────── */
 
-function formatItems(itemsJson) {
-  let items;
+function _log(event, extra = {}) {
+  console.error(JSON.stringify({ level: 'error', event, ...extra }));
+}
+
+function _formatItems(itemsJson) {
   try {
-    items = typeof itemsJson === 'string' ? JSON.parse(itemsJson) : itemsJson;
+    const items = typeof itemsJson === 'string' ? JSON.parse(itemsJson) : itemsJson;
+    return items.map(i => `${i.qty}× ${i.name} — ₹${i.price * i.qty}`).join('\n');
   } catch {
     return '(item details unavailable)';
   }
-  return items.map(i => `${i.qty}× ${i.name} — ₹${i.price * i.qty}`).join('\n');
 }
 
 /* ── orderConfirmed ───────────────────────────────────────────────────────── */
 /**
- * Fires after order confirmation (Razorpay capture OR offline/COD).
+ * Channels: WA (kitchen), WA (customer — delivery only), Webhook
  *
- * Sends:
- *   1. Kitchen WhatsApp (always, when wa_number configured)
- *   2. Customer WhatsApp (delivery orders only — Tables customers are present)
- *   3. Outbound webhook to tenant.webhook_url (always fires per spec)
- *
- * @param {object} tenant - req.tenant shape ({ rest_id, wa_number, webhook_url, ... })
- * @param {object} order  - confirmed order row from DB
+ * @param {object} tenant - { tenant_id, slug, name, wa_number, webhook_url }
+ * @param {object} order  - order row with flattened metadata fields
  */
 async function orderConfirmed(tenant, order) {
   const orderId   = `ORD-${order.id}`;
   const surface   = order.order_surface;
   const table     = order.table_identifier;
-  const itemLines = formatItems(order.items_json);
-  // DB stores rupees (NUMERIC). Use total field directly — no paise conversion.
+  const itemLines = _formatItems(order.items_json);
   const totalRs   = Math.round(order.total ?? order.total_amount ?? 0);
   const payment   = (order.payment_method || '').toUpperCase();
 
-  /* ── 1. Kitchen WhatsApp ─────────────────────────────────────────────── */
+  /* WA — kitchen */
   if (tenant.wa_number) {
     let kitchenMsg;
-
     if (surface === 'tables') {
       const isDineIn = table && table !== 'takeaway';
       if (isDineIn) {
@@ -90,7 +83,6 @@ async function orderConfirmed(tenant, order) {
         ].join('\n');
       }
     } else {
-      // Delivery order
       kitchenMsg = [
         `📦 *New Delivery Order*`,
         `*Customer:* ${order.customer_name} · ${order.customer_phone}`,
@@ -107,13 +99,11 @@ async function orderConfirmed(tenant, order) {
     }
 
     await whatsapp.sendOrderNotification(tenant.wa_number, kitchenMsg).catch(err =>
-      console.error(JSON.stringify({ level: 'error', event: 'notify.kitchen_wa_failed',
-        tenantId: tenant.tenant_id, orderId: order.id, message: err.message }))
+      _log('notify.kitchen_wa_failed', { tenantId: tenant.tenant_id, orderId: order.id, message: err.message })
     );
   }
 
-  /* ── 2. Customer WhatsApp (delivery only) ────────────────────────────── */
-  // Tables customers are physically present — no confirmation WA needed.
+  /* WA — customer (delivery only; dine-in guests are present) */
   if (surface === 'orders' && order.customer_phone) {
     const customerMsg = [
       `✅ *Order Confirmed — ${orderId}*`,
@@ -125,29 +115,23 @@ async function orderConfirmed(tenant, order) {
     ].join('\n');
 
     await whatsapp.sendOrderNotification(order.customer_phone, customerMsg).catch(err =>
-      console.error(JSON.stringify({ level: 'error', event: 'notify.customer_wa_failed',
-        tenantId: tenant.tenant_id, orderId: order.id, message: err.message }))
+      _log('notify.customer_wa_failed', { tenantId: tenant.tenant_id, orderId: order.id, message: err.message })
     );
   }
 
-  /* ── 3. Outbound webhook ─────────────────────────────────────────────── */
-  // Fire-and-forget via webhook.js. Even if webhook_url is null, the call is safe.
+  /* Webhook */
   webhookBus.orderConfirmed(tenant, order.id);
 }
 
 /* ── leadReceived ─────────────────────────────────────────────────────────── */
 /**
- * Fires after a catering lead is saved.
+ * Channels: WA (owner), Webhook
  *
- * Sends:
- *   1. WhatsApp to restaurant owner
- *   2. Outbound webhook to tenant.webhook_url
- *
- * @param {object} tenant - req.tenant shape
- * @param {object} lead   - { ref, tier, score, name, company, phone, email, ... }
+ * @param {object} tenant - { tenant_id, wa_number, webhook_url }
+ * @param {object} lead   - { id, ref, tier, score, name, company, phone, email, event_type, headcount, budget }
  */
 async function leadReceived(tenant, lead) {
-  /* ── 1. Owner WhatsApp ───────────────────────────────────────────────── */
+  /* WA — owner */
   if (tenant.wa_number) {
     const tierEmoji = { hot: '🔥', warm: '◎', cool: '○' }[lead.tier] || '';
     const msg = [
@@ -166,38 +150,84 @@ async function leadReceived(tenant, lead) {
     ].filter(Boolean).join('\n');
 
     await whatsapp.sendLeadNotification(tenant.wa_number, msg).catch(err =>
-      console.error(JSON.stringify({ level: 'error', event: 'notify.lead_wa_failed',
-        tenantId: tenant.tenant_id, leadId: lead.id, message: err.message }))
+      _log('notify.lead_wa_failed', { tenantId: tenant.tenant_id, leadId: lead.id, message: err.message })
     );
   }
 
-  /* ── 2. Outbound webhook ─────────────────────────────────────────────── */
+  /* Webhook */
   webhookBus.leadCreated(tenant, lead.id);
+}
+
+/* ── reservationCreated ───────────────────────────────────────────────────── */
+/**
+ * Channels: WA (owner)
+ *
+ * @param {object} tenant      - { tenant_id, name, wa_number }
+ * @param {object} reservation - { id, contact_name, party_size, reservation_time, notes }
+ */
+async function reservationCreated(tenant, reservation) {
+  if (!tenant.wa_number) return;
+
+  const dt = new Date(reservation.reservation_time).toLocaleString('en-IN', {
+    weekday: 'short', day: 'numeric', month: 'short',
+    hour: '2-digit', minute: '2-digit', hour12: true,
+    timeZone: 'Asia/Kolkata',
+  });
+
+  const msg = [
+    `📅 *New Reservation — ${tenant.name}*`,
+    ``,
+    `*Guest:* ${reservation.contact_name}`,
+    `*Party:* ${reservation.party_size} guest${reservation.party_size !== 1 ? 's' : ''}`,
+    `*Time:* ${dt}`,
+    reservation.notes ? `*Notes:* ${reservation.notes}` : null,
+  ].filter(Boolean).join('\n');
+
+  await whatsapp.send(tenant.wa_number, msg).catch(err =>
+    _log('notify.reservation_wa_failed', { tenantId: tenant.tenant_id, reservationId: reservation.id, message: err.message })
+  );
+}
+
+/* ── billRequested ────────────────────────────────────────────────────────── */
+/**
+ * Channels: WA (owner)
+ *
+ * Called from dine_in.bill_requested listener after table name is resolved.
+ *
+ * @param {object} tenant    - { tenant_id, wa_number }
+ * @param {string} tableName - resolved table name e.g. "Table T4"
+ * @param {string} sessionId
+ */
+async function billRequested(tenant, tableName, sessionId) {
+  if (!tenant.wa_number) return;
+
+  const msg = [
+    `🧾 *Bill Requested — ${tableName}*`,
+    ``,
+    `Guests are ready to pay.`,
+    `Please bring the bill to ${tableName}.`,
+  ].join('\n');
+
+  await whatsapp.send(tenant.wa_number, msg).catch(err =>
+    _log('notify.bill_wa_failed', { tenantId: tenant.tenant_id, sessionId, message: err.message })
+  );
 }
 
 /* ── reviewRequest ────────────────────────────────────────────────────────── */
 /**
- * Sends a WhatsApp review request to a customer after a completed experience.
+ * Channels: WA (customer)
  *
- * Called from notification.listeners.js when:
- *   - reservation.status_updated → status === 'completed'
- *   - lead.status_updated        → status === 'converted'
- *
- * Looks up:
- *   - tenant slug (to build the review URL)
- *   - customer phone (from reservation or lead row)
- *   - restaurant WhatsApp number (to send from)
+ * Looks up tenant slug + customer phone from the relevant entity.
  *
  * @param {object} opts
  * @param {string} opts.tenantId
  * @param {'reservation'|'catering'} opts.source
- * @param {string} opts.entityId  — reservationId or leadId
+ * @param {string} opts.entityId
  */
 async function reviewRequest({ tenantId, source, entityId }) {
   try {
-    // Load tenant slug and wa_number
     const tenantRes = await query(
-      `SELECT r.slug, cl.url AS wa_url
+      `SELECT r.slug, r.name, cl.url AS wa_url
        FROM tenant.restaurants r
        LEFT JOIN brand.contact_links cl
               ON cl.tenant_id = r.id AND cl.platform = 'whatsapp' AND cl.deleted_at IS NULL
@@ -206,44 +236,32 @@ async function reviewRequest({ tenantId, source, entityId }) {
     );
     if (!tenantRes.rows.length) return;
 
-    const { slug, wa_url } = tenantRes.rows[0];
-
-    // Extract wa_number from the WhatsApp contact link URL (https://wa.me/91XXXXXXXXXX)
+    const { slug, name: restaurantName, wa_url } = tenantRes.rows[0];
     const waNumber = wa_url ? wa_url.replace('https://wa.me/', '') : null;
-    if (!waNumber) return; // no WhatsApp configured — nothing to send
+    if (!waNumber) return;
 
-    // Load customer phone from the relevant entity
     let customerPhone = null;
-    let restaurantName = slug;
 
     if (source === 'reservation') {
       const res = await query(
-        `SELECT c.phone, r.name AS restaurant_name
+        `SELECT c.phone
          FROM dining.reservations rv
          LEFT JOIN customer.customers c ON c.id = rv.customer_id
-         JOIN tenant.restaurants r ON r.id = rv.tenant_id
          WHERE rv.id = $1 AND rv.tenant_id = $2 LIMIT 1`,
         [entityId, tenantId]
       );
-      if (!res.rows.length) return;
-      customerPhone  = res.rows[0].phone;
-      restaurantName = res.rows[0].restaurant_name;
+      customerPhone = res.rows[0]?.phone || null;
     } else if (source === 'catering') {
       const res = await query(
-        `SELECT l.contact_phone, r.name AS restaurant_name
-         FROM catering.leads l
-         JOIN tenant.restaurants r ON r.id = l.tenant_id
-         WHERE l.id = $1 AND l.tenant_id = $2 LIMIT 1`,
+        `SELECT contact_phone AS phone FROM catering.leads
+         WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
         [entityId, tenantId]
       );
-      if (!res.rows.length) return;
-      customerPhone  = res.rows[0].contact_phone;
-      restaurantName = res.rows[0].restaurant_name;
+      customerPhone = res.rows[0]?.phone || null;
     }
 
     if (!customerPhone) return;
 
-    // Build review link
     const reviewUrl = `${FRONTEND_URL}/${slug}/review/?slug=${slug}&source=${source}&${source === 'reservation' ? 'reservation' : 'lead'}=${entityId}`;
 
     const msg = [
@@ -256,14 +274,11 @@ async function reviewRequest({ tenantId, source, entityId }) {
     ].join('\n');
 
     await whatsapp.sendOrderNotification(customerPhone, msg).catch(err =>
-      console.error(JSON.stringify({ level: 'error', event: 'notify.review_request_failed',
-        tenantId, source, entityId, message: err.message }))
+      _log('notify.review_request_failed', { tenantId, source, entityId, message: err.message })
     );
-
   } catch (err) {
-    console.error(JSON.stringify({ level: 'error', event: 'notify.review_request_error',
-      tenantId, source, entityId, message: err.message }));
+    _log('notify.review_request_error', { tenantId, source, entityId, message: err.message });
   }
 }
 
-module.exports = { orderConfirmed, leadReceived, reviewRequest };
+module.exports = { orderConfirmed, leadReceived, reservationCreated, billRequested, reviewRequest };

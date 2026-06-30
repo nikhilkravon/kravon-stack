@@ -4,6 +4,8 @@ const express  = require('express');
 const { z }    = require('zod');
 const identityService = require('../../domains/identity/service');
 const { requireRestaurantAuth, requireRole } = require('../middleware/auth');
+const { query, getClient } = require('../../db/pool');
+const audit = require('../../utils/audit');
 
 const router = express.Router();
 router.use(requireRestaurantAuth);
@@ -16,11 +18,14 @@ const CreateStaffSchema = z.object({
   role:     z.enum(['manager', 'staff', 'kitchen']).default('staff'),
 });
 
+const STAFF_ROLES = ['staff', 'manager', 'kitchen', 'cashier', 'host', 'catering'];
+
 const UpdateStaffSchema = z.object({
   name:      z.string().min(1).max(120).optional(),
   phone:     z.string().max(30).optional(),
   is_active: z.boolean().optional(),
   password:  z.string().min(8).max(200).optional(),
+  role:      z.enum(STAFF_ROLES).optional(),
 });
 
 router.get('/', requireRole('owner', 'manager'), async (req, res, next) => {
@@ -53,7 +58,48 @@ router.patch('/:id', requireRole('owner'), async (req, res, next) => {
       return res.status(400).json({ error: 'You cannot deactivate your own account.' });
     }
 
-    const staff = await identityService.updateStaff(req.tenant.tenant_id, req.params.id, parsed.data, req.auth?.staffId, req);
+    const { role, ...staffData } = parsed.data;
+    const tenantId = req.tenant.tenant_id;
+    const staffId  = req.params.id;
+
+    if (role) {
+      const roleRow = await query(
+        `SELECT id FROM tenant.roles WHERE tenant_id = $1 AND name = $2 AND deleted_at IS NULL LIMIT 1`,
+        [tenantId, role]
+      );
+      if (!roleRow.rows.length) {
+        return res.status(400).json({ error: `Role '${role}' not found for this restaurant.` });
+      }
+      const roleId = roleRow.rows[0].id;
+      const roleClient = await getClient();
+      try {
+        await roleClient.query('BEGIN');
+        await roleClient.query(
+          `DELETE FROM tenant.staff_roles WHERE staff_id = $1 AND tenant_id = $2`,
+          [staffId, tenantId]
+        );
+        await roleClient.query(
+          `INSERT INTO tenant.staff_roles (tenant_id, staff_id, role_id, assigned_by) VALUES ($1, $2, $3, $4)`,
+          [tenantId, staffId, roleId, req.auth?.staffId ?? null]
+        );
+        await audit.log(roleClient, {
+          tenantId, actorId: req.auth?.staffId ?? null, actorType: 'staff',
+          action: 'staff.role_changed', entityType: 'tenant.staff', entityId: staffId,
+          newValue: { role },
+        });
+        await roleClient.query('COMMIT');
+      } catch (roleErr) {
+        await roleClient.query('ROLLBACK');
+        throw roleErr;
+      } finally {
+        roleClient.release();
+      }
+    }
+
+    const staff = Object.keys(staffData).length
+      ? await identityService.updateStaff(tenantId, staffId, staffData, req.auth?.staffId, req)
+      : await query(`SELECT id, name, email, phone, is_active, updated_at FROM tenant.staff WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL LIMIT 1`, [staffId, tenantId]).then(r => r.rows[0] || null);
+
     if (!staff) return res.status(404).json({ error: 'Staff member not found' });
     res.json({ ok: true, staff });
   } catch (err) { next(err); }

@@ -47,7 +47,11 @@ const ReservationsView = (() => {
 
   function _buildUrl(tab, page) {
     const params = new URLSearchParams({ page, limit: 25 });
-    if (tab !== 'all') params.set('status', tab);
+    if (tab === 'upcoming') {
+      params.set('upcoming_only', 'true');
+    } else if (tab !== 'all') {
+      params.set('status', tab);
+    }
     return `/dine-in/reservations?${params}`;
   }
 

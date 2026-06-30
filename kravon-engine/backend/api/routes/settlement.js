@@ -34,6 +34,7 @@ const { z }   = require('zod');
 const svc = require('../../domains/billing/service');
 const { requireRestaurantAuth } = require('../middleware/auth');
 const repo = require('../../domains/billing/repository');
+const { query } = require('../../db/pool');
 
 const router = express.Router();
 router.use(requireRestaurantAuth);
@@ -55,6 +56,62 @@ function sendResult(res, result, successStatus = 200) {
   res.status(successStatus).json({ ok: true, ...result });
 }
 
+/* ── GET / — invoice list ────────────────────────────────────────────────── */
+router.get('/', async (req, res, next) => {
+  try {
+    const page       = Math.max(1, parseInt(req.query.page, 10)  || 1);
+    const limit      = Math.min(100, parseInt(req.query.limit, 10) || 50);
+    const status     = ['draft','open','finalized','voided'].includes(req.query.status) ? req.query.status : null;
+    const source     = ['dine_in','order','catering','manual'].includes(req.query.source) ? req.query.source : null;
+    const search     = typeof req.query.search === 'string' ? req.query.search.trim().slice(0, 100) : null;
+    const date_from  = req.query.date_from || null;
+    const date_to    = req.query.date_to   ? req.query.date_to + 'T23:59:59Z' : null;
+    const result = await svc.listSettlements(req.tenant.tenant_id, {
+      page, limit, status, source, search, date_from, date_to,
+    });
+    res.json({ ok: true, ...result });
+  } catch (err) { next(err); }
+});
+
+/* ── POST /from-order ────────────────────────────────────────────────────── */
+const FromOrderSchema = z.object({ order_id: z.string().uuid() });
+
+router.post('/from-order', async (req, res, next) => {
+  const parsed = FromOrderSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
+  try {
+    const result = await svc.createFromOrder(req.tenant, parsed.data.order_id, _staff(req));
+    sendResult(res, result, 201);
+  } catch (err) { next(err); }
+});
+
+/* ── POST /from-catering ─────────────────────────────────────────────────── */
+const FromCateringSchema = z.object({ lead_id: z.string().uuid() });
+
+router.post('/from-catering', async (req, res, next) => {
+  const parsed = FromCateringSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
+  try {
+    const result = await svc.createFromCatering(req.tenant, parsed.data.lead_id, _staff(req));
+    sendResult(res, result, 201);
+  } catch (err) { next(err); }
+});
+
+/* ── POST /manual ────────────────────────────────────────────────────────── */
+const ManualSchema = z.object({
+  notes:        z.string().max(500).optional().default(''),
+  internal_ref: z.string().max(100).optional(),
+});
+
+router.post('/manual', async (req, res, next) => {
+  const parsed = ManualSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
+  try {
+    const result = await svc.createManual(req.tenant, parsed.data, _staff(req));
+    sendResult(res, result, 201);
+  } catch (err) { next(err); }
+});
+
 /* ── POST /from-session ─────────────────────────────────────────────────── */
 const FromSessionSchema = z.object({ session_id: z.string().uuid() });
 
@@ -74,6 +131,72 @@ router.get('/by-session/:sessionId', async (req, res, next) => {
   try {
     const result = await svc.getSettlementBySession(req.tenant.tenant_id, sessionId);
     sendResult(res, result);
+  } catch (err) { next(err); }
+});
+
+/* ── GET /eod-report ─────────────────────────────────────────────────────── */
+router.get('/eod-report', async (req, res, next) => {
+  try {
+    const date     = req.query.date || new Date().toISOString().slice(0, 10);
+    const tenantId = req.tenant.tenant_id;
+
+    const [methodRows, summaryRow, discountRow] = await Promise.all([
+      query(
+        `SELECT sp.method,
+                COUNT(sp.id)::int        AS payment_count,
+                SUM(sp.amount_paise)::bigint AS total_paise
+         FROM billing.payments sp
+         JOIN billing.settlements s ON s.id = sp.settlement_id
+         WHERE s.tenant_id = $1
+           AND s.status = 'finalized'
+           AND s.finalized_at::date = $2::date
+           AND s.deleted_at IS NULL
+           AND sp.deleted_at IS NULL
+         GROUP BY sp.method
+         ORDER BY total_paise DESC`,
+        [tenantId, date],
+      ),
+      query(
+        `SELECT COUNT(id)::int                       AS settlements_count,
+                COALESCE(SUM(total_paise),0)::bigint AS total_revenue_paise
+         FROM billing.settlements
+         WHERE tenant_id = $1
+           AND status = 'finalized'
+           AND finalized_at::date = $2::date
+           AND deleted_at IS NULL`,
+        [tenantId, date],
+      ),
+      query(
+        `SELECT COALESCE(SUM(ABS(sl.amount_paise)),0)::bigint AS total_discount_paise,
+                COALESCE(SUM(CASE WHEN sl.is_comp THEN ABS(sl.amount_paise) ELSE 0 END),0)::bigint AS total_comp_paise
+         FROM billing.settlement_lines sl
+         JOIN billing.settlements s ON s.id = sl.settlement_id
+         WHERE s.tenant_id = $1
+           AND s.status = 'finalized'
+           AND s.finalized_at::date = $2::date
+           AND s.deleted_at IS NULL
+           AND sl.deleted_at IS NULL
+           AND (sl.line_type = 'DISCOUNT' OR sl.is_comp = true)`,
+        [tenantId, date],
+      ),
+    ]);
+
+    const { settlements_count, total_revenue_paise } = summaryRow.rows[0];
+    const { total_discount_paise, total_comp_paise }  = discountRow.rows[0];
+
+    res.json({
+      ok: true,
+      date,
+      settlements_count,
+      total_revenue_paise:  Number(total_revenue_paise),
+      total_discount_paise: Number(total_discount_paise),
+      total_comp_paise:     Number(total_comp_paise),
+      by_method: methodRows.rows.map(r => ({
+        method:        r.method,
+        payment_count: r.payment_count,
+        total_paise:   Number(r.total_paise),
+      })),
+    });
   } catch (err) { next(err); }
 });
 
@@ -196,10 +319,14 @@ router.post('/:id/void', async (req, res, next) => {
 /* ── POST /:id/payments ──────────────────────────────────────────────────── */
 const PaymentSchema = z.object({
   method:       z.enum(PAYMENT_METHODS),
-  amount_paise: z.number().int().positive(),
+  amount_paise: z.number().int().refine(n => n !== 0, 'Amount cannot be zero'),
+  is_refund:    z.boolean().default(false),
   reference:    z.string().max(255).optional(),
   notes:        z.string().max(500).optional(),
-});
+}).refine(
+  d => d.is_refund ? d.amount_paise < 0 : d.amount_paise > 0,
+  { message: 'Refunds must have a negative amount; payments must have a positive amount.' }
+);
 
 router.post('/:id/payments', async (req, res, next) => {
   const parsed = PaymentSchema.safeParse(req.body);
@@ -215,6 +342,39 @@ router.post('/:id/invoice', async (req, res, next) => {
   try {
     const result = await svc.generateInvoice(req.tenant, req.params.id, _staff(req), _roles(req));
     sendResult(res, result, 201);
+  } catch (err) { next(err); }
+});
+
+/* ── GET /:id/invoice/:invoiceId/render — printable GST invoice ─────────── */
+router.get('/:id/invoice/:invoiceId/render', async (req, res, next) => {
+  try {
+    const renderer = require('../../services/bill.renderer');
+
+    const [inv, restaurantRes] = await Promise.all([
+      repo.getInvoice(req.tenant.tenant_id, req.params.invoiceId),
+      query(
+        `SELECT r.name, r.settings, l.address, l.city, l.phone
+         FROM tenant.restaurants r
+         LEFT JOIN tenant.locations l ON l.tenant_id = r.id AND l.is_active = TRUE
+         WHERE r.id = $1 LIMIT 1`,
+        [req.tenant.tenant_id]
+      ),
+    ]);
+
+    if (!inv) return res.status(404).json({ error: 'Invoice not found.' });
+    if (inv.settlement_id !== req.params.id) return res.status(404).json({ error: 'Invoice not found.' });
+
+    // Merge restaurant location into the snapshot for the renderer
+    const row = restaurantRes.rows[0] || {};
+    const snapshot = {
+      ...inv.snapshot,
+      restaurant_name: inv.snapshot?.restaurant_name || row.name,
+      gstin: inv.snapshot?.gstin || row.settings?.gst?.gstin || null,
+    };
+
+    const html = renderer.renderInvoiceSnapshot(snapshot, inv.invoice_number, inv.generated_at);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
   } catch (err) { next(err); }
 });
 

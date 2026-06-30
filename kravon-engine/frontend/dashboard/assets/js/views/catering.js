@@ -81,6 +81,11 @@ const CateringView = (() => {
         data-id="${lead.id}" data-status="${next}">${ADVANCE_LABELS[next] || next}</button>`);
     }
 
+    if (lead.status === 'confirmed') {
+      btns.push(`<button class="btn btn-secondary btn-sm lead-create-settlement"
+        data-id="${lead.id}">Create Settlement →</button>`);
+    }
+
     if (lead.status !== 'confirmed' && lead.status !== 'lost') {
       btns.push(`<button class="btn btn-danger btn-sm lead-advance"
         data-id="${lead.id}" data-status="lost">Reject</button>`);
@@ -191,6 +196,28 @@ const CateringView = (() => {
           } catch (err) {
             DashUI.toast('Could not update lead status. Please try again.', 'error');
             btn.disabled = false;
+          }
+        });
+      });
+
+      // Create settlement from confirmed lead
+      el.querySelectorAll('.lead-create-settlement').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          btn.disabled = true; btn.textContent = 'Creating…';
+          try {
+            const data = await Api.rPost('/settlements/from-catering', { lead_id: btn.dataset.id });
+            const sid  = data.settlement?.id || data.settlement_id;
+            if (sid && typeof sid === 'string' && sid.length > 0) {
+              history.pushState(null, '', `#settlement?id=${sid}`);
+              App.navigate('settlement');
+            } else {
+              DashUI.toast('Settlement created.', 'success');
+              _load(el);
+            }
+          } catch (err) {
+            DashUI.toast('Could not create settlement: ' + err.message, 'error');
+            btn.disabled = false; btn.textContent = 'Create Settlement →';
           }
         });
       });
