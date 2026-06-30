@@ -47,10 +47,10 @@ async function insertOrder(client, {
       subtotal_amount, delivery_charge, tax_amount, discount_amount,
       tip_amount, packaging_charge, total_amount,
       special_instructions, metadata, idempotency_key
-    ) VALUES ($1,$2,$3,'web',$4,$5,$6,$7,$8,0,0,0,$9,$10,$11,$12)
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,0,0,0,$10,$11,$12,$13)
     RETURNING id
   `, [
-    tenantId, customerId, sessionId || null, fulfillmentType,
+    tenantId, customerId, sessionId || null, channel, fulfillmentType,
     orderStatus, subtotal, deliveryFee, taxAmount, total,
     specialNotes || null, JSON.stringify(metadata), idempotencyKey || null,
   ]);
@@ -122,15 +122,24 @@ async function updateStatus(tenantId, orderId, status) {
 }
 
 async function confirmByRazorpayOrderId(client, razorpayOrderId, razorpayPaymentId) {
+  // Fetch first to get tenant_id, then update scoped to that tenant (prevents cross-tenant mutation)
+  const findRes = await client.query(
+    `SELECT id, tenant_id FROM orders.orders
+     WHERE metadata->>'razorpay_order_id' = $1 AND status = 'pending' AND deleted_at IS NULL
+     LIMIT 1 FOR UPDATE`,
+    [razorpayOrderId]
+  );
+  if (!findRes.rows.length) return null;
+
+  const { id: orderId, tenant_id: tenantId } = findRes.rows[0];
   const res = await client.query(
     `UPDATE orders.orders
      SET status     = 'confirmed',
          metadata   = metadata || $1,
          updated_at = NOW()
-     WHERE metadata->>'razorpay_order_id' = $2
-       AND status = 'pending'
+     WHERE id = $2 AND tenant_id = $3 AND status = 'pending'
      RETURNING *`,
-    [JSON.stringify({ razorpay_payment_id: razorpayPaymentId }), razorpayOrderId]
+    [JSON.stringify({ razorpay_payment_id: razorpayPaymentId }), orderId, tenantId]
   );
   return res.rows[0] || null;
 }

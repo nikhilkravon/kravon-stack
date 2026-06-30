@@ -449,10 +449,18 @@ async function getSettlement(tenantId, settlementId) {
   return { settlement: _fmtSettlement(s), lines: lines.map(_fmtLine), payments: payments.map(_fmtPayment) };
 }
 
-async function getSettlementBySession(tenantId, sessionId) {
+async function getSettlementBySession(tenantId, sessionId, tenant = null) {
   const s = await repo.findSettlementBySession(tenantId, sessionId);
-  if (!s) return { error: 'No settlement found for this session.', status: 404 };
-  return getSettlement(tenantId, s.id);
+  if (s) return getSettlement(tenantId, s.id);
+
+  // Compensating flow: session was closed but settlement creation failed (crash between
+  // COMMIT and the post-COMMIT createFromSession call in closeSession). Auto-create now.
+  if (tenant) {
+    const created = await createFromSession(tenant, sessionId, null);
+    if (created.settlement) return getSettlement(tenantId, created.settlement.id);
+  }
+
+  return { error: 'No settlement found for this session.', status: 404 };
 }
 
 // ── Add line ──────────────────────────────────────────────────────────────────
@@ -689,7 +697,7 @@ async function recordPayment(tenant, settlementId, paymentData, staffId, staffRo
     // Update paid_paise denorm — floor at 0 so refunds cannot push it negative
     const rawPaid   = await repo.sumPayments(client, settlementId);
     const totalPaid = Math.max(0, rawPaid);
-    await repo.updatePaidPaise(client, settlementId, totalPaid);
+    await repo.updatePaidPaise(client, settlementId, tenantId, totalPaid);
 
     await repo.insertRevision(client, tenantId, settlementId, {
       actorId: staffId, changeType: 'payment_recorded',
@@ -721,48 +729,51 @@ async function generateInvoice(tenant, settlementId, staffId, staffRoles) {
   const tenantId = tenant.tenant_id;
   if (!hasCap(staffRoles, CAP.GENERATE_INVOICE)) return { error: 'Insufficient permissions to generate invoice.', status: 403 };
 
-  const settlement = await repo.findSettlement(null, tenantId, settlementId);
-  if (!settlement) return { error: 'Settlement not found.', status: 404 };
-  if (settlement.status !== 'finalized') return { error: 'Settlement must be finalized before generating an invoice.', status: 422 };
-
-  const [lines, payments, restaurantRes] = await Promise.all([
-    repo.listLines(null, tenantId, settlementId),
-    repo.listPayments(tenantId, settlementId),
-    query(`SELECT name, settings FROM tenant.restaurants WHERE id = $1 LIMIT 1`, [tenantId]),
-  ]);
-
-  const restaurant = restaurantRes.rows[0] || {};
-  const gst = settlement.gst_snapshot;
-  const totals = calc.calculate(lines);
-
-  const snapshot = {
-    settlement_id:   settlementId,
-    restaurant_name: restaurant.name,
-    gstin:           gst?.gstin || restaurant.settings?.gst?.gstin || null,
-    lines:           lines.map(_fmtLine),
-    payments:        payments.map(_fmtPayment),
-    gst_snapshot:    gst,
-    subtotal_paise:  totals.subtotal_paise,
-    discount_paise:  totals.discount_paise,
-    tax_paise:       totals.tax_paise,
-    tip_paise:       totals.tip_paise,
-    round_off_paise: totals.round_off_paise,
-    total_paise:     totals.total_paise,
-    paid_paise:      settlement.paid_paise,
-    generated_at:    new Date().toISOString(),
-  };
-
   const client = await getClient();
   try {
     await client.query('BEGIN');
-    // Read version inside the transaction so concurrent requests don't both compute version=1
-    const existingVersions = await client.query(
-      `SELECT id FROM billing.invoices WHERE settlement_id = $1 AND tenant_id = $2 FOR UPDATE`,
+
+    // Lock settlement + read all snapshot data inside the transaction so a concurrent
+    // payment cannot slip in between the reads and the invoice write.
+    const settlementRes = await client.query(
+      `SELECT * FROM billing.settlements WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL FOR UPDATE`,
       [settlementId, tenantId],
     );
-    const version     = existingVersions.rows.length + 1;
+    if (!settlementRes.rows.length) { await client.query('ROLLBACK'); return { error: 'Settlement not found.', status: 404 }; }
+    const settlement = settlementRes.rows[0];
+    if (settlement.status !== 'finalized') { await client.query('ROLLBACK'); return { error: 'Settlement must be finalized before generating an invoice.', status: 422 }; }
+
+    const [lines, payments, restaurantRes, existingVersions] = await Promise.all([
+      repo.listLines(client, tenantId, settlementId),
+      client.query(`SELECT * FROM billing.payments WHERE settlement_id = $1 AND tenant_id = $2 ORDER BY recorded_at ASC`, [settlementId, tenantId]),
+      client.query(`SELECT name, settings FROM tenant.restaurants WHERE id = $1 LIMIT 1`, [tenantId]),
+      client.query(`SELECT id FROM billing.invoices WHERE settlement_id = $1 AND tenant_id = $2 FOR UPDATE`, [settlementId, tenantId]),
+    ]);
+
+    const restaurant = restaurantRes.rows[0] || {};
+    const gst        = settlement.gst_snapshot;
+    const totals     = calc.calculate(lines);
+    const version    = existingVersions.rows.length + 1;
+
+    const snapshot = {
+      settlement_id:   settlementId,
+      restaurant_name: restaurant.name,
+      gstin:           gst?.gstin || restaurant.settings?.gst?.gstin || null,
+      lines:           lines.map(_fmtLine),
+      payments:        payments.rows.map(_fmtPayment),
+      gst_snapshot:    gst,
+      subtotal_paise:  totals.subtotal_paise,
+      discount_paise:  totals.discount_paise,
+      tax_paise:       totals.tax_paise,
+      tip_paise:       totals.tip_paise,
+      round_off_paise: totals.round_off_paise,
+      total_paise:     totals.total_paise,
+      paid_paise:      settlement.paid_paise,
+      generated_at:    new Date().toISOString(),
+    };
+
     const invoiceNumber = await repo.nextInvoiceNumber(client, tenantId);
-    const invoice     = await repo.insertInvoice(client, tenantId, settlementId, {
+    const invoice = await repo.insertInvoice(client, tenantId, settlementId, {
       snapshot, generatedBy: staffId, version, invoiceNumber,
     });
     await audit.log(client, {

@@ -129,7 +129,7 @@ router.get('/by-session/:sessionId', async (req, res, next) => {
   const { sessionId } = req.params;
   if (!/^[0-9a-f-]{36}$/i.test(sessionId)) return res.status(400).json({ error: 'Invalid session ID' });
   try {
-    const result = await svc.getSettlementBySession(req.tenant.tenant_id, sessionId);
+    const result = await svc.getSettlementBySession(req.tenant.tenant_id, sessionId, req.tenant);
     sendResult(res, result);
   } catch (err) { next(err); }
 });

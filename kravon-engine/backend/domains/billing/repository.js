@@ -206,12 +206,12 @@ async function updateSettlementNotes(client, tenantId, settlementId, notes) {
   return res.rows[0] || null;
 }
 
-async function updatePaidPaise(client, settlementId, paidPaise) {
+async function updatePaidPaise(client, settlementId, tenantId, paidPaise) {
   await client.query(
     `UPDATE billing.settlements
-     SET paid_paise = $2, updated_at = NOW()
-     WHERE id = $1`,
-    [settlementId, paidPaise],
+     SET paid_paise = $3, updated_at = NOW()
+     WHERE id = $1 AND tenant_id = $2`,
+    [settlementId, tenantId, paidPaise],
   );
 }
 
@@ -259,6 +259,27 @@ async function insertLine(client, tenantId, settlementId, line) {
 async function updateLine(client, tenantId, lineId, patch) {
   const sets   = [];
   const params = [lineId, tenantId];
+
+  // Mirror insertLine: DISCOUNT amounts must be stored as negative paise
+  if (patch.amount_paise !== undefined && patch.line_type === 'DISCOUNT') {
+    patch = { ...patch, amount_paise: -Math.abs(Math.round(Number(patch.amount_paise))) };
+  } else if (patch.amount_paise !== undefined) {
+    patch = { ...patch, amount_paise: Math.round(Number(patch.amount_paise)) };
+  }
+
+  // Fetch line_type from DB if caller didn't provide it, so we can enforce the invariant
+  // even when only amount_paise is patched without line_type in the payload.
+  // (line_type is immutable after insert, so reading it here is safe)
+  if (patch.amount_paise !== undefined && patch.line_type === undefined) {
+    const typeRes = await client.query(
+      `SELECT line_type FROM billing.settlement_lines WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL`,
+      [lineId, tenantId]
+    );
+    if (typeRes.rows[0]?.line_type === 'DISCOUNT') {
+      patch = { ...patch, amount_paise: -Math.abs(patch.amount_paise) };
+    }
+  }
+
   const allowed = ['description','quantity','unit_price_paise','amount_paise',
                    'percent','is_comp','comp_reason','sort_order'];
   for (const key of allowed) {

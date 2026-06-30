@@ -20,30 +20,32 @@ const { getClient }      = require('../../db/pool');
 const repo               = require('./repository');
 const customerService    = require('../customer/service');
 const razorpay           = require('../../integrations/razorpay');
-const notifyService      = require('../../services/notify.service');
 const events             = require('../../utils/events');
 const outbox             = require('./outbox');
 
 /* ── Shared tax calculation ───────────────────────────────────────────────── */
 
-function calcGst(tenant, subtotal) {
+function calcGst(tenant, subtotalRupees) {
   const gstCfg     = tenant.gst;
   const gstEnabled = gstCfg?.enabled && ((gstCfg.cgst_rate ?? 0) + (gstCfg.sgst_rate ?? 0)) > 0;
   if (!gstEnabled) return { taxAmount: 0, gstSnapshot: null };
 
-  const cgst      = Number(gstCfg.cgst_rate);
-  const sgst      = Number(gstCfg.sgst_rate);
-  const totalRate = cgst + sgst;
+  const cgst        = Number(gstCfg.cgst_rate);
+  const sgst        = Number(gstCfg.sgst_rate);
+  const totalRate   = cgst + sgst;
+  const subtotalP   = Math.round(subtotalRupees * 100); // work in paise
 
-  let taxAmount;
+  let taxPaise;
   if (gstCfg.inclusive) {
-    taxAmount = parseFloat((subtotal * totalRate / (100 + totalRate)).toFixed(2));
+    taxPaise = Math.round(subtotalP * totalRate / (100 + totalRate));
   } else {
-    taxAmount = parseFloat((subtotal * totalRate / 100).toFixed(2));
+    taxPaise = Math.round(subtotalP * totalRate / 100);
   }
 
-  const cgstAmt = parseFloat((taxAmount * cgst / totalRate).toFixed(2));
-  const sgstAmt = parseFloat((taxAmount - cgstAmt).toFixed(2));
+  const cgstPaise = Math.round(taxPaise * cgst / totalRate);
+  const sgstPaise = taxPaise - cgstPaise;
+
+  const taxAmount = taxPaise / 100;
 
   return {
     taxAmount,
@@ -53,8 +55,8 @@ function calcGst(tenant, subtotal) {
       sgst_rate:   sgst,
       inclusive:   !!gstCfg.inclusive,
       tax_amount:  taxAmount,
-      cgst_amount: cgstAmt,
-      sgst_amount: sgstAmt,
+      cgst_amount: cgstPaise / 100,
+      sgst_amount: sgstPaise / 100,
     },
   };
 }
@@ -62,14 +64,15 @@ function calcGst(tenant, subtotal) {
 /* ── Verify items against DB ─────────────────────────────────────────────── */
 
 async function resolveMenuItems(client, tenantId, items) {
-  const itemIds = items.map(i => i.id);
-  const dbRes   = await client.query(
+  const itemIds    = items.map(i => i.id);
+  const uniqueIds  = [...new Set(itemIds)];
+  const dbRes      = await client.query(
     `SELECT id, name, price FROM menu.menu_items
      WHERE tenant_id = $1 AND id = ANY($2::uuid[]) AND is_available = TRUE AND deleted_at IS NULL`,
-    [tenantId, itemIds]
+    [tenantId, uniqueIds]
   );
 
-  if (dbRes.rows.length !== itemIds.length) {
+  if (dbRes.rows.length !== uniqueIds.length) {
     throw Object.assign(new Error('One or more items not found or unavailable.'), { status: 400 });
   }
 
@@ -126,8 +129,10 @@ async function createOnlineOrder(tenant, data, idempotencyKey = null) {
       for (const addon of item.addons || []) subtotal += (addon.price || 0) * item.qty;
     }
 
-    const freeAt      = tenant.free_delivery_above ?? 399;
-    const stdFee      = tenant.delivery_fee        ?? 39;
+    // tenant.delivery_fee and free_delivery_above are stored in paise in settings JSONB;
+    // config.js divides by 100 for the frontend. Divide here to get rupees for order math.
+    const freeAt      = tenant.free_delivery_above != null ? tenant.free_delivery_above / 100 : 399;
+    const stdFee      = tenant.delivery_fee        != null ? tenant.delivery_fee        / 100 : 39;
     const deliveryFee = data.order_surface === 'orders'
       ? (data.delivery_type === 'express' ? stdFee * 2 : (subtotal >= freeAt ? 0 : stdFee))
       : 0;
@@ -203,19 +208,6 @@ async function createOnlineOrder(tenant, data, idempotencyKey = null) {
       customerName: data.customer_name, customerPhone: data.customer_phone,
       tableIdentifier, deliveryFee, paymentMethod: data.payment_method,
     });
-
-    if (isImmediateConfirm) {
-      const orderForNotify = {
-        id: orderId, tenant_id: tenant.tenant_id, order_surface: data.order_surface,
-        table_identifier: tableIdentifier, customer_name: data.customer_name,
-        customer_phone: data.customer_phone, subtotal, delivery_fee: deliveryFee,
-        total, payment_method: data.payment_method, status: 'confirmed',
-      };
-      notifyService.orderConfirmed(tenant, orderForNotify).catch(err =>
-        console.error(JSON.stringify({ level: 'error', event: 'order.notify_failed',
-          tenantId: tenant.tenant_id, orderId, message: err.message }))
-      );
-    }
 
     return { orderId, razorpayOrderId, razorpayKeyId, total };
 
