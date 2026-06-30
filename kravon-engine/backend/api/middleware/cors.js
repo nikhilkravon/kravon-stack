@@ -11,31 +11,45 @@ const { query } = require('../../db/pool');
 
 let _originCache  = null;
 let _cacheBuiltAt = 0;
+let _refreshing   = false;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 async function getAllowedOrigins() {
   if (_originCache && Date.now() - _cacheBuiltAt < CACHE_TTL_MS) {
     return _originCache;
   }
-  const res = await query(
-    `SELECT settings->>'domain' AS domain
-     FROM tenant.restaurants
-     WHERE settings->>'domain' IS NOT NULL
-       AND deleted_at IS NULL`
-  );
-  const set = new Set();
-  for (const row of res.rows) {
-    if (row.domain) {
-      set.add(`https://${row.domain}`);
-      set.add(`http://${row.domain}`);
-    }
+  // Coalesce concurrent refresh requests — return stale cache until the single
+  // in-flight refresh completes, preventing connection pool exhaustion on expiry.
+  if (_refreshing && _originCache) return _originCache;
+  if (_refreshing) {
+    // No stale cache yet and already refreshing — wait briefly then return whatever we have
+    await new Promise(r => setTimeout(r, 100));
+    return _originCache || new Set();
   }
-  // Always allow local development
-  set.add('http://localhost:3000');
-  set.add('http://localhost:5173');
-  _originCache  = set;
-  _cacheBuiltAt = Date.now();
-  return set;
+
+  _refreshing = true;
+  try {
+    const res = await query(
+      `SELECT settings->>'domain' AS domain
+       FROM tenant.restaurants
+       WHERE settings->>'domain' IS NOT NULL
+         AND deleted_at IS NULL`
+    );
+    const set = new Set();
+    for (const row of res.rows) {
+      if (row.domain) {
+        set.add(`https://${row.domain}`);
+        set.add(`http://${row.domain}`);
+      }
+    }
+    set.add('http://localhost:3000');
+    set.add('http://localhost:5173');
+    _originCache  = set;
+    _cacheBuiltAt = Date.now();
+    return set;
+  } finally {
+    _refreshing = false;
+  }
 }
 
 const KRAVON_DOMAIN  = (process.env.KRAVON_DOMAIN || 'kravon.in').toLowerCase();

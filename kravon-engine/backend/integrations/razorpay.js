@@ -20,8 +20,9 @@
 
 'use strict';
 
-const Razorpay   = require('razorpay');
+const Razorpay    = require('razorpay');
 const { decrypt } = require('../utils/crypto');
+const { query }   = require('../db/pool');
 
 /**
  * createPayment(tenant, amountPaise)
@@ -38,14 +39,27 @@ const { decrypt } = require('../utils/crypto');
  *   → { razorpayOrderId: "order_abc123", razorpayKeyId: "rzp_live_xyz" }
  */
 async function createPayment(tenant, amountPaise, internalOrderId) {
-  if (!tenant.razorpay_key_id || !tenant.razorpay_key_secret) {
+  if (!tenant.razorpay_key_id) {
     throw Object.assign(
       new Error('Razorpay not configured for this restaurant.'),
       { status: 400 }
     );
   }
 
-  const secret = decrypt(tenant.razorpay_key_secret);
+  // Fetch secret lazily — never stored on req.tenant to limit exposure surface
+  const credRes = await query(
+    `SELECT config->>'key_secret' AS key_secret
+     FROM tenant.integrations
+     WHERE tenant_id = $1 AND provider = 'razorpay' AND is_active = TRUE AND deleted_at IS NULL
+     LIMIT 1`,
+    [tenant.tenant_id]
+  );
+  const encryptedSecret = credRes.rows[0]?.key_secret || tenant._settings?.razorpay_key_secret || null;
+  if (!encryptedSecret) {
+    throw Object.assign(new Error('Razorpay not configured for this restaurant.'), { status: 400 });
+  }
+
+  const secret = decrypt(encryptedSecret);
   const rzp    = getClient(tenant.razorpay_key_id, secret);
 
   // receipt ties the Razorpay order back to our DB order — unique and traceable.

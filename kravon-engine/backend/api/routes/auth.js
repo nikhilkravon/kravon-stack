@@ -25,6 +25,10 @@ const email     = require('../../utils/email');
 
 const router = express.Router();
 
+// Pre-computed dummy hash — ensures bcrypt.compare always runs even when the
+// user account doesn't exist, preventing timing-based username enumeration.
+const DUMMY_HASH = '$2b$12$invalidhashpaddingtoensureconstanttimexxx';
+
 const JWT_SECRET      = () => process.env.JWT_SECRET;
 const ACCESS_TTL_SEC  = 15 * 60;
 const REFRESH_TTL_MS  = 30 * 24 * 3600 * 1000;
@@ -95,13 +99,10 @@ router.post('/login', authLimiter, async (req, res, next) => {
 
     const staff = await authRepo.findStaffForLogin(tenant.id, staffEmail);
 
-    // Constant-time rejection: run bcrypt even when no user found
-    const hashToCheck = staff?.password_hash || '$2b$12$invalidhashpaddingtoensureconstanttimexxx';
-    const match = staff?.password_hash
-      ? await bcrypt.compare(password, hashToCheck)
-      : (await bcrypt.compare(password, hashToCheck), false);
-
-    if (!match) return res.status(401).json({ error: 'Invalid credentials.' });
+    // Constant-time rejection: always run bcrypt to prevent timing-based enumeration
+    const hashToCheck = staff?.password_hash || DUMMY_HASH;
+    const match = await bcrypt.compare(password, hashToCheck);
+    if (!staff?.password_hash || !match) return res.status(401).json({ error: 'Invalid credentials.' });
 
     const roles       = staff.roles || [];
     const accessToken = issueAccessToken(staff, tenant.id, slug, roles);
@@ -125,7 +126,7 @@ router.post('/login', authLimiter, async (req, res, next) => {
 });
 
 /* ── POST /v1/auth/refresh ──────────────────────────────────────────────── */
-router.post('/refresh', async (req, res, next) => {
+router.post('/refresh', authLimiter, async (req, res, next) => {
   try {
     const rawToken = req.cookies?.[COOKIE_NAME] || req.body?.refreshToken;
     if (!rawToken || typeof rawToken !== 'string' || rawToken.length !== 64) {

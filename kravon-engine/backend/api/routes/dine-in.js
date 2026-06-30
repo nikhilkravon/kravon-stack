@@ -164,10 +164,8 @@ const DineInOrderSchema = z.object({
 });
 
 router.post('/order', publicLimiter, orderLimiter, async (req, res, next) => {
-  console.log('[dine-in/order] body:', JSON.stringify(req.body));
   const parsed = DineInOrderSchema.safeParse(req.body);
   if (!parsed.success) {
-    console.log('[dine-in/order] validation failed:', JSON.stringify(parsed.error.flatten()));
     return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
   }
   try {
@@ -300,7 +298,7 @@ const ReservationSchema = z.object({
   table_id:       z.string().uuid().optional(),
 });
 
-router.post('/reservations', async (req, res, next) => {
+router.post('/reservations', publicLimiter, async (req, res, next) => {
   const parsed = ReservationSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
   try {

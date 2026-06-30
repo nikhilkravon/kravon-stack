@@ -85,10 +85,9 @@ function buildTenant(tenantRow, locationRow, integrations, contactLinks, seoRow,
     tagline: seo.meta_description || s.tagline || tenantRow.name,
     year:    s.year || null,
 
-    // Payment
-    razorpay_key_id:     razorpay?.config?.key_id     || s.razorpay_key_id     || null,
-    razorpay_key_secret: razorpay?.config?.key_secret || s.razorpay_key_secret || null,
-    webhook_url: webhook?.config?.url || s.webhook_url || null,
+    // Payment — secret intentionally excluded from req.tenant; fetched lazily in razorpay.js
+    razorpay_key_id: razorpay?.config?.key_id || s.razorpay_key_id || null,
+    webhook_url:     webhook?.config?.url || s.webhook_url || null,
 
     // GST configuration — full object from settings.gst
     gst: s.gst || null,
@@ -267,6 +266,13 @@ async function resolveRestaurant(req, res, next) {
 
 function clearTenantCache(slug) {
   _cache.delete(slug);
+  // Also clear domain-keyed entry so settings changes propagate to domain-resolved requests
+  for (const key of _cache.keys()) {
+    if (key.startsWith('__domain__:')) {
+      const cached = _cache.get(key);
+      if (cached?.tenant?.slug === slug) _cache.delete(key);
+    }
+  }
 }
 
 module.exports = { resolveRestaurant, buildTenant, clearTenantCache };
