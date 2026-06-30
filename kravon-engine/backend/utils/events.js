@@ -48,4 +48,35 @@ function on(eventType, handler) {
   bus.on(eventType, handler);
 }
 
-module.exports = { emit, on };
+/**
+ * Emit and await all async listener promises before returning.
+ * Used by the outbox poller so 'delivered' is only marked after handlers complete.
+ * Listeners must return a Promise (or be async functions).
+ * Errors from individual listeners are logged but do not abort other listeners.
+ */
+async function emitAsync(eventType, payload) {
+  const envelope = {
+    version:    1,
+    occurredAt: new Date().toISOString(),
+    ...payload,
+  };
+  if (DEBUG) {
+    console.log(`[EVENT] ${eventType}`, JSON.stringify({ tenantId: envelope.tenantId, occurredAt: envelope.occurredAt }));
+  }
+  const listeners = bus.listeners(eventType);
+  await Promise.all(listeners.map(fn => {
+    try {
+      const result = fn(envelope);
+      return result instanceof Promise ? result.catch(err => {
+        console.error(JSON.stringify({ level: 'error', event: 'emitAsync.listener_failed',
+          eventType, error: err.message }));
+      }) : Promise.resolve();
+    } catch (err) {
+      console.error(JSON.stringify({ level: 'error', event: 'emitAsync.listener_threw',
+        eventType, error: err.message }));
+      return Promise.resolve();
+    }
+  }));
+}
+
+module.exports = { emit, emitAsync, on };

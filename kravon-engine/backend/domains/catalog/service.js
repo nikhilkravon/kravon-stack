@@ -199,7 +199,7 @@ async function deleteCustomizationGroup(tenantId, itemId, groupId) {
   try {
     await client.query('BEGIN');
     await repo.softDeleteCustomizationOptions(client, tenantId, groupId);
-    const row = await repo.softDeleteCustomizationGroup(tenantId, groupId);
+    const row = await repo.softDeleteCustomizationGroup(client, tenantId, groupId);
     if (!row) { await client.query('ROLLBACK'); return null; }
     await client.query('COMMIT');
 

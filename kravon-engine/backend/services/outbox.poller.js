@@ -19,8 +19,8 @@
  * processes (horizontal scaling) never double-deliver an event.
  */
 
-const { getClient } = require('../db/pool');
-const events        = require('../utils/events');
+const { getClient }       = require('../db/pool');
+const { emitAsync: emit } = require('../utils/events');
 
 const POLL_INTERVAL_MS = 5_000;
 const BATCH_SIZE       = 50;
@@ -55,7 +55,7 @@ async function pollOnce() {
 
     for (const row of res.rows) {
       try {
-        events.emit(row.event_type, { ...row.payload, _outboxId: row.id });
+        await emit(row.event_type, { ...row.payload, _outboxId: row.id });
 
         await client.query(
           `UPDATE platform.event_outbox

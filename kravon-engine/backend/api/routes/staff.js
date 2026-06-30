@@ -58,50 +58,78 @@ router.patch('/:id', requireRole('owner'), async (req, res, next) => {
       return res.status(400).json({ error: 'You cannot deactivate your own account.' });
     }
 
-    const { role, ...staffData } = parsed.data;
+    const { role, password, ...fields } = parsed.data;
     const tenantId = req.tenant.tenant_id;
     const staffId  = req.params.id;
 
-    if (role) {
-      const roleRow = await query(
-        `SELECT id FROM tenant.roles WHERE tenant_id = $1 AND name = $2 AND deleted_at IS NULL LIMIT 1`,
-        [tenantId, role]
-      );
-      if (!roleRow.rows.length) {
-        return res.status(400).json({ error: `Role '${role}' not found for this restaurant.` });
-      }
-      const roleId = roleRow.rows[0].id;
-      const roleClient = await getClient();
-      try {
-        await roleClient.query('BEGIN');
-        await roleClient.query(
-          `DELETE FROM tenant.staff_roles WHERE staff_id = $1 AND tenant_id = $2`,
-          [staffId, tenantId]
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
+
+      // Role change
+      if (role) {
+        const roleRow = await client.query(
+          `SELECT id FROM tenant.roles WHERE tenant_id = $1 AND name = $2 AND deleted_at IS NULL LIMIT 1`,
+          [tenantId, role]
         );
-        await roleClient.query(
+        if (!roleRow.rows.length) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: `Role '${role}' not found for this restaurant.` });
+        }
+        const roleId = roleRow.rows[0].id;
+        await client.query(`DELETE FROM tenant.staff_roles WHERE staff_id = $1 AND tenant_id = $2`, [staffId, tenantId]);
+        await client.query(
           `INSERT INTO tenant.staff_roles (tenant_id, staff_id, role_id, assigned_by) VALUES ($1, $2, $3, $4)`,
           [tenantId, staffId, roleId, req.auth?.staffId ?? null]
         );
-        await audit.log(roleClient, {
+        await audit.log(client, {
           tenantId, actorId: req.auth?.staffId ?? null, actorType: 'staff',
           action: 'staff.role_changed', entityType: 'tenant.staff', entityId: staffId,
           newValue: { role },
         });
-        await roleClient.query('COMMIT');
-      } catch (roleErr) {
-        await roleClient.query('ROLLBACK');
-        throw roleErr;
-      } finally {
-        roleClient.release();
       }
+
+      // Field update (name, phone, is_active, password) — same transaction
+      const sets = []; const values = []; let idx = 1;
+      if (fields.name      !== undefined) { sets.push(`name = $${idx++}`);      values.push(fields.name); }
+      if (fields.phone     !== undefined) { sets.push(`phone = $${idx++}`);     values.push(fields.phone); }
+      if (fields.is_active !== undefined) { sets.push(`is_active = $${idx++}`); values.push(fields.is_active); }
+      if (password         !== undefined) {
+        const bcrypt = require('bcryptjs');
+        sets.push(`password_hash = $${idx++}`);
+        values.push(await bcrypt.hash(password, 12));
+      }
+
+      let staffRow;
+      if (sets.length) {
+        sets.push('updated_at = NOW()');
+        values.push(staffId, tenantId);
+        const res2 = await client.query(
+          `UPDATE tenant.staff SET ${sets.join(', ')}
+           WHERE id = $${idx} AND tenant_id = $${idx + 1} AND deleted_at IS NULL
+           RETURNING id, name, email, phone, is_active, updated_at`,
+          values
+        );
+        staffRow = res2.rows[0] || null;
+      } else {
+        const res2 = await client.query(
+          `SELECT id, name, email, phone, is_active, updated_at FROM tenant.staff
+           WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL LIMIT 1`,
+          [staffId, tenantId]
+        );
+        staffRow = res2.rows[0] || null;
+      }
+
+      if (!staffRow) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Staff member not found' }); }
+
+      await client.query('COMMIT');
+      res.json({ ok: true, staff: staffRow });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
     }
-
-    const staff = Object.keys(staffData).length
-      ? await identityService.updateStaff(tenantId, staffId, staffData, req.auth?.staffId, req)
-      : await query(`SELECT id, name, email, phone, is_active, updated_at FROM tenant.staff WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL LIMIT 1`, [staffId, tenantId]).then(r => r.rows[0] || null);
-
-    if (!staff) return res.status(404).json({ error: 'Staff member not found' });
-    res.json({ ok: true, staff });
   } catch (err) { next(err); }
 });
 

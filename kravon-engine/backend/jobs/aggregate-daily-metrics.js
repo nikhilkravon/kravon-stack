@@ -54,14 +54,14 @@ async function run(lookbackDays = 2) {
       DO UPDATE SET value = EXCLUDED.value, computed_at = EXCLUDED.computed_at
     `, [lookbackDays]);
 
-    // Avg order value per tenant per day
+    // Avg order value per tenant per day — total_amount is stored in rupees (not paise)
     await query(`
       INSERT INTO insights.daily_metrics (tenant_id, metric_date, metric_type, value, computed_at)
       SELECT
         tenant_id,
         DATE_TRUNC('day', created_at)::date AS metric_date,
         'avg_order_value'                   AS metric_type,
-        AVG(total_amount)                   AS value,
+        AVG(total_amount)                   AS value,  -- rupees; display layer divides by 1
         NOW()
       FROM orders.orders
       WHERE status IN ('completed', 'delivered')
@@ -72,7 +72,7 @@ async function run(lookbackDays = 2) {
       DO UPDATE SET value = EXCLUDED.value, computed_at = EXCLUDED.computed_at
     `, [lookbackDays]);
 
-    // New customers (first order in window, not lifetime)
+    // New customers — customers whose absolute lifetime first order falls within the window
     await query(`
       INSERT INTO insights.daily_metrics (tenant_id, metric_date, metric_type, value, computed_at)
       SELECT
@@ -82,39 +82,51 @@ async function run(lookbackDays = 2) {
         COUNT(*)         AS value,
         NOW()
       FROM (
-        SELECT tenant_id,
-               customer_id,
-               DATE_TRUNC('day', MIN(created_at))::date AS first_order_date
-        FROM orders.orders
-        WHERE deleted_at IS NULL
-          AND customer_id IS NOT NULL
-          AND created_at >= CURRENT_DATE - ($1 || ' days')::interval
-        GROUP BY tenant_id, customer_id
+        SELECT o.tenant_id,
+               o.customer_id,
+               DATE_TRUNC('day', MIN(o.created_at))::date AS first_order_date
+        FROM orders.orders o
+        WHERE o.deleted_at IS NULL
+          AND o.customer_id IS NOT NULL
+        GROUP BY o.tenant_id, o.customer_id
+        -- Only customers whose very first ever order falls in the window
+        HAVING MIN(o.created_at) >= CURRENT_DATE - ($1 || ' days')::interval
       ) first_orders
       GROUP BY tenant_id, first_order_date
       ON CONFLICT (tenant_id, COALESCE(location_id, '00000000-0000-0000-0000-000000000000'::UUID), metric_date, metric_type)
       DO UPDATE SET value = EXCLUDED.value, computed_at = EXCLUDED.computed_at
     `, [lookbackDays]);
 
-    // Returning customers (more than 1 order, grouped by their most recent order day)
+    // Returning customers — grouped by the date of their first order within the window
+    // (the day they actually came back, not the day of their last order)
     await query(`
       INSERT INTO insights.daily_metrics (tenant_id, metric_date, metric_type, value, computed_at)
       SELECT
         tenant_id,
-        DATE_TRUNC('day', MAX(created_at))::date AS metric_date,
-        'returning_customers'                    AS metric_type,
-        COUNT(*)                                 AS value,
+        DATE_TRUNC('day', first_order_in_window)::date AS metric_date,
+        'returning_customers'                          AS metric_type,
+        COUNT(*)                                       AS value,
         NOW()
       FROM (
-        SELECT tenant_id, customer_id, MAX(created_at) AS created_at
-        FROM orders.orders
-        WHERE deleted_at IS NULL
-          AND customer_id IS NOT NULL
-          AND created_at >= CURRENT_DATE - ($1 || ' days')::interval
-        GROUP BY tenant_id, customer_id
-        HAVING COUNT(*) > 1
+        SELECT o.tenant_id,
+               o.customer_id,
+               MIN(o.created_at) AS first_order_in_window
+        FROM orders.orders o
+        WHERE o.deleted_at IS NULL
+          AND o.customer_id IS NOT NULL
+          AND o.created_at >= CURRENT_DATE - ($1 || ' days')::interval
+        GROUP BY o.tenant_id, o.customer_id
+        -- Customer has at least one order BEFORE the window start (i.e. is returning)
+        HAVING MIN(o.created_at) > (
+          SELECT COALESCE(MIN(o2.created_at), 'infinity'::timestamptz)
+          FROM orders.orders o2
+          WHERE o2.customer_id = o.customer_id
+            AND o2.tenant_id = o.tenant_id
+            AND o2.deleted_at IS NULL
+            AND o2.created_at < CURRENT_DATE - ($1 || ' days')::interval
+        )
       ) returning_customers
-      GROUP BY tenant_id, DATE_TRUNC('day', created_at)::date
+      GROUP BY tenant_id, DATE_TRUNC('day', first_order_in_window)::date
       ON CONFLICT (tenant_id, COALESCE(location_id, '00000000-0000-0000-0000-000000000000'::UUID), metric_date, metric_type)
       DO UPDATE SET value = EXCLUDED.value, computed_at = EXCLUDED.computed_at
     `, [lookbackDays]);

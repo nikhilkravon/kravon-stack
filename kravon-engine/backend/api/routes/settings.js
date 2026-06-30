@@ -53,7 +53,8 @@ router.post('/export', requireRole('owner', 'admin'), async (req, res, next) => 
                 created_at
          FROM customer.customers
          WHERE tenant_id = $1 AND deleted_at IS NULL
-         ORDER BY created_at DESC`,
+         ORDER BY created_at DESC
+         LIMIT 10000`,
         [tenantId]
       ),
       query(
@@ -62,7 +63,8 @@ router.post('/export', requireRole('owner', 'admin'), async (req, res, next) => 
          FROM orders.orders o
          LEFT JOIN customer.customers c ON c.id = o.customer_id
          WHERE o.tenant_id = $1 AND o.deleted_at IS NULL
-         ORDER BY o.created_at DESC`,
+         ORDER BY o.created_at DESC
+         LIMIT 50000`,
         [tenantId]
       ),
       query(

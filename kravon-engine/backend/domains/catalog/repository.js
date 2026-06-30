@@ -245,8 +245,8 @@ async function softDeleteCustomizationOptions(client, tenantId, groupId) {
   );
 }
 
-async function softDeleteCustomizationGroup(tenantId, groupId) {
-  const res = await query(
+async function softDeleteCustomizationGroup(client, tenantId, groupId) {
+  const res = await q(client)(
     `UPDATE menu.customization_groups SET deleted_at = NOW()
      WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL RETURNING id`,
     [groupId, tenantId]

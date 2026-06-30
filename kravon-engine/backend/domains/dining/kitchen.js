@@ -53,7 +53,7 @@ async function getKitchenView(tenant_id) {
        WHERE s.tenant_id = $1 AND s.closed_at IS NULL AND s.deleted_at IS NULL
        GROUP BY t.name, s.id, s.opened_at, s.covers, s.session_status, s.bill_requested_at
        ORDER BY s.opened_at ASC
-       LIMIT 200`,
+       LIMIT 500`,
       [tenant_id]
     ),
     query(
@@ -84,7 +84,7 @@ async function getKitchenView(tenant_id) {
          AND o.deleted_at IS NULL
        GROUP BY o.id
        ORDER BY o.created_at ASC
-       LIMIT 200`,
+       LIMIT 500`,
       [tenant_id]
     ),
   ]);
