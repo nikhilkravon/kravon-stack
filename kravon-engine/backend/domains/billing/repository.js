@@ -20,10 +20,13 @@ async function findSettlement(client, tenantId, settlementId) {
   return res.rows[0] || null;
 }
 
+// Voided settlements are excluded from "does one already exist" lookups —
+// voiding must free the session/order/lead to be billed again, not dead-end it.
 async function findSettlementBySession(tenantId, sessionId) {
   const res = await query(
     `SELECT * FROM billing.settlements
      WHERE session_id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL
+       AND status != 'voided'
      ORDER BY created_at DESC LIMIT 1`,
     [sessionId, tenantId],
   );
@@ -34,6 +37,7 @@ async function findSettlementByOrder(tenantId, orderId) {
   const res = await query(
     `SELECT * FROM billing.settlements
      WHERE order_id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL
+       AND status != 'voided'
      ORDER BY created_at DESC LIMIT 1`,
     [orderId, tenantId],
   );
@@ -44,6 +48,7 @@ async function findSettlementByLead(tenantId, leadId) {
   const res = await query(
     `SELECT * FROM billing.settlements
      WHERE lead_id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL
+       AND status != 'voided'
      ORDER BY created_at DESC LIMIT 1`,
     [leadId, tenantId],
   );
@@ -401,16 +406,40 @@ async function getInvoice(tenantId, invoiceId) {
 }
 
 // ── Payments ──────────────────────────────────────────────────────────────────
+// Every row's amount_paise is always positive (DB-enforced). A refund to the
+// guest is its own row (kind='refund') that nets against the total; a
+// correction to a mis-entered payment soft-voids the original row instead of
+// deleting it, so the ledger stays append-only and legible after the fact.
 
-async function insertPayment(client, tenantId, settlementId, { method, amount_paise, reference, notes, recordedBy }) {
+async function insertPayment(client, tenantId, settlementId, { method, amount_paise, kind, reason, reference, notes, recordedBy }) {
   const res = await client.query(
     `INSERT INTO billing.payments
-       (tenant_id, settlement_id, method, amount_paise, reference, notes, recorded_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7)
+       (tenant_id, settlement_id, method, amount_paise, kind, reason, reference, notes, recorded_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
      RETURNING *`,
-    [tenantId, settlementId, method, amount_paise, reference || null, notes || null, recordedBy || null],
+    [tenantId, settlementId, method, amount_paise, kind || 'payment', reason || null, reference || null, notes || null, recordedBy || null],
   );
   return res.rows[0];
+}
+
+async function findPayment(client, tenantId, paymentId) {
+  const exec = client ? (s, p) => client.query(s, p) : (s, p) => query(s, p);
+  const res = await exec(
+    `SELECT * FROM billing.payments WHERE id = $1 AND tenant_id = $2`,
+    [paymentId, tenantId],
+  );
+  return res.rows[0] || null;
+}
+
+async function voidPayment(client, tenantId, paymentId, { voidedBy, voidReason }) {
+  const res = await client.query(
+    `UPDATE billing.payments
+     SET voided_at = NOW(), voided_by = $1, void_reason = $2
+     WHERE id = $3 AND tenant_id = $4 AND voided_at IS NULL
+     RETURNING *`,
+    [voidedBy || null, voidReason, paymentId, tenantId],
+  );
+  return res.rows[0] || null;
 }
 
 async function listPayments(tenantId, settlementId) {
@@ -423,10 +452,11 @@ async function listPayments(tenantId, settlementId) {
   return res.rows;
 }
 
+// Nets payments minus refunds, excluding voided (corrected) rows entirely.
 async function sumPayments(client, settlementId) {
   const res = await client.query(
-    `SELECT COALESCE(SUM(amount_paise), 0) AS total
-     FROM billing.payments WHERE settlement_id = $1`,
+    `SELECT COALESCE(SUM(CASE WHEN kind = 'refund' THEN -amount_paise ELSE amount_paise END), 0) AS total
+     FROM billing.payments WHERE settlement_id = $1 AND voided_at IS NULL`,
     [settlementId],
   );
   return parseInt(res.rows[0].total, 10);
@@ -440,5 +470,5 @@ module.exports = {
   listLines, insertLine, updateLine, softDeleteLine,
   nextRevisionNumber, insertRevision, listRevisions,
   nextInvoiceNumber, insertInvoice, listInvoices, getInvoice,
-  insertPayment, listPayments, sumPayments,
+  insertPayment, findPayment, voidPayment, listPayments, sumPayments,
 };

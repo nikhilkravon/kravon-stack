@@ -94,12 +94,21 @@ async function closeSession(tenant, { session_id }, staffId) {
   try {
     await client.query('BEGIN');
 
+    // Lock the billable order rows first (prevents a concurrent order insert
+    // slipping in mid-close), then aggregate separately — Postgres rejects
+    // FOR UPDATE combined directly with an aggregate function.
+    await client.query(
+      `SELECT id FROM orders.orders
+       WHERE session_id = $1 AND tenant_id = $2
+         AND status NOT IN ('cancelled', 'refunded') AND deleted_at IS NULL
+       FOR UPDATE`,
+      [session_id, tenant_id]
+    );
     const totalRes = await client.query(
       `SELECT COALESCE(SUM(total_amount), 0) AS total
        FROM orders.orders
        WHERE session_id = $1 AND tenant_id = $2
-         AND status NOT IN ('cancelled', 'refunded') AND deleted_at IS NULL
-       FOR UPDATE`,
+         AND status NOT IN ('cancelled', 'refunded') AND deleted_at IS NULL`,
       [session_id, tenant_id]
     );
     const totalRupees = parseFloat(totalRes.rows[0].total);
@@ -157,6 +166,98 @@ async function closeSession(tenant, { session_id }, staffId) {
 
     events.emit('session.closed', { tenantId: tenant_id, sessionId: session_id, tableId: table_id, totalBilled: settlementTotal });
     return { session_id, closed_at, total_billed: totalRupees, settlement_id };
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function transferSession(tenant, { session_id, to_table_id }, staffId) {
+  const tenant_id = tenant.tenant_id;
+  const client    = await getClient();
+  try {
+    await client.query('BEGIN');
+
+    const sessionRes = await client.query(
+      `SELECT id, table_id, session_status FROM dining.sessions
+       WHERE id = $1 AND tenant_id = $2 AND closed_at IS NULL AND deleted_at IS NULL
+       FOR UPDATE`,
+      [session_id, tenant_id]
+    );
+    if (!sessionRes.rows.length) {
+      await client.query('ROLLBACK');
+      return { error: 'Session not found or already closed.', status: 404 };
+    }
+    const { table_id: from_table_id, session_status } = sessionRes.rows[0];
+
+    if (from_table_id === to_table_id) {
+      await client.query('ROLLBACK');
+      return { error: 'Session is already on that table.', status: 409 };
+    }
+    if (session_status === 'bill_requested') {
+      await client.query('ROLLBACK');
+      return { error: 'Cannot move a table after the bill has been requested.', status: 409 };
+    }
+
+    const destRes = await client.query(
+      `SELECT id FROM dining.tables
+       WHERE id = $1 AND tenant_id = $2 AND deleted_at IS NULL
+       FOR UPDATE`,
+      [to_table_id, tenant_id]
+    );
+    if (!destRes.rows.length) {
+      await client.query('ROLLBACK');
+      return { error: 'Destination table not found.', status: 404 };
+    }
+
+    const destOpenCheck = await client.query(
+      `SELECT id FROM dining.sessions
+       WHERE table_id = $1 AND closed_at IS NULL AND deleted_at IS NULL`,
+      [to_table_id]
+    );
+    if (destOpenCheck.rows.length) {
+      await client.query('ROLLBACK');
+      return { error: 'Destination table already has an open session.', status: 409 };
+    }
+
+    await client.query(
+      `UPDATE dining.sessions SET table_id = $1, updated_at = NOW()
+       WHERE id = $2 AND tenant_id = $3`,
+      [to_table_id, session_id, tenant_id]
+    );
+
+    await client.query(
+      `UPDATE dining.tables SET status = 'available', updated_at = NOW()
+       WHERE id = $1 AND tenant_id = $2`,
+      [from_table_id, tenant_id]
+    );
+    await client.query(
+      `UPDATE dining.tables SET status = 'occupied', updated_at = NOW()
+       WHERE id = $1 AND tenant_id = $2`,
+      [to_table_id, tenant_id]
+    );
+
+    await audit.log(client, {
+      tenantId: tenant_id, actorId: staffId, actorType: 'staff',
+      action: 'session.transfer', entityType: 'dining.session', entityId: session_id,
+      newValue: { from_table_id, to_table_id },
+    });
+
+    // Clear any pending "guests waiting" notifications for the vacated table
+    await client.query(
+      `UPDATE notifications.notifications
+       SET read_at = NOW()
+       WHERE tenant_id = $1 AND type = 'dine_in.staff_notify'
+         AND entity_id = $2 AND read_at IS NULL`,
+      [tenant_id, from_table_id]
+    );
+
+    await client.query('COMMIT');
+    events.emit('session.transferred', { tenantId: tenant_id, sessionId: session_id, fromTableId: from_table_id, toTableId: to_table_id });
+    return { session_id, from_table_id, to_table_id };
 
   } catch (err) {
     await client.query('ROLLBACK');
@@ -449,7 +550,7 @@ async function listClosedSessionsExport(tenant_id, opts = {}) {
 }
 
 module.exports = {
-  openSession, closeSession, getStatus, getSessionOrders,
+  openSession, closeSession, transferSession, getStatus, getSessionOrders,
   requestBill, getBill, getTableName, notifyStaffTableReady,
   listClosedSessions, listClosedSessionsExport,
 };

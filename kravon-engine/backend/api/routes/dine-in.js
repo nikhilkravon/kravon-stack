@@ -10,6 +10,7 @@
  * Endpoints:
  *   POST /session/open           (staff JWT)
  *   POST /session/close          (staff JWT)
+ *   POST /session/transfer       (staff JWT)
  *   GET  /boot                   (public) — unified: session status + orders in one call
  *   GET  /session/status         (public)
  *   GET  /session/orders         (public)
@@ -81,6 +82,21 @@ router.post('/session/close', requireRestaurantAuth, async (req, res, next) => {
     const result = await sessions.closeSession(req.tenant, parsed.data, req.auth?.staffId);
     if (result.error) return res.status(result.status || 500).json({ error: result.error });
     res.json({ ok: true, session_id: result.session_id, settlement_id: result.settlement_id || null });
+  } catch (err) { next(err); }
+});
+
+/* ── POST /session/transfer ─────────────────────────────────────────────── */
+const TransferSessionSchema = z.object({
+  session_id:  z.string().uuid(),
+  to_table_id: z.string().uuid(),
+});
+
+router.post('/session/transfer', requireRestaurantAuth, async (req, res, next) => {
+  const parsed = TransferSessionSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
+  try {
+    const result = await sessions.transferSession(req.tenant, parsed.data, req.auth?.staffId);
+    sendResult(res, result, 200);
   } catch (err) { next(err); }
 });
 

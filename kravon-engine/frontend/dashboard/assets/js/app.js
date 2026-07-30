@@ -319,5 +319,11 @@ const App = (() => {
 
   document.addEventListener('DOMContentLoaded', start);
 
-  return { navigate, sessionExpired, get slug() { return Auth.state().slug; } };
+  // Lets a view's late-resolving async work (e.g. an API call in init()) check
+  // whether the user has already navigated elsewhere before writing to the
+  // shared #dash-content element — otherwise a slow response can silently
+  // overwrite whatever view the user moved to next.
+  function isCurrentView(viewName) { return _currentView === viewName; }
+
+  return { navigate, sessionExpired, isCurrentView, get slug() { return Auth.state().slug; } };
 })();

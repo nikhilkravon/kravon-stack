@@ -22,7 +22,8 @@
  *   DELETE /:id/lines/:lineId     — remove a line
  *   POST   /:id/finalize          — lock settlement
  *   POST   /:id/void              — void settlement
- *   POST   /:id/payments          — record a payment
+ *   POST   /:id/payments          — record a payment or refund
+ *   POST   /:id/payments/:paymentId/correct — void a mis-entered payment
  *   POST   /:id/invoice           — generate invoice (must be finalized)
  *   GET    /:id/invoice/:invoiceId — fetch invoice snapshot
  *   GET    /:id/revisions          — full audit trail for this settlement
@@ -316,16 +317,24 @@ router.post('/:id/void', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-/* ── POST /:id/payments ──────────────────────────────────────────────────── */
+/* ── POST /:id/payments — record a payment or a refund ──────────────────────
+ * kind: 'payment'  — money received from the guest (the common case)
+ * kind: 'refund'   — money actually given back to the guest; requires a reason
+ * amount_paise is always positive; sumPayments() nets refunds against payments.
+ * To fix a mis-entered payment (wrong amount/method/duplicate), use
+ * POST /:id/payments/:paymentId/correct instead — that's a different intent
+ * (staff error, not money returned to the guest) and stays auditable as such.
+ */
 const PaymentSchema = z.object({
   method:       z.enum(PAYMENT_METHODS),
-  amount_paise: z.number().int().refine(n => n !== 0, 'Amount cannot be zero'),
-  is_refund:    z.boolean().default(false),
+  amount_paise: z.number().int().positive(),
+  kind:         z.enum(['payment', 'refund']).default('payment'),
+  reason:       z.string().max(500).optional(),
   reference:    z.string().max(255).optional(),
   notes:        z.string().max(500).optional(),
 }).refine(
-  d => d.is_refund ? d.amount_paise < 0 : d.amount_paise > 0,
-  { message: 'Refunds must have a negative amount; payments must have a positive amount.' }
+  d => d.kind !== 'refund' || (d.reason && d.reason.trim().length > 0),
+  { message: 'A reason is required when recording a refund.', path: ['reason'] }
 );
 
 router.post('/:id/payments', async (req, res, next) => {
@@ -334,6 +343,18 @@ router.post('/:id/payments', async (req, res, next) => {
   try {
     const result = await svc.recordPayment(req.tenant, req.params.id, parsed.data, _staff(req), _roles(req));
     sendResult(res, result, 201);
+  } catch (err) { next(err); }
+});
+
+/* ── POST /:id/payments/:paymentId/correct — void a mis-entered payment ───── */
+const CorrectPaymentSchema = z.object({ reason: z.string().min(1).max(500) });
+
+router.post('/:id/payments/:paymentId/correct', async (req, res, next) => {
+  const parsed = CorrectPaymentSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
+  try {
+    const result = await svc.correctPayment(req.tenant, req.params.id, req.params.paymentId, _staff(req), _roles(req), parsed.data.reason);
+    sendResult(res, result);
   } catch (err) { next(err); }
 });
 

@@ -55,8 +55,11 @@ const TablesView = (() => {
       ? `<div class="table-session-row"><span class="detail-label">Guest</span> ${session.bill_owner}</div>`
       : '';
 
+    const canTransfer = session && !session.bill_requested;
+    const isPickable  = !session && t.status !== 'inactive';
+
     return `
-      <div class="table-card table-card--${t.status}${urgency ? ' ' + urgency : ''}" data-table-id="${t.id}">
+      <div class="table-card table-card--${t.status}${urgency ? ' ' + urgency : ''}${isPickable ? ' table-card--pickable' : ''}" data-table-id="${t.id}">
         <div class="table-card-header">
           <span class="table-card-name">${t.name}</span>
           <span class="table-card-cap">${t.capacity || '—'} pax</span>
@@ -80,6 +83,7 @@ const TablesView = (() => {
           <div class="table-card-actions">
             <button class="btn btn-danger btn-sm" data-action="close-session" data-session-id="${session.id}" data-table="${t.name}">Close session</button>
             <button class="btn btn-ghost btn-sm" data-action="view-bill" data-session-id="${session.id}">View bill</button>
+            ${canTransfer ? `<button class="btn btn-ghost btn-sm" data-action="transfer-session" data-session-id="${session.id}" data-table-id="${t.id}" data-table="${t.name}">Move table</button>` : ''}
             <button class="btn btn-ghost btn-sm" data-action="show-qr" data-table-id="${t.id}" data-table-name="${t.name}">QR</button>
           </div>
         ` : `
@@ -182,10 +186,67 @@ const TablesView = (() => {
   // Uses a module-level guard to prevent concurrent async actions from racing.
   let _actionInFlight = false;
 
+  // Table-transfer destination picker: while set, the next click on a pickable
+  // (empty) table card is treated as the destination rather than a normal action.
+  let _pickerMode = null; // { sessionId, fromTableId, fromTableName } | null
+
+  function _setPickerMode(mode, el) {
+    _pickerMode = mode;
+    let banner = el.querySelector('#transfer-picker-banner');
+    if (mode) {
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'transfer-picker-banner';
+        banner.className = 'transfer-picker-banner';
+        el.insertBefore(banner, el.firstChild);
+      }
+      banner.innerHTML = `Moving <strong>${mode.fromTableName}</strong> — tap an empty table to move it there, or <button class="btn-link" id="transfer-picker-cancel">cancel</button>.`;
+      banner.querySelector('#transfer-picker-cancel').onclick = () => _setPickerMode(null, el);
+    } else if (banner) {
+      banner.remove();
+    }
+  }
+
   async function _handleGridClick(el, e) {
+    if (_pickerMode) {
+      const card = e.target.closest('.table-card');
+      if (!card) return;
+      if (!card.classList.contains('table-card--pickable')) {
+        if (card.dataset.tableId === _pickerMode.fromTableId) { _setPickerMode(null, el); return; }
+        DashUI.toast('That table is occupied — pick an empty one.', 'error');
+        return;
+      }
+      const toTableId   = card.dataset.tableId;
+      const toTableName = card.querySelector('.table-card-name')?.textContent || 'that table';
+      const { sessionId, fromTableName } = _pickerMode;
+      const ok = await DashUI.confirm(
+        `Move <strong>${fromTableName}</strong> to <strong>${toTableName}</strong>?`,
+        { title: 'Move table', confirmLabel: 'Move' }
+      );
+      if (!ok) { _setPickerMode(null, el); return; }
+      _setPickerMode(null, el);
+      try {
+        await Api.rPost('/dine-in/session/transfer', { session_id: sessionId, to_table_id: toTableId });
+        DashUI.toast(`Moved ${fromTableName} to ${toTableName}`, 'success');
+        _load(el);
+      } catch (err) {
+        DashUI.toast('Could not move table. ' + err.message, 'error');
+      }
+      return;
+    }
+
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     const action = btn.dataset.action;
+
+    if (action === 'transfer-session') {
+      _setPickerMode({
+        sessionId:     btn.dataset.sessionId,
+        fromTableId:   btn.dataset.tableId,
+        fromTableName: btn.dataset.table,
+      }, el);
+      return;
+    }
 
     if (action === 'open-session') {
       const card = btn.closest('.table-card');
@@ -647,6 +708,7 @@ const TablesView = (() => {
     if (_elClickHandler) { el.removeEventListener('click', _elClickHandler); _elClickHandler = null; }
     if (_elCtaHandler)   { el.removeEventListener('cta',   _elCtaHandler);   _elCtaHandler   = null; }
     _actionInFlight = false;
+    _pickerMode = null;
     _loadError = false;
     _activeTab = 'floor';
 

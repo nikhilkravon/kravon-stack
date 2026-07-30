@@ -163,6 +163,10 @@ const OverviewView = (() => {
         Api.rGet('/insights/tonight').catch(() => null),
       ]);
 
+      // The user may have already navigated away while these were in flight —
+      // don't stomp whatever view is now showing in the shared content element.
+      if (typeof App !== 'undefined' && !App.isCurrentView('overview')) return;
+
       el.innerHTML = `
         ${tonight ? _tonightPanel(tonight) : ''}
         ${_statCards(summary)}
@@ -175,6 +179,7 @@ const OverviewView = (() => {
         </div>`;
 
     } catch (err) {
+      if (typeof App !== 'undefined' && !App.isCurrentView('overview')) return;
       console.error('[overview] load failed:', err);
       const errHtml = (typeof DashUI !== 'undefined')
         ? DashUI.errorState(err.message)

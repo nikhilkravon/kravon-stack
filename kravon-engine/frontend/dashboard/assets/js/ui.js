@@ -13,6 +13,12 @@
  */
 const DashUI = (() => {
 
+  // ── HTML escaping ────────────────────────────────────────────────────────────
+  function esc(str) {
+    if (str == null) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
   // ── Toast ──────────────────────────────────────────────────────────────────
   function _ensureContainer() {
     let c = document.getElementById('dash-toast-container');
@@ -118,5 +124,5 @@ const DashUI = (() => {
     });
   }
 
-  return { toast, confirm, emptyState, errorState };
+  return { toast, confirm, emptyState, errorState, esc };
 })();

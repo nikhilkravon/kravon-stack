@@ -62,8 +62,8 @@ const SettlementView = (() => {
   // Mirror the backend ROLE_CAPS so the UI shows/hides controls correctly.
   // The backend is still the authority — these guards are UX only.
   const ROLE_CAPS = {
-    owner:    new Set(['ADD','REMOVE','PRICE','DISCOUNT','COMP','VOID','FINALIZE','REOPEN','PAYMENT','INVOICE']),
-    manager:  new Set(['ADD','REMOVE','PRICE','DISCOUNT','COMP','FINALIZE','REOPEN','PAYMENT','INVOICE']),
+    owner:    new Set(['ADD','REMOVE','PRICE','DISCOUNT','COMP','VOID','FINALIZE','PAYMENT','INVOICE']),
+    manager:  new Set(['ADD','REMOVE','PRICE','DISCOUNT','COMP','FINALIZE','PAYMENT','INVOICE']),
     cashier:  new Set(['ADD','DISCOUNT','FINALIZE','PAYMENT','INVOICE']),
     host:     new Set(['ADD','REMOVE']),
     kitchen:  new Set([]),
@@ -296,14 +296,26 @@ const SettlementView = (() => {
       return `<div style="padding:var(--sp-4);text-align:center;color:var(--gray-400);font-size:13px">No payments recorded.</div>`;
     }
     return `<div style="padding:var(--sp-2) var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-2)">
-      ${_payments.map(p => `
-        <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px">
+      ${_payments.map(p => {
+        const isVoided = !!p.voided_at;
+        const isRefund = p.kind === 'refund';
+        const rowStyle = isVoided ? 'opacity:0.5;text-decoration:line-through' : '';
+        const amountColor = isVoided ? 'var(--gray-400)' : (isRefund ? 'var(--red-600)' : 'var(--green-600)');
+        const canCorrect = !isVoided && _can('PAYMENT');
+        return `
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;${rowStyle}">
           <div>
-            <span style="font-weight:600">${METHOD_LABELS[p.method] || p.method}</span>
+            <span style="font-weight:600">${isRefund ? 'Refund — ' : ''}${METHOD_LABELS[p.method] || p.method}</span>
             ${p.reference ? `<span class="text-sm text-muted" style="margin-left:4px">${p.reference}</span>` : ''}
+            ${p.reason ? `<div class="text-sm text-muted">${p.reason}</div>` : ''}
+            ${isVoided ? `<div class="text-sm text-muted">Corrected: ${p.void_reason || ''}</div>` : ''}
           </div>
-          <span style="font-weight:600;color:var(--green-600)">${_fmt(p.amount)}</span>
-        </div>`).join('')}
+          <div style="display:flex;align-items:center;gap:var(--sp-2)">
+            <span style="font-weight:600;color:${amountColor}">${isRefund ? '−' : ''}${_fmt(p.amount)}</span>
+            ${canCorrect ? `<button class="btn-link stl-correct-payment-btn" data-payment-id="${p.id}" style="font-size:12px">Correct a mistake</button>` : ''}
+          </div>
+        </div>`;
+      }).join('')}
     </div>`;
   }
 
@@ -316,6 +328,7 @@ const SettlementView = (() => {
     _el.querySelector('#stl-history-btn')?.addEventListener('click', _handleHistory);
     _el.querySelector('#stl-add-payment-btn')?.addEventListener('click', _handleAddPayment);
     _el.querySelector('#stl-add-refund-btn')?.addEventListener('click', _handleAddRefund);
+    _bindPaymentEvents();
 
     // Line actions
     _el.querySelector('#stl-add-item-btn')?.addEventListener('click', () => _openLineModal('MANUAL_ITEM'));
@@ -510,15 +523,17 @@ const SettlementView = (() => {
 
   // ── Finalize ───────────────────────────────────────────────────────────────
   async function _handleFinalize() {
-    const confirmed = await DashUI.confirm({
-      title:  'Finalize settlement?',
-      body:   'The bill will be locked. You can still record payments and generate an invoice.',
-      action: 'Finalize',
-    });
+    const confirmed = await DashUI.confirm(
+      'The bill will be locked. You can still record payments and generate an invoice.',
+      { title: 'Finalize settlement?', confirmLabel: 'Finalize' }
+    );
     if (!confirmed) return;
 
     try {
-      const data = await _apiPost('/finalize', { gst_snapshot: _settlement.gst_snapshot });
+      // Omit gst_snapshot entirely when there isn't one (manual/catering settlements) —
+      // the backend schema treats it as optional but rejects an explicit null.
+      const body = _settlement.gst_snapshot ? { gst_snapshot: _settlement.gst_snapshot } : {};
+      const data = await _apiPost('/finalize', body);
       _settlement = data.settlement;
       _render();
       DashUI.toast('Settlement finalized.', 'success');
@@ -714,6 +729,7 @@ const SettlementView = (() => {
         _settlement.balance_paise = data.balance_paise;
 
         _el.querySelector('#stl-payments-wrap').innerHTML = _renderPaymentsHtml();
+        _bindPaymentEvents();
         _el.querySelector('#stl-totals-wrap').innerHTML   = _renderTotalsHtml();
         modal.remove();
         DashUI.toast('Payment recorded.', 'success');
@@ -725,9 +741,13 @@ const SettlementView = (() => {
   }
 
   // ── Add refund modal ──────────────────────────────────────────────────────
+  // A refund means money actually went back to the guest — distinct from
+  // correcting a mis-entered payment (see _handleCorrectPayment below), which
+  // is a staff mistake, not a return of money. Reason is required so anyone
+  // reviewing this bill later can tell why it happened.
   async function _handleAddRefund() {
     const modal = _modal(`
-      <div class="modal-header"><h3>Record Refund</h3></div>
+      <div class="modal-header"><h3>Refund to guest</h3></div>
       <div class="modal-body" style="display:flex;flex-direction:column;gap:var(--sp-3)">
         <label>
           <span class="label">Method</span>
@@ -740,13 +760,17 @@ const SettlementView = (() => {
           <input id="rf-amount" type="number" class="input" min="0.01" step="0.01" placeholder="0.00" />
         </label>
         <label>
+          <span class="label">Reason</span>
+          <input id="rf-reason" class="input" placeholder="e.g. Guest sent back a dish" />
+        </label>
+        <label>
           <span class="label">Reference (optional)</span>
           <input id="rf-ref" class="input" placeholder="e.g. UPI ref" />
         </label>
       </div>
       <div class="modal-footer">
         <button id="rf-cancel" class="btn btn-secondary">Cancel</button>
-        <button id="rf-save" class="btn btn-primary" style="background:var(--red-600)">Record Refund</button>
+        <button id="rf-save" class="btn btn-primary" style="background:var(--red-600)">Refund to guest</button>
       </div>`);
 
     modal.querySelector('#rf-cancel').addEventListener('click', () => modal.remove());
@@ -756,23 +780,59 @@ const SettlementView = (() => {
       try {
         const amt = parseFloat(modal.querySelector('#rf-amount').value);
         if (isNaN(amt) || amt <= 0) throw new Error('Enter a valid refund amount.');
+        const reason = modal.querySelector('#rf-reason').value?.trim();
+        if (!reason) throw new Error('A reason is required for a refund.');
         const method    = modal.querySelector('#rf-method').value;
         const reference = modal.querySelector('#rf-ref').value?.trim() || undefined;
 
-        const data = await _apiPost('/payments', { method, amount_paise: -Math.round(amt * 100), is_refund: true, reference });
+        const data = await _apiPost('/payments', { method, amount_paise: Math.round(amt * 100), kind: 'refund', reason, reference });
         _payments.push(data.payment);
         _settlement.paid_paise    = data.paid_paise;
         _settlement.paid          = data.paid_paise / 100;
         _settlement.balance_paise = data.balance_paise;
 
         _el.querySelector('#stl-payments-wrap').innerHTML = _renderPaymentsHtml();
+        _bindPaymentEvents();
         _el.querySelector('#stl-totals-wrap').innerHTML   = _renderTotalsHtml();
         modal.remove();
         DashUI.toast('Refund recorded.', 'success');
       } catch (err) {
-        btn.disabled = false; btn.textContent = 'Record Refund';
+        btn.disabled = false; btn.textContent = 'Refund to guest';
         DashUI.toast(err.message, 'error');
       }
+    });
+  }
+
+  // ── Correct a mis-entered payment ─────────────────────────────────────────
+  // Soft-voids the original row rather than deleting it — the payments list
+  // keeps a struck-through entry with a reason, not a silently vanished number.
+  async function _handleCorrectPayment(paymentId) {
+    const reason = await _promptReason(
+      'Correct a mistake',
+      'What was wrong? (e.g. wrong amount, wrong method, duplicate entry)',
+      true
+    );
+    if (!reason) return;
+    try {
+      const data = await _apiPost(`/payments/${paymentId}/correct`, { reason });
+      const idx = _payments.findIndex(p => p.id === paymentId);
+      if (idx !== -1) _payments[idx] = data.payment;
+      _settlement.paid_paise    = data.paid_paise;
+      _settlement.paid          = data.paid_paise / 100;
+      _settlement.balance_paise = data.balance_paise;
+
+      _el.querySelector('#stl-payments-wrap').innerHTML = _renderPaymentsHtml();
+      _bindPaymentEvents();
+      _el.querySelector('#stl-totals-wrap').innerHTML   = _renderTotalsHtml();
+      DashUI.toast('Payment corrected.', 'success');
+    } catch (err) {
+      DashUI.toast(err.message, 'error');
+    }
+  }
+
+  function _bindPaymentEvents() {
+    _el.querySelectorAll('.stl-correct-payment-btn').forEach(btn => {
+      btn.addEventListener('click', () => _handleCorrectPayment(btn.dataset.paymentId));
     });
   }
 

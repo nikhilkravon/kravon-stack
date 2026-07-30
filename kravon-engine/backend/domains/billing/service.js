@@ -37,7 +37,6 @@ const CAP = {
   COMP_ITEM:          'CAN_COMP_ITEM',
   VOID_SETTLEMENT:    'CAN_VOID_SETTLEMENT',
   FINALIZE:           'CAN_FINALIZE_SETTLEMENT',
-  REOPEN:             'CAN_REOPEN_SETTLEMENT',
   ADD_PAYMENT:        'CAN_ADD_PAYMENT',
   GENERATE_INVOICE:   'CAN_GENERATE_INVOICE',
 };
@@ -49,7 +48,7 @@ const ROLE_CAPS = {
   owner: new Set(Object.values(CAP)),
   manager: new Set([
     CAP.ADD_ITEMS, CAP.REMOVE_ITEMS, CAP.OVERRIDE_PRICE,
-    CAP.APPLY_DISCOUNT, CAP.COMP_ITEM, CAP.FINALIZE, CAP.REOPEN,
+    CAP.APPLY_DISCOUNT, CAP.COMP_ITEM, CAP.FINALIZE,
     CAP.ADD_PAYMENT, CAP.GENERATE_INVOICE,
   ]),
   cashier: new Set([
@@ -676,7 +675,9 @@ async function voidSettlement(tenant, settlementId, staffId, staffRoles, void_re
   }
 }
 
-// ── Record payment ────────────────────────────────────────────────────────────
+// ── Record payment / refund ───────────────────────────────────────────────────
+// A payment and a refund are recorded through the same function — both are
+// always-positive rows (kind='payment' | 'refund'); sumPayments nets them.
 
 async function recordPayment(tenant, settlementId, paymentData, staffId, staffRoles) {
   const tenantId = tenant.tenant_id;
@@ -694,24 +695,77 @@ async function recordPayment(tenant, settlementId, paymentData, staffId, staffRo
       recordedBy: staffId,
     });
 
-    // Update paid_paise denorm — floor at 0 so refunds cannot push it negative
+    // Update paid_paise denorm — floor at 0 so a refund cannot push it negative
     const rawPaid   = await repo.sumPayments(client, settlementId);
     const totalPaid = Math.max(0, rawPaid);
     await repo.updatePaidPaise(client, settlementId, tenantId, totalPaid);
 
     await repo.insertRevision(client, tenantId, settlementId, {
-      actorId: staffId, changeType: 'payment_recorded',
+      actorId: staffId, changeType: paymentData.kind === 'refund' ? 'refund_recorded' : 'payment_recorded',
       afterState: { method: paymentData.method, amount_paise: paymentData.amount_paise },
+      reason: paymentData.reason || null,
     });
     await audit.log(client, {
-      tenantId, actorId: staffId, action: 'settlement.payment',
+      tenantId, actorId: staffId, action: paymentData.kind === 'refund' ? 'settlement.refund' : 'settlement.payment',
       entityType: 'billing.settlement', entityId: settlementId,
-      newValue: { method: paymentData.method, amount_paise: paymentData.amount_paise },
+      newValue: { method: paymentData.method, amount_paise: paymentData.amount_paise, reason: paymentData.reason || null },
     });
 
     await client.query('COMMIT');
     return {
       payment: _fmtPayment(payment),
+      paid_paise:    totalPaid,
+      balance_paise: Math.max(0, settlement.total_paise - totalPaid),
+    };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+// ── Correct a mis-entered payment ─────────────────────────────────────────────
+// Soft-voids the original row (never deletes it) so the ledger stays legible —
+// whoever reviews the bill later sees a struck-through entry with a reason,
+// not a silently vanished number. Distinct from recordPayment(kind:'refund'),
+// which means "money actually went back to the guest."
+
+async function correctPayment(tenant, settlementId, paymentId, staffId, staffRoles, voidReason) {
+  const tenantId = tenant.tenant_id;
+  if (!hasCap(staffRoles, CAP.ADD_PAYMENT)) return { error: 'Insufficient permissions to correct payment.', status: 403 };
+
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    const settlement = await repo.findSettlement(client, tenantId, settlementId);
+    if (!settlement) { await client.query('ROLLBACK'); return { error: 'Settlement not found.', status: 404 }; }
+    if (settlement.status === 'voided') { await client.query('ROLLBACK'); return { error: 'Cannot correct a payment on a voided settlement.', status: 409 }; }
+
+    const before = await repo.findPayment(client, tenantId, paymentId);
+    if (!before || before.settlement_id !== settlementId) { await client.query('ROLLBACK'); return { error: 'Payment not found.', status: 404 }; }
+    if (before.voided_at) { await client.query('ROLLBACK'); return { error: 'Payment already corrected.', status: 409 }; }
+
+    const voided = await repo.voidPayment(client, tenantId, paymentId, { voidedBy: staffId, voidReason });
+    if (!voided) { await client.query('ROLLBACK'); return { error: 'Payment not found.', status: 404 }; }
+
+    const rawPaid   = await repo.sumPayments(client, settlementId);
+    const totalPaid = Math.max(0, rawPaid);
+    await repo.updatePaidPaise(client, settlementId, tenantId, totalPaid);
+
+    await repo.insertRevision(client, tenantId, settlementId, {
+      actorId: staffId, changeType: 'payment_corrected',
+      beforeState: _fmtPayment(before), reason: voidReason,
+    });
+    await audit.log(client, {
+      tenantId, actorId: staffId, action: 'settlement.payment_correct',
+      entityType: 'billing.settlement', entityId: settlementId,
+      oldValue: _fmtPayment(before), newValue: { void_reason: voidReason },
+    });
+
+    await client.query('COMMIT');
+    return {
+      payment: _fmtPayment(voided),
       paid_paise:    totalPaid,
       balance_paise: Math.max(0, settlement.total_paise - totalPaid),
     };
@@ -860,9 +914,13 @@ function _fmtPayment(p) {
     method:      p.method,
     amount_paise:p.amount_paise,
     amount:      calc.toRupees(p.amount_paise),
+    kind:        p.kind || 'payment',
+    reason:      p.reason || null,
     reference:   p.reference,
     notes:       p.notes,
     recorded_at: p.recorded_at,
+    voided_at:   p.voided_at || null,
+    void_reason: p.void_reason || null,
   };
 }
 
@@ -890,5 +948,5 @@ module.exports = {
   getSettlement, getSettlementBySession,
   addLine, editLine, removeLine,
   finalizeSettlement, voidSettlement,
-  recordPayment, generateInvoice, getRevisions,
+  recordPayment, correctPayment, generateInvoice, getRevisions,
 };

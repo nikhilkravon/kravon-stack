@@ -715,6 +715,37 @@ tbody tr:hover td { background: var(--gray-50); }
 }
 .bill-requested-alert::before { content: '🔔'; font-size: 12px; }
 
+/* ── Table transfer (Move table) picker ─────────────────────── */
+.transfer-picker-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--blue-50, #eff6ff);
+  color: var(--blue-700, #1d4ed8);
+  border: 1px solid var(--blue-200, #bfdbfe);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: var(--sp-3, 12px);
+  font-size: 13px;
+}
+.transfer-picker-banner .btn-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  text-decoration: underline;
+  font: inherit;
+  cursor: pointer;
+}
+.table-card--pickable {
+  cursor: pointer;
+  outline: 2px dashed var(--blue-300, #93c5fd);
+  outline-offset: -2px;
+}
+.table-card--pickable:hover {
+  background: var(--blue-50, #eff6ff);
+}
+
 /* ── Session orders feed ────────────────────────────────────── */
 .session-orders-feed {
   margin: 6px 0;
