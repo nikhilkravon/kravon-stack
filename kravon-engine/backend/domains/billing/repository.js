@@ -20,6 +20,25 @@ async function findSettlement(client, tenantId, settlementId) {
   return res.rows[0] || null;
 }
 
+// Locking variant for any read-modify-write sequence inside a transaction
+// (payments, line edits, finalize, void, etc.) — without this, two concurrent
+// requests against the same settlement can both read the same pre-mutation
+// state and each write back a result that only reflects their own change,
+// silently losing the other (confirmed: concurrent payments both insert
+// correctly into billing.payments, but paid_paise ends up reflecting only
+// one of them because both transactions summed payments before the other's
+// insert was visible to them under READ COMMITTED). Requires an active
+// client/transaction — never call this outside BEGIN.
+async function findSettlementForUpdate(client, tenantId, settlementId) {
+  const res = await client.query(
+    `SELECT * FROM billing.settlements
+     WHERE id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL
+     FOR UPDATE`,
+    [settlementId, tenantId],
+  );
+  return res.rows[0] || null;
+}
+
 // Voided settlements are excluded from "does one already exist" lookups —
 // voiding must free the session/order/lead to be billed again, not dead-end it.
 async function findSettlementBySession(tenantId, sessionId) {
@@ -463,7 +482,7 @@ async function sumPayments(client, settlementId) {
 }
 
 module.exports = {
-  findSettlement, findSettlementBySession, findSettlementByOrder, findSettlementByLead,
+  findSettlement, findSettlementForUpdate, findSettlementBySession, findSettlementByOrder, findSettlementByLead,
   listSettlements,
   createSettlement, updateSettlementTotals, updateSettlementStatus,
   updateSettlementNotes, updatePaidPaise,

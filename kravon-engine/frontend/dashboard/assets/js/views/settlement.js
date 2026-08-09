@@ -29,6 +29,22 @@ const SettlementView = (() => {
   let _settlementId = null;
   let _undoStack  = [];     // local undo within draft (line snapshots before edit)
 
+  // POS menu picker state
+  let _menuCategories = [];      // [{ id, name, items: [...] }] from /menu/categories
+  let _menuLoaded     = false;
+  let _expandedItemId = null;    // item id whose variant/customization picker is inline-open
+  let _variantCache   = new Map(); // itemId -> { variants, groups } once fetched
+  // Session-scoped "what did this line cost when it was added from the catalog" —
+  // lets the price cell show a struck-through original when later overridden.
+  // Not persisted: settlement_lines has no original-price column, so this only
+  // survives for the current page load, not a reload.
+  let _catalogPriceAtAdd = new Map(); // lineId -> unit_price_paise at add time
+  let _editingPriceLineId = null; // lineId currently showing the inline price input
+  // Session-scoped: unit price a line had right before it was comped, so
+  // "Un-comp" can restore a real price instead of leaving it at ₹0. Same
+  // reload caveat as _catalogPriceAtAdd — not persisted server-side.
+  let _preCompPrice = new Map(); // lineId -> unit_price_paise before comping
+
   // ── Formatters ─────────────────────────────────────────────────────────────
   const _fmt     = n => '₹ ' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const _fmtP    = p => _fmt(p / 100);
@@ -122,6 +138,179 @@ const SettlementView = (() => {
     }
   }
 
+  // ── Load menu catalog (for the tap-to-add picker) ─────────────────────────
+  async function _loadMenu() {
+    try {
+      const data = await Api.rGet('/menu/categories');
+      _menuCategories = (data.categories || []).filter(c => c.is_active !== false);
+      _menuLoaded = true;
+    } catch (err) {
+      _menuLoaded = false;
+      console.error('[settlement] menu catalog load failed:', err.message);
+    }
+    const wrap = _el?.querySelector('#stl-menu-picker-wrap');
+    if (wrap) wrap.innerHTML = _renderMenuPickerHtml();
+    _bindMenuPickerEvents();
+  }
+
+  // ── Menu picker rendering ──────────────────────────────────────────────────
+  const _foodDot = (type) => {
+    const cls = { veg: 'dot-veg', non_veg: 'dot-non_veg', egg: 'dot-egg', vegan: 'dot-vegan' }[type] || 'dot-veg';
+    return `<span class="menu-item-dot ${cls}" title="${type || 'veg'}"></span>`;
+  };
+
+  function _renderMenuPickerHtml() {
+    if (!_menuLoaded) {
+      return `<div class="stl-menu-picker-loading">Loading menu…</div>`;
+    }
+    const cats = _menuCategories.filter(c => (c.items || []).length);
+    const catsHtml = cats.map(cat => `
+      <div class="stl-menu-cat" data-cat-id="${cat.id}">
+        <div class="stl-menu-cat-header">${cat.name}</div>
+        <div class="stl-menu-cat-items">
+          ${(cat.items || []).filter(i => i.is_available !== false).map(_menuItemCard).join('')}
+        </div>
+      </div>`).join('');
+
+    return `
+      <button class="stl-custom-item-btn" id="stl-custom-item-btn">+ Custom item</button>
+      ${cats.length ? catsHtml : `<div class="stl-menu-picker-loading">No menu items available.</div>`}`;
+  }
+
+  function _menuItemCard(item) {
+    const expanded = _expandedItemId === item.id;
+    return `
+      <div class="stl-menu-item-card${expanded ? ' stl-menu-item-card--expanded' : ''}" data-item-id="${item.id}">
+        <button class="stl-menu-item-tap" data-item-id="${item.id}">
+          ${_foodDot(item.food_type)}
+          <span class="stl-menu-item-name">${item.name}</span>
+          <span class="stl-menu-item-price">₹ ${Number(item.price).toLocaleString('en-IN')}</span>
+        </button>
+        ${expanded ? _renderItemExpansion(item) : ''}
+      </div>`;
+  }
+
+  // Inline expansion for customizable items (variants/customization groups) —
+  // lazy-fetched on first tap, rendered right under the tap target, no modal.
+  function _renderItemExpansion(item) {
+    const cached = _variantCache.get(item.id);
+    if (!cached) return `<div class="stl-item-expansion stl-item-expansion--loading">Loading options…</div>`;
+
+    const { variants, groups } = cached;
+    const variantHtml = (variants || []).filter(v => v.is_available !== false).map(v => `
+      <button class="stl-variant-btn" data-item-id="${item.id}" data-variant-id="${v.id}"
+        data-name="${v.name}" data-price="${v.price}">
+        ${v.name} — ₹ ${Number(v.price).toLocaleString('en-IN')}
+      </button>`).join('');
+
+    const groupsHtml = (groups || []).map(g => `
+      <div class="stl-custom-group">
+        <div class="text-sm text-muted">${g.name}${g.is_required ? ' (required)' : ''}</div>
+        <div class="stl-custom-options">
+          ${(g.options || []).map(o => `
+            <span class="stl-custom-option-pill">${o.name}${o.price_modifier ? ` +₹${Number(o.price_modifier).toLocaleString('en-IN')}` : ''}</span>
+          `).join('')}
+        </div>
+      </div>`).join('');
+
+    if (!variants?.length && !groups?.length) {
+      // Nothing actually configured despite is_customizable — fall back to a plain add.
+      return `<div class="stl-item-expansion">
+        <button class="stl-variant-btn" data-item-id="${item.id}" data-name="${item.name}" data-price="${item.price}">
+          Add — ₹ ${Number(item.price).toLocaleString('en-IN')}
+        </button>
+      </div>`;
+    }
+
+    return `<div class="stl-item-expansion">
+      ${variantHtml ? `<div class="stl-variant-list">${variantHtml}</div>` : ''}
+      ${groupsHtml}
+    </div>`;
+  }
+
+  function _bindMenuPickerEvents() {
+    _el.querySelector('#stl-custom-item-btn')?.addEventListener('click', () => _openLineModal('MANUAL_ITEM'));
+
+    _el.querySelectorAll('.stl-menu-item-tap').forEach(btn => {
+      btn.addEventListener('click', () => _handleTapMenuItem(btn.dataset.itemId));
+    });
+
+    _el.querySelectorAll('.stl-variant-btn').forEach(btn => {
+      btn.addEventListener('click', () => _handleAddCatalogItem(btn.dataset.name, Number(btn.dataset.price)));
+    });
+  }
+
+  function _findMenuItem(itemId) {
+    for (const cat of _menuCategories) {
+      const item = (cat.items || []).find(i => i.id === itemId);
+      if (item) return item;
+    }
+    return null;
+  }
+
+  async function _handleTapMenuItem(itemId) {
+    const item = _findMenuItem(itemId);
+    if (!item) return;
+
+    if (!item.is_customizable) {
+      await _handleAddCatalogItem(item.name, item.price);
+      return;
+    }
+
+    // Toggle the inline expansion for this item; lazy-fetch variants/customizations once.
+    if (_expandedItemId === itemId) {
+      _expandedItemId = null;
+      _rerenderMenuPicker();
+      return;
+    }
+    _expandedItemId = itemId;
+    _rerenderMenuPicker();
+
+    if (!_variantCache.has(itemId)) {
+      try {
+        const [vData, cData] = await Promise.all([
+          Api.rGet(`/menu/items/${itemId}/variants`),
+          Api.rGet(`/menu/items/${itemId}/customizations`),
+        ]);
+        _variantCache.set(itemId, { variants: vData.variants || [], groups: cData.groups || [] });
+      } catch (err) {
+        _variantCache.set(itemId, { variants: [], groups: [] });
+      }
+      if (_expandedItemId === itemId) _rerenderMenuPicker();
+    }
+  }
+
+  function _rerenderMenuPicker() {
+    const wrap = _el?.querySelector('#stl-menu-picker-wrap');
+    if (wrap) wrap.innerHTML = _renderMenuPickerHtml();
+    _bindMenuPickerEvents();
+  }
+
+  // Adds a MANUAL_ITEM line at the given name/price (rupees) — used both for
+  // a plain menu-item tap and for a picked variant. Remembers the catalog
+  // price so a later inline price edit can show a struck-through original.
+  async function _handleAddCatalogItem(name, priceRupees) {
+    const unit_price_paise = Math.round(priceRupees * 100);
+    const payload = {
+      line_type: 'MANUAL_ITEM',
+      description: name,
+      quantity: 1,
+      unit_price_paise,
+      amount_paise: unit_price_paise,
+    };
+    try {
+      const data = await _apiPost('/lines', payload);
+      _lines.push(data.line);
+      _catalogPriceAtAdd.set(data.line.id, unit_price_paise);
+      _updateTotalsFromResponse(data.totals);
+      _rerenderLines();
+      _expandedItemId = null;
+      _rerenderMenuPicker();
+    } catch (err) {
+      DashUI.toast(err.message, 'error');
+    }
+  }
+
   // ── Skeleton / error helpers ───────────────────────────────────────────────
   function _showLoading() {
     if (!_el) return;
@@ -157,18 +346,30 @@ const SettlementView = (() => {
         <strong>Voided</strong>${s.void_reason ? ` — ${s.void_reason}` : ''}
       </div>` : ''}
 
-      <div id="stl-body" style="display:grid;grid-template-columns:minmax(0,1fr) clamp(240px,320px,100%);gap:var(--sp-5);align-items:start;flex-wrap:wrap" class="stl-body-grid">
+      <div id="stl-body" class="stl-pos-grid">
+
+        <!-- Menu picker panel (tap to add — replaces the old "+ Item" modal) -->
+        ${editable && _can('ADD') ? `
+        <div class="stl-menu-picker">
+          <div class="card" style="height:100%;display:flex;flex-direction:column">
+            <div class="card-header">
+              <span class="card-title">Menu</span>
+            </div>
+            <div id="stl-menu-picker-wrap" class="stl-menu-picker-body">
+              ${_renderMenuPickerHtml()}
+            </div>
+          </div>
+        </div>` : ''}
 
         <!-- Lines panel -->
         <div>
           <div class="card">
             <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
               <span class="card-title">Bill items</span>
-              ${editable && _can('ADD') ? `
+              ${editable && (_can('ADD') || _can('DISCOUNT')) ? `
                 <div style="display:flex;gap:var(--sp-2)">
-                  <button id="stl-add-item-btn"     class="btn btn-secondary btn-sm">+ Item</button>
-                  <button id="stl-add-discount-btn" class="btn btn-secondary btn-sm">+ Discount</button>
-                  <button id="stl-add-charge-btn"   class="btn btn-secondary btn-sm">+ Charge</button>
+                  ${_can('DISCOUNT') ? `<button id="stl-add-discount-btn" class="btn btn-secondary btn-sm">+ Discount</button>` : ''}
+                  ${_can('ADD') ? `<button id="stl-add-charge-btn" class="btn btn-secondary btn-sm">+ Charge</button>` : ''}
                 </div>` : ''}
             </div>
             <div id="stl-lines-wrap" class="table-wrap">
@@ -221,18 +422,26 @@ const SettlementView = (() => {
     _bindEvents();
   }
 
+  const ITEM_LINE_TYPES = ['MANUAL_ITEM', 'ORDER_ITEM', 'COMPLIMENTARY_ITEM'];
+
   function _renderLinesHtml() {
     if (!_lines.length) {
-      return `<div style="padding:var(--sp-6);text-align:center;color:var(--gray-400)">No lines yet.</div>`;
+      return `<div style="padding:var(--sp-6);text-align:center;color:var(--gray-400)">No lines yet. Tap a menu item to add one.</div>`;
     }
     const editable = isEditable();
     const rows = _lines.map(l => {
-      const isComp    = l.is_comp;
+      // Item-type lines (MANUAL_ITEM/ORDER_ITEM/COMPLIMENTARY_ITEM) always render
+      // via _itemLineRow (qty stepper + click-to-edit price) — everything below
+      // this point only ever runs for DISCOUNT/charge/TAX-type lines.
+      if (ITEM_LINE_TYPES.includes(l.line_type)) {
+        return _itemLineRow(l, editable);
+      }
+
       const isTax     = l.line_type === 'TAX';
       const isDisc    = l.line_type === 'DISCOUNT';
-      const amtStyle  = isDisc ? 'color:var(--green-600)' : isComp ? 'color:var(--gray-400);text-decoration:line-through' : '';
-      const prefix    = isDisc ? '−' : '';
       const typeLabel = LINE_LABELS[l.line_type] || l.line_type;
+      const amtStyle  = isDisc ? 'color:var(--green-600)' : '';
+      const prefix    = isDisc ? '−' : '';
       const unitCell  = l.unit_price_paise != null
         ? `<span class="text-sm text-muted">${_fmtP(l.unit_price_paise)} × ${Number(l.quantity).toFixed(l.quantity % 1 ? 2 : 0)}</span>`
         : (l.percent ? `<span class="text-sm text-muted">${(l.percent * 100).toFixed(1)}%</span>` : '');
@@ -240,7 +449,7 @@ const SettlementView = (() => {
       return `<tr data-line-id="${l.id}">
         <td>
           <div style="font-weight:500">${l.description}</div>
-          <div class="text-sm text-muted">${typeLabel}${isComp ? ' · <em>Comp</em>' : ''}</div>
+          <div class="text-sm text-muted">${typeLabel}</div>
         </td>
         <td class="text-right">${unitCell}</td>
         <td class="text-right" style="${amtStyle};font-weight:600;white-space:nowrap">
@@ -249,7 +458,7 @@ const SettlementView = (() => {
         <td style="width:64px;text-align:right">
           ${editable && !isTax ? `
             <div style="display:flex;gap:4px;justify-content:flex-end">
-              ${_can('PRICE') || l.line_type === 'DISCOUNT' || l.line_type === 'COMPLIMENTARY_ITEM' ? `
+              ${_can('PRICE') || isDisc ? `
                 <button class="stl-edit-line-btn icon-btn" data-line-id="${l.id}" title="Edit">✏</button>` : ''}
               ${_can('REMOVE') ? `
                 <button class="stl-del-line-btn icon-btn" data-line-id="${l.id}" title="Remove" style="color:var(--red-500)">✕</button>` : ''}
@@ -262,6 +471,62 @@ const SettlementView = (() => {
       <thead><tr><th>Description</th><th class="text-right">Unit / %</th><th class="text-right">Amount</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
+  }
+
+  // Item-type line (MANUAL_ITEM / ORDER_ITEM / COMPLIMENTARY_ITEM): fully
+  // inline — qty stepper, click-to-edit price, no modal. Discount/comp badge
+  // and remove button behave exactly as before.
+  function _itemLineRow(l, editable) {
+    const isComp = l.is_comp;
+    const canPrice  = editable && _can('PRICE');
+    const canRemove = editable && _can('REMOVE');
+    const canComp   = editable && _can('COMP');
+    const typeLabel = LINE_LABELS[l.line_type] || l.line_type;
+    const isEditingPrice = _editingPriceLineId === l.id;
+
+    const catalogPrice = _catalogPriceAtAdd.get(l.id);
+    const isOverridden  = catalogPrice != null && l.unit_price_paise != null && catalogPrice !== l.unit_price_paise;
+
+    const priceCell = isEditingPrice
+      ? `<input type="number" class="input stl-price-input" data-line-id="${l.id}" min="0" step="0.01"
+           value="${l.unit_price_paise != null ? (l.unit_price_paise / 100).toFixed(2) : ''}" autofocus />`
+      : `<span class="stl-price-cell${canPrice ? ' stl-price-cell--editable' : ''}" data-line-id="${l.id}"
+           title="${canPrice ? 'Click to edit price' : ''}">
+           ${isOverridden ? `<span class="stl-price-original">${_fmtP(catalogPrice)}</span>` : ''}
+           ${l.unit_price_paise != null ? _fmtP(l.unit_price_paise) : '—'}
+         </span>`;
+
+    const qtyCell = editable
+      ? `<div class="stl-qty-stepper">
+           <button class="stl-qty-minus" data-line-id="${l.id}" title="Decrease quantity" ${!canRemove && !canPrice ? 'disabled' : ''}>−</button>
+           <span class="stl-qty-value">${Number(l.quantity).toFixed(l.quantity % 1 ? 2 : 0)}</span>
+           <button class="stl-qty-plus" data-line-id="${l.id}" title="Increase quantity" ${!canPrice ? 'disabled' : ''}>+</button>
+         </div>`
+      : `<span class="text-sm text-muted">× ${Number(l.quantity).toFixed(l.quantity % 1 ? 2 : 0)}</span>`;
+
+    const compToggle = canComp
+      ? `<button class="btn-link stl-comp-toggle-btn" data-line-id="${l.id}" style="font-size:12px;margin-left:6px">
+           ${isComp ? 'Un-comp' : 'Comp'}
+         </button>`
+      : '';
+
+    return `<tr data-line-id="${l.id}">
+      <td>
+        <div style="font-weight:500">${l.description}</div>
+        <div class="text-sm text-muted">
+          ${typeLabel}${isComp ? ' · <em>Comp</em>' : ''}${isComp && l.comp_reason ? ` — ${l.comp_reason}` : ''}${compToggle}
+        </div>
+      </td>
+      <td class="text-right">${priceCell}</td>
+      <td class="text-right" style="${isComp ? 'color:var(--gray-400);text-decoration:line-through' : ''};font-weight:600;white-space:nowrap">
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-2)">
+          ${qtyCell}
+          <span>${_fmtP(l.amount_paise)}</span>
+          ${canRemove ? `<button class="stl-del-line-btn icon-btn" data-line-id="${l.id}" title="Remove" style="color:var(--red-500)">✕</button>` : ''}
+        </div>
+      </td>
+      <td></td>
+    </tr>`;
   }
 
   function _renderTotalsHtml() {
@@ -330,21 +595,14 @@ const SettlementView = (() => {
     _el.querySelector('#stl-add-refund-btn')?.addEventListener('click', _handleAddRefund);
     _bindPaymentEvents();
 
-    // Line actions
-    _el.querySelector('#stl-add-item-btn')?.addEventListener('click', () => _openLineModal('MANUAL_ITEM'));
+    // Line actions — discount/charge still use the short modal form (no catalog
+    // data exists to drive an inline editor for these); items are handled by
+    // the menu picker + inline row controls (_bindLineEvents).
     _el.querySelector('#stl-add-discount-btn')?.addEventListener('click', () => _openLineModal('DISCOUNT'));
     _el.querySelector('#stl-add-charge-btn')?.addEventListener('click', () => _openLineModal('SERVICE_CHARGE'));
 
-    _el.querySelectorAll('.stl-edit-line-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const line = _lines.find(l => l.id === btn.dataset.lineId);
-        if (line) _openLineModal(line.line_type, line);
-      });
-    });
-
-    _el.querySelectorAll('.stl-del-line-btn').forEach(btn => {
-      btn.addEventListener('click', () => _handleRemoveLine(btn.dataset.lineId));
-    });
+    _bindLineEvents();
+    _bindMenuPickerEvents();
 
     // Notes save
     _el.querySelector('#stl-save-notes')?.addEventListener('click', async () => {
@@ -515,10 +773,82 @@ const SettlementView = (() => {
     try {
       const data = await _apiDel(`/lines/${lineId}`, reason ? { reason } : {});
       _lines = _lines.filter(l => l.id !== lineId);
+      _catalogPriceAtAdd.delete(lineId);
       _updateTotalsFromResponse(data.totals);
       _rerenderLines();
       DashUI.toast('Line removed.', 'success');
     } catch (err) { DashUI.toast(err.message, 'error'); }
+  }
+
+  // ── Inline qty stepper ─────────────────────────────────────────────────────
+  async function _adjustQty(lineId, delta) {
+    const line = _lines.find(l => l.id === lineId);
+    if (!line) return;
+    const step = Number.isInteger(line.quantity) ? 1 : 0.5;
+    const newQty = Math.round((line.quantity + delta * step) * 1000) / 1000;
+
+    if (newQty <= 0) {
+      await _handleRemoveLine(lineId);
+      return;
+    }
+
+    // amount_paise is stored, not derived — must be recomputed and sent on every
+    // qty change, exactly like the old line-modal's save handler did. Comp lines
+    // stay at 0 regardless of qty (the whole point of a comp is it's free).
+    const amount_paise = line.is_comp ? 0 : Math.round((line.unit_price_paise || 0) * newQty);
+
+    try {
+      const data = await _apiPatch(`/lines/${lineId}`, { quantity: newQty, amount_paise });
+      const idx = _lines.findIndex(l => l.id === lineId);
+      if (idx !== -1) _lines[idx] = data.line;
+      _updateTotalsFromResponse(data.totals);
+      _rerenderLines();
+    } catch (err) { DashUI.toast(err.message, 'error'); }
+  }
+
+  // ── Inline click-to-edit price ─────────────────────────────────────────────
+  function _startPriceEdit(lineId) {
+    _editingPriceLineId = lineId;
+    _rerenderLines();
+    const input = _el.querySelector(`.stl-price-input[data-line-id="${lineId}"]`);
+    if (!input) return;
+    input.focus();
+    input.select();
+
+    const commit = () => _commitPriceEdit(lineId, input.value);
+    const cancel = () => { _editingPriceLineId = null; _rerenderLines(); };
+
+    input.addEventListener('blur', commit, { once: true });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { input.blur(); }
+      else if (e.key === 'Escape') { input.removeEventListener('blur', commit); cancel(); }
+    });
+  }
+
+  async function _commitPriceEdit(lineId, rawValue) {
+    _editingPriceLineId = null;
+    const line = _lines.find(l => l.id === lineId);
+    if (!line) { _rerenderLines(); return; }
+
+    const rupees = parseFloat(rawValue);
+    if (isNaN(rupees) || rupees < 0) { _rerenderLines(); return; }
+    const unit_price_paise = Math.round(rupees * 100);
+    if (unit_price_paise === line.unit_price_paise) { _rerenderLines(); return; } // no change
+
+    // amount_paise must be recomputed from the new unit price × existing qty —
+    // it's a stored column, not derived server-side. Comp lines stay at 0.
+    const amount_paise = line.is_comp ? 0 : Math.round(unit_price_paise * line.quantity);
+
+    try {
+      const data = await _apiPatch(`/lines/${lineId}`, { unit_price_paise, amount_paise });
+      const idx = _lines.findIndex(l => l.id === lineId);
+      if (idx !== -1) _lines[idx] = data.line;
+      _updateTotalsFromResponse(data.totals);
+      _rerenderLines();
+    } catch (err) {
+      DashUI.toast(err.message, 'error');
+      _rerenderLines();
+    }
   }
 
   // ── Finalize ───────────────────────────────────────────────────────────────
@@ -692,6 +1022,16 @@ const SettlementView = (() => {
     const modal = _modal(`
       <div class="modal-header"><h3>Record payment</h3></div>
       <div class="modal-body" style="display:flex;flex-direction:column;gap:var(--sp-3)">
+        <button type="button" id="pm-split-toggle" class="btn-link" style="align-self:flex-start;font-size:13px">Split evenly →</button>
+
+        <div id="pm-split-row" style="display:none;align-items:flex-end;gap:var(--sp-3)">
+          <label style="flex:1">
+            <span class="label">Number of guests</span>
+            <input id="pm-split-count" type="number" class="input" min="2" step="1" value="2" />
+          </label>
+          <div id="pm-split-status" class="text-sm text-muted" style="padding-bottom:8px;white-space:nowrap"></div>
+        </div>
+
         <label>
           <span class="label">Method</span>
           <select id="pm-method" class="input">
@@ -712,9 +1052,64 @@ const SettlementView = (() => {
         <button id="pm-save" class="btn btn-primary">Record payment</button>
       </div>`);
 
+    // ── Split evenly ────────────────────────────────────────────────────────
+    // Divides whatever's still owed (not the original total — a split started
+    // after a partial payment should only split what's left) into N equal
+    // shares. Remainder from integer-paise division goes on the first share so
+    // the shares always sum exactly to the balance due, never a paisa short.
+    // Shares are computed ONCE, snapshotted at the moment split mode is entered
+    // (or guest count changes) — recomputing against the live balance after
+    // each recorded share would shrink every subsequent share (a real bug this
+    // caught: recompute-on-every-render treated "what's left after guest 1
+    // paid" as "the new total to split 3 ways" instead of "2 remaining shares").
+    let splitActive = false;
+    let splitTotal   = 0;   // guests
+    let splitPaid    = 0;   // guests whose share has been recorded this session
+    let splitShares  = [];  // paise per guest, remainder-adjusted, fixed at split-start
+
+    const splitToggle = modal.querySelector('#pm-split-toggle');
+    const splitRow    = modal.querySelector('#pm-split-row');
+    const splitCount  = modal.querySelector('#pm-split-count');
+    const splitStatus = modal.querySelector('#pm-split-status');
+    const amountEl    = modal.querySelector('#pm-amount');
+    const saveBtn     = modal.querySelector('#pm-save');
+
+    function _startSplit() {
+      const n = Math.max(2, parseInt(splitCount.value, 10) || 2);
+      const currentBal = Math.max(0, (_settlement.total_paise || 0) - (_settlement.paid_paise || 0));
+      const base = Math.floor(currentBal / n);
+      const remainder = currentBal - base * n;
+      // First share absorbs the remainder so shares sum exactly to currentBal.
+      splitShares = Array.from({ length: n }, (_, i) => base + (i === 0 ? remainder : 0));
+      splitTotal = n;
+      splitPaid = 0;
+    }
+
+    function _updateSplitUi() {
+      const nextShare = splitShares[splitPaid];
+      if (nextShare === undefined) {
+        splitStatus.textContent = 'All shares recorded';
+        amountEl.value = '0.00';
+        saveBtn.disabled = true;
+      } else {
+        splitStatus.textContent = `${splitPaid} of ${splitTotal} paid`;
+        amountEl.value = (nextShare / 100).toFixed(2);
+        saveBtn.disabled = false;
+      }
+    }
+
+    splitToggle.addEventListener('click', () => {
+      splitActive = !splitActive;
+      splitRow.style.display = splitActive ? 'flex' : 'none';
+      splitToggle.textContent = splitActive ? '← Pay full amount' : 'Split evenly →';
+      if (splitActive) { _startSplit(); _updateSplitUi(); }
+      else { amountEl.value = (Math.max(0, (_settlement.total_paise || 0) - (_settlement.paid_paise || 0)) / 100).toFixed(2); saveBtn.disabled = false; }
+    });
+    splitCount.addEventListener('input', () => { if (splitActive) { _startSplit(); _updateSplitUi(); } });
+
     modal.querySelector('#pm-cancel').addEventListener('click', () => modal.remove());
-    modal.querySelector('#pm-save').addEventListener('click', async () => {
-      const btn = modal.querySelector('#pm-save');
+    saveBtn.addEventListener('click', async () => {
+      const btn = saveBtn;
       btn.disabled = true; btn.textContent = 'Saving…';
       try {
         const amt = parseFloat(modal.querySelector('#pm-amount').value);
@@ -731,8 +1126,17 @@ const SettlementView = (() => {
         _el.querySelector('#stl-payments-wrap').innerHTML = _renderPaymentsHtml();
         _bindPaymentEvents();
         _el.querySelector('#stl-totals-wrap').innerHTML   = _renderTotalsHtml();
-        modal.remove();
         DashUI.toast('Payment recorded.', 'success');
+
+        if (splitActive) {
+          splitPaid += 1;
+          _updateSplitUi();
+          btn.disabled = splitPaid >= splitTotal;
+          btn.textContent = 'Record payment';
+          if (splitPaid >= splitTotal) modal.remove();
+        } else {
+          modal.remove();
+        }
       } catch (err) {
         btn.disabled = false; btn.textContent = 'Record payment';
         DashUI.toast(err.message, 'error');
@@ -844,6 +1248,8 @@ const SettlementView = (() => {
   }
 
   function _bindLineEvents() {
+    // DISCOUNT/charge lines still edit via the short modal — no catalog data
+    // exists to drive an inline editor for a percentage/flat adjustment.
     _el.querySelectorAll('.stl-edit-line-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const line = _lines.find(l => l.id === btn.dataset.lineId);
@@ -853,6 +1259,75 @@ const SettlementView = (() => {
     _el.querySelectorAll('.stl-del-line-btn').forEach(btn => {
       btn.addEventListener('click', () => _handleRemoveLine(btn.dataset.lineId));
     });
+
+    // Item lines (MANUAL_ITEM / ORDER_ITEM / COMPLIMENTARY_ITEM): qty steppers
+    _el.querySelectorAll('.stl-qty-minus').forEach(btn => {
+      btn.addEventListener('click', () => _adjustQty(btn.dataset.lineId, -1));
+    });
+    _el.querySelectorAll('.stl-qty-plus').forEach(btn => {
+      btn.addEventListener('click', () => _adjustQty(btn.dataset.lineId, 1));
+    });
+
+    // Item lines: click-to-edit price
+    _el.querySelectorAll('.stl-price-cell').forEach(cellEl => {
+      cellEl.addEventListener('click', () => _startPriceEdit(cellEl.dataset.lineId));
+    });
+
+    // Item lines: Comp / Un-comp
+    _el.querySelectorAll('.stl-comp-toggle-btn').forEach(btn => {
+      btn.addEventListener('click', () => _handleToggleComp(btn.dataset.lineId));
+    });
+  }
+
+  // ── Comp / un-comp an item ─────────────────────────────────────────────────
+  // Comping zeroes the line's amount (VIP guest, staff meal, service-recovery
+  // replacement) — a daily operational action, not an edge case. Un-comp
+  // restores whatever price the line had right before it was comped (tracked
+  // client-side for this page load; falls back to the line's current
+  // unit_price_paise, i.e. ₹0, if that history isn't available — e.g. after a
+  // page reload — rather than guessing at a price with no source of truth).
+  async function _handleToggleComp(lineId) {
+    const line = _lines.find(l => l.id === lineId);
+    if (!line) return;
+
+    if (line.is_comp) {
+      const restorePrice = _preCompPrice.get(lineId) ?? line.unit_price_paise ?? 0;
+      const amount_paise = Math.round(restorePrice * line.quantity);
+      try {
+        const data = await _apiPatch(`/lines/${lineId}`, {
+          is_comp: false, comp_reason: '', unit_price_paise: restorePrice, amount_paise,
+        });
+        const idx = _lines.findIndex(l => l.id === lineId);
+        if (idx !== -1) _lines[idx] = data.line;
+        _preCompPrice.delete(lineId);
+        _updateTotalsFromResponse(data.totals);
+        _rerenderLines();
+        DashUI.toast('Comp removed.', 'success');
+      } catch (err) { DashUI.toast(err.message, 'error'); }
+      return;
+    }
+
+    const reason = await _promptReason(
+      `Comp "${line.description}"?`,
+      'Reason (VIP guest, staff meal, service recovery, etc.)',
+      true
+    );
+    if (!reason) return;
+
+    _preCompPrice.set(lineId, line.unit_price_paise ?? 0);
+    try {
+      const data = await _apiPatch(`/lines/${lineId}`, {
+        is_comp: true, comp_reason: reason, amount_paise: 0,
+      });
+      const idx = _lines.findIndex(l => l.id === lineId);
+      if (idx !== -1) _lines[idx] = data.line;
+      _updateTotalsFromResponse(data.totals);
+      _rerenderLines();
+      DashUI.toast('Item comped.', 'success');
+    } catch (err) {
+      _preCompPrice.delete(lineId);
+      DashUI.toast(err.message, 'error');
+    }
   }
 
   function _updateTotalsFromResponse(totals) {
@@ -866,7 +1341,7 @@ const SettlementView = (() => {
   function _modal(innerHtml, extraClass = '') {
     const root = _el.querySelector('#stl-modal-root') || document.body;
     const el = document.createElement('div');
-    el.className = 'modal-backdrop';
+    el.className = 'modal-overlay'; // reuse the shared, properly-styled overlay (dashboard.css)
     el.innerHTML = `<div class="modal ${extraClass}">${innerHtml}</div>`;
     el.addEventListener('click', e => { if (e.target === el) el.remove(); });
     root.appendChild(el);
@@ -901,6 +1376,13 @@ const SettlementView = (() => {
     _settlement = null;
     _lines      = [];
     _payments   = [];
+    _menuCategories = [];
+    _menuLoaded     = false;
+    _expandedItemId = null;
+    _variantCache   = new Map();
+    _catalogPriceAtAdd = new Map();
+    _editingPriceLineId = null;
+    _preCompPrice = new Map();
 
     // Parse params from URL hash: #settlement?session_id=xxx or ?id=xxx
     const hash   = location.hash.slice(1);        // "settlement?session_id=..."
@@ -919,6 +1401,7 @@ const SettlementView = (() => {
     }
 
     _load();
+    _loadMenu();
   }
 
   return { init };

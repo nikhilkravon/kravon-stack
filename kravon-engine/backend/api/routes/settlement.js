@@ -297,6 +297,7 @@ const FinalizeSchema = z.object({
 });
 
 router.post('/:id/finalize', async (req, res, next) => {
+  if (!_validUuid(req.params.id)) return res.status(400).json({ error: 'Invalid settlement ID' });
   const parsed = FinalizeSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
   try {
@@ -306,9 +307,10 @@ router.post('/:id/finalize', async (req, res, next) => {
 });
 
 /* ── POST /:id/void ──────────────────────────────────────────────────────── */
-const VoidSchema = z.object({ void_reason: z.string().min(1).max(500) });
+const VoidSchema = z.object({ void_reason: z.string().trim().min(1).max(500) });
 
 router.post('/:id/void', async (req, res, next) => {
+  if (!_validUuid(req.params.id)) return res.status(400).json({ error: 'Invalid settlement ID' });
   const parsed = VoidSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
   try {
@@ -338,6 +340,7 @@ const PaymentSchema = z.object({
 );
 
 router.post('/:id/payments', async (req, res, next) => {
+  if (!_validUuid(req.params.id)) return res.status(400).json({ error: 'Invalid settlement ID' });
   const parsed = PaymentSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
   try {
@@ -347,9 +350,10 @@ router.post('/:id/payments', async (req, res, next) => {
 });
 
 /* ── POST /:id/payments/:paymentId/correct — void a mis-entered payment ───── */
-const CorrectPaymentSchema = z.object({ reason: z.string().min(1).max(500) });
+const CorrectPaymentSchema = z.object({ reason: z.string().trim().min(1).max(500) });
 
 router.post('/:id/payments/:paymentId/correct', async (req, res, next) => {
+  if (!_validUuid(req.params.id) || !_validUuid(req.params.paymentId)) return res.status(400).json({ error: 'Invalid ID' });
   const parsed = CorrectPaymentSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid request', details: parsed.error.flatten() });
   try {
@@ -360,6 +364,7 @@ router.post('/:id/payments/:paymentId/correct', async (req, res, next) => {
 
 /* ── POST /:id/invoice ───────────────────────────────────────────────────── */
 router.post('/:id/invoice', async (req, res, next) => {
+  if (!_validUuid(req.params.id)) return res.status(400).json({ error: 'Invalid settlement ID' });
   try {
     const result = await svc.generateInvoice(req.tenant, req.params.id, _staff(req), _roles(req));
     sendResult(res, result, 201);
@@ -368,6 +373,7 @@ router.post('/:id/invoice', async (req, res, next) => {
 
 /* ── GET /:id/invoice/:invoiceId/render — printable GST invoice ─────────── */
 router.get('/:id/invoice/:invoiceId/render', async (req, res, next) => {
+  if (!_validUuid(req.params.id) || !_validUuid(req.params.invoiceId)) return res.status(400).json({ error: 'Invalid ID' });
   try {
     const renderer = require('../../services/bill.renderer');
 
@@ -401,6 +407,7 @@ router.get('/:id/invoice/:invoiceId/render', async (req, res, next) => {
 
 /* ── GET /:id/invoice/:invoiceId ─────────────────────────────────────────── */
 router.get('/:id/invoice/:invoiceId', async (req, res, next) => {
+  if (!_validUuid(req.params.id) || !_validUuid(req.params.invoiceId)) return res.status(400).json({ error: 'Invalid ID' });
   try {
     const inv = await repo.getInvoice(req.tenant.tenant_id, req.params.invoiceId);
     if (!inv) return res.status(404).json({ error: 'Invoice not found.' });
@@ -411,6 +418,7 @@ router.get('/:id/invoice/:invoiceId', async (req, res, next) => {
 
 /* ── GET /:id/revisions ──────────────────────────────────────────────────── */
 router.get('/:id/revisions', async (req, res, next) => {
+  if (!_validUuid(req.params.id)) return res.status(400).json({ error: 'Invalid settlement ID' });
   try {
     const result = await svc.getRevisions(req.tenant.tenant_id, req.params.id);
     sendResult(res, result);

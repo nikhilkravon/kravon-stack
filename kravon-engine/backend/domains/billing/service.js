@@ -480,7 +480,7 @@ async function addLine(tenant, settlementId, lineData, staffId, staffRoles) {
   const client = await getClient();
   try {
     await client.query('BEGIN');
-    const settlement = await repo.findSettlement(client, tenantId, settlementId);
+    const settlement = await repo.findSettlementForUpdate(client, tenantId, settlementId);
     if (!settlement) { await client.query('ROLLBACK'); return { error: 'Settlement not found.', status: 404 }; }
     const guardErr = guardEditable(settlement);
     if (guardErr) { await client.query('ROLLBACK'); return guardErr; }
@@ -517,11 +517,14 @@ async function editLine(tenant, settlementId, lineId, patch, staffId, staffRoles
   if (patch.unit_price_paise !== undefined || patch.amount_paise !== undefined) {
     if (!hasCap(staffRoles, CAP.OVERRIDE_PRICE)) return { error: 'Insufficient permissions to override price.', status: 403 };
   }
+  if (patch.is_comp !== undefined) {
+    if (!hasCap(staffRoles, CAP.COMP_ITEM)) return { error: 'Insufficient permissions to comp items.', status: 403 };
+  }
 
   const client = await getClient();
   try {
     await client.query('BEGIN');
-    const settlement = await repo.findSettlement(client, tenantId, settlementId);
+    const settlement = await repo.findSettlementForUpdate(client, tenantId, settlementId);
     if (!settlement) { await client.query('ROLLBACK'); return { error: 'Settlement not found.', status: 404 }; }
     const guardErr = guardEditable(settlement);
     if (guardErr) { await client.query('ROLLBACK'); return guardErr; }
@@ -567,7 +570,7 @@ async function removeLine(tenant, settlementId, lineId, staffId, staffRoles, rea
   const client = await getClient();
   try {
     await client.query('BEGIN');
-    const settlement = await repo.findSettlement(client, tenantId, settlementId);
+    const settlement = await repo.findSettlementForUpdate(client, tenantId, settlementId);
     if (!settlement) { await client.query('ROLLBACK'); return { error: 'Settlement not found.', status: 404 }; }
     const guardErr = guardEditable(settlement);
     if (guardErr) { await client.query('ROLLBACK'); return guardErr; }
@@ -610,7 +613,7 @@ async function finalizeSettlement(tenant, settlementId, staffId, staffRoles, gst
   const client = await getClient();
   try {
     await client.query('BEGIN');
-    const settlement = await repo.findSettlement(client, tenantId, settlementId);
+    const settlement = await repo.findSettlementForUpdate(client, tenantId, settlementId);
     if (!settlement) { await client.query('ROLLBACK'); return { error: 'Settlement not found.', status: 404 }; }
     if (settlement.status === 'finalized') { await client.query('ROLLBACK'); return { settlement: _fmtSettlement(settlement) }; }
     if (settlement.status === 'voided') { await client.query('ROLLBACK'); return { error: 'Settlement is voided.', status: 409 }; }
@@ -648,7 +651,7 @@ async function voidSettlement(tenant, settlementId, staffId, staffRoles, void_re
   const client = await getClient();
   try {
     await client.query('BEGIN');
-    const settlement = await repo.findSettlement(client, tenantId, settlementId);
+    const settlement = await repo.findSettlementForUpdate(client, tenantId, settlementId);
     if (!settlement) { await client.query('ROLLBACK'); return { error: 'Settlement not found.', status: 404 }; }
     if (settlement.status === 'voided') { await client.query('ROLLBACK'); return { settlement: _fmtSettlement(settlement) }; }
 
@@ -686,7 +689,7 @@ async function recordPayment(tenant, settlementId, paymentData, staffId, staffRo
   const client = await getClient();
   try {
     await client.query('BEGIN');
-    const settlement = await repo.findSettlement(client, tenantId, settlementId);
+    const settlement = await repo.findSettlementForUpdate(client, tenantId, settlementId);
     if (!settlement) { await client.query('ROLLBACK'); return { error: 'Settlement not found.', status: 404 }; }
     if (settlement.status === 'voided') { await client.query('ROLLBACK'); return { error: 'Cannot record payment on voided settlement.', status: 409 }; }
 
@@ -738,7 +741,7 @@ async function correctPayment(tenant, settlementId, paymentId, staffId, staffRol
   const client = await getClient();
   try {
     await client.query('BEGIN');
-    const settlement = await repo.findSettlement(client, tenantId, settlementId);
+    const settlement = await repo.findSettlementForUpdate(client, tenantId, settlementId);
     if (!settlement) { await client.query('ROLLBACK'); return { error: 'Settlement not found.', status: 404 }; }
     if (settlement.status === 'voided') { await client.query('ROLLBACK'); return { error: 'Cannot correct a payment on a voided settlement.', status: 409 }; }
 

@@ -278,6 +278,9 @@ const App = (() => {
 
     _currentView = viewName;
 
+    // Settlement is a full-screen POS page — no sidebar/header while it's active.
+    $('dashboard')?.classList.toggle('dash-layout--pos', viewName === 'settlement');
+
     // Sidebar active state — mark item, expand its group if collapsed
     document.querySelectorAll('.dash-nav-item').forEach(a => {
       const isActive = a.dataset.view === viewName;
