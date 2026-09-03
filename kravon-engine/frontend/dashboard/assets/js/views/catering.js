@@ -87,7 +87,7 @@ const CateringView = (() => {
 
     if (lead.status === 'converted') {
       btns.push(`<button class="btn btn-secondary btn-sm lead-create-settlement"
-        data-id="${lead.id}">Create Settlement →</button>`);
+        data-id="${lead.id}">Create Bill →</button>`);
     }
 
     if (lead.status !== 'converted' && lead.status !== 'lost') {
@@ -218,12 +218,12 @@ const CateringView = (() => {
               history.pushState(null, '', `#settlement?id=${sid}`);
               App.navigate('settlement');
             } else {
-              DashUI.toast('Settlement created.', 'success');
+              DashUI.toast('Bill created.', 'success');
               _load(el);
             }
           } catch (err) {
-            DashUI.toast('Could not create settlement: ' + err.message, 'error');
-            btn.disabled = false; btn.textContent = 'Create Settlement →';
+            DashUI.toast('Could not create bill: ' + err.message, 'error');
+            btn.disabled = false; btn.textContent = 'Create Bill →';
           }
         });
       });

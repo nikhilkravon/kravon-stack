@@ -304,14 +304,14 @@ const TablesView = (() => {
     try {
       if (action === 'close-session') {
         const ok = await DashUI.confirm(
-          `Close <strong>${btn.dataset.table}</strong>? The bill (${btn.dataset.total}) will move to Settlements for payment.`,
+          `Close <strong>${btn.dataset.table}</strong>? The bill (${btn.dataset.total}) will move to Bills for payment.`,
           { title: 'Close table', confirmLabel: 'Close Table', danger: true }
         );
         if (!ok) return;
         btn.disabled = true;
         try {
           const data = await Api.rPost('/dine-in/session/close', { session_id: btn.dataset.sessionId });
-          DashUI.toast(`${btn.dataset.table} closed — bill sent to Settlements.`, 'success');
+          DashUI.toast(`${btn.dataset.table} closed — bill sent to Bills.`, 'success');
           if (data.settlement_id) {
             history.pushState(null, '', `#settlement?id=${data.settlement_id}`);
             App.navigate('settlement');

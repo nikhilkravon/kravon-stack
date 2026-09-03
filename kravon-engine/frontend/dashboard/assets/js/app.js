@@ -47,7 +47,7 @@ const App = (() => {
     menu:           'Menu',
     settings:       'Settings',
     'audit-log':    'Audit Log',
-    'settlement':   'Settlement',
+    'settlement':   'Bill',
   };
 
   let _currentView = null;
