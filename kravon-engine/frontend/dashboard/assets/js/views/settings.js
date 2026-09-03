@@ -18,7 +18,10 @@ const SettingsView = (() => {
     </div>`;
   }
 
-  async function init(el) {
+  // ── General / Payments / Security tab content ─────────────────────────────
+  // All markup and bind logic below is unchanged from before the tab merge —
+  // only the outer container and tab shell are new.
+  async function _initConfigTabs(el) {
     el.innerHTML = `<div class="skeleton skeleton-line wide" style="height:300px"></div>`;
 
     let config;
@@ -37,7 +40,7 @@ const SettingsView = (() => {
       <div style="max-width:600px;display:flex;flex-direction:column;gap:var(--sp-5)">
 
         <!-- Delivery pricing -->
-        <div class="card">
+        <div class="card" data-settings-group="general">
           <div class="card-header"><span class="card-title">Delivery pricing</span></div>
           <form id="settings-delivery">
             <div class="card-body">
@@ -59,7 +62,7 @@ const SettingsView = (() => {
         </div>
 
         <!-- GST -->
-        <div class="card">
+        <div class="card" data-settings-group="general">
           <div class="card-header"><span class="card-title">GST</span></div>
           <form id="settings-gst">
             <div class="card-body">
@@ -106,7 +109,7 @@ const SettingsView = (() => {
         </div>
 
         <!-- Ordering switch -->
-        <div class="card">
+        <div class="card" data-settings-group="general">
           <div class="card-header"><span class="card-title">Ordering</span></div>
           <div class="card-body">
             <label style="display:flex;align-items:center;gap:var(--sp-3);cursor:pointer">
@@ -121,7 +124,7 @@ const SettingsView = (() => {
         </div>
 
         <!-- Reservations -->
-        <div class="card" id="res-settings-card">
+        <div class="card" id="res-settings-card" data-settings-group="general">
           <div class="card-header">
             <span class="card-title">Reservations</span>
             <label style="display:flex;align-items:center;gap:var(--sp-2);cursor:pointer;font-size:13px">
@@ -164,7 +167,7 @@ const SettingsView = (() => {
         </div>
 
         <!-- Reviews -->
-        <div class="card">
+        <div class="card" data-settings-group="general">
           <div class="card-header"><span class="card-title">Reviews</span></div>
           <form id="settings-reviews">
             <div class="card-body">
@@ -188,7 +191,7 @@ const SettingsView = (() => {
         </div>
 
         <!-- Payments -->
-        <div class="card">
+        <div class="card" data-settings-group="payments">
           <div class="card-header">
             <span class="card-title">Razorpay payments</span>
             ${config.capabilities?.payments
@@ -214,7 +217,7 @@ const SettingsView = (() => {
         </div>
 
         <!-- Plan & products -->
-        <div class="card">
+        <div class="card" data-settings-group="payments">
           <div class="card-header">
             <span class="card-title">Products enabled</span>
             <span class="plan-badge" data-plan="${plan}">${_cap(plan)}</span>
@@ -234,7 +237,7 @@ const SettingsView = (() => {
         </div>
 
         <!-- Security -->
-        <div class="card">
+        <div class="card" data-settings-group="security">
           <div class="card-header"><span class="card-title">Security</span></div>
           <form id="settings-security">
             <div class="card-body">
@@ -537,6 +540,73 @@ const SettingsView = (() => {
         btn.disabled = false; btn.textContent = 'Save';
       }
     });
+
+    _showConfigGroup(el, _activeConfigGroup);
+  }
+
+  // Shows only the cards belonging to one tab (general/payments/security).
+  // All cards for all three groups are rendered together by _initConfigTabs
+  // in one pass (they share one /config fetch) — switching tabs is just a
+  // visibility toggle, not a re-render, so no data is re-fetched.
+  let _activeConfigGroup = 'general';
+  function _showConfigGroup(el, group) {
+    _activeConfigGroup = group;
+    el.querySelectorAll('[data-settings-group]').forEach(card => {
+      card.hidden = card.dataset.settingsGroup !== group;
+    });
+  }
+
+  // ── Tab shell ───────────────────────────────────────────────────────────
+  // "Settings" is one nav destination covering configuration, staff, payments,
+  // and security (per the target IA) — General/Payments/Security tabs render
+  // via _initConfigTabs (unchanged forms above); Staff delegates straight to
+  // StaffView.init(), which owns its own table/modal and is not duplicated here.
+  const TABS = [
+    { key: 'general',  label: 'General' },
+    { key: 'staff',    label: 'Staff' },
+    { key: 'payments', label: 'Payments' },
+    { key: 'security', label: 'Security' },
+  ];
+
+  async function init(el) {
+    _activeConfigGroup = 'general';
+    el.innerHTML = `
+      <div class="tab-bar">
+        ${TABS.map(t => `<button class="tab${t.key === 'general' ? ' active' : ''}" data-settings-tab="${t.key}">${t.label}</button>`).join('')}
+      </div>
+      <div id="settings-tab-body"></div>`;
+
+    const body = el.querySelector('#settings-tab-body');
+    let configLoaded = false;
+
+    async function _showTab(tab) {
+      el.querySelectorAll('[data-settings-tab]').forEach(b => b.classList.toggle('active', b.dataset.settingsTab === tab));
+
+      if (tab === 'staff') {
+        // StaffView.init() replaces body's entire innerHTML, wiping out the
+        // General/Payments/Security cards — force a re-render next time one
+        // of those tabs is selected, rather than toggling visibility on
+        // elements that no longer exist.
+        configLoaded = false;
+        await StaffView.init(body);
+        return;
+      }
+
+      // general/payments/security all live in the same rendered set of cards
+      // (one /config fetch) — render once, then just toggle visibility,
+      // unless the Staff tab wiped the container since the last render.
+      if (!configLoaded) {
+        await _initConfigTabs(body);
+        configLoaded = true;
+      }
+      _showConfigGroup(body, tab);
+    }
+
+    el.querySelectorAll('[data-settings-tab]').forEach(btn => {
+      btn.addEventListener('click', () => _showTab(btn.dataset.settingsTab));
+    });
+
+    await _showTab('general');
   }
 
   return { init };

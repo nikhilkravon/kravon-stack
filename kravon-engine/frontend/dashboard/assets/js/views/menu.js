@@ -27,7 +27,7 @@ const MenuView = (() => {
           <span class="menu-item-price">₹ ${Number(item.price).toLocaleString('en-IN')}</span>
         </div>
         <div class="menu-item-actions">
-          <label class="toggle" title="${item.is_available ? 'Mark 86\'d' : 'Mark available'}">
+          <label class="toggle" title="${item.is_available ? 'Mark out of stock' : 'Mark available'}">
             <input type="checkbox" class="item-toggle" data-item-id="${item.id}" ${item.is_available ? 'checked' : ''}>
             <span class="toggle-track"></span>
             <span class="toggle-thumb"></span>
@@ -582,6 +582,7 @@ const MenuView = (() => {
 
   // ── Data + render ─────────────────────────────────────────────────────────
   let _el = null;
+  let _searchQuery = '';
 
   async function _reload() {
     if (!_el) return;
@@ -595,6 +596,36 @@ const MenuView = (() => {
     }
   }
 
+  // Flat, category-labeled results for the search box — reuses _itemRow so
+  // toggle/edit/delete actions work identically to the accordion view; the
+  // click/change handlers below are bound once on listEl and read data-*
+  // attributes, so they don't care whether the row came from a category
+  // block or a search result.
+  function _searchResultsHtml(query) {
+    const q = query.trim().toLowerCase();
+    const matches = [];
+    _categories.forEach(cat => {
+      (cat.items || []).forEach(item => {
+        if (item.name.toLowerCase().includes(q)) matches.push({ item, cat });
+      });
+    });
+    if (!matches.length) {
+      return DashUI.emptyState({
+        icon:  '🔍',
+        title: 'No items match your search',
+        body:  'Try a different name.',
+      });
+    }
+    return `<div class="category-block">
+      <div class="category-items open">
+        ${matches.map(({ item, cat }) => `
+          <div class="text-sm text-muted" style="padding:6px 16px 0">${_esc(cat.name)}</div>
+          ${_itemRow(item, cat.id)}
+        `).join('')}
+      </div>
+    </div>`;
+  }
+
   function _renderList(el) {
     const listEl = el.querySelector('#menu-list');
     if (!listEl) return;
@@ -606,6 +637,13 @@ const MenuView = (() => {
       });
       return;
     }
+
+    if (_searchQuery.trim()) {
+      listEl.innerHTML = _searchResultsHtml(_searchQuery);
+      _bindListEvents(listEl);
+      return;
+    }
+
     listEl.innerHTML = _categories.map((c, i) => _categoryBlock(c, i === 0)).join('');
 
     // Accordion toggles
@@ -618,7 +656,26 @@ const MenuView = (() => {
       });
     });
 
-    // Category actions
+    _bindListEvents(listEl);
+  }
+
+  // Shared action/toggle bindings for both the category accordion and the
+  // flat search-results list — same markup (_itemRow/_categoryBlock actions),
+  // same data-* contract, so one binder covers both render paths.
+  function _bindListEvents(listEl) {
+    // Category/item actions: delegated on listEl itself, so it only needs
+    // binding once — listEl is a stable node recreated by init() on every
+    // view entry, and re-renders only replace its children via innerHTML.
+    // Toggles are per-checkbox listeners on nodes that innerHTML recreates
+    // every render, so those must be rebound every time (_bindToggles below).
+    if (!listEl.dataset.boundActions) {
+      listEl.dataset.boundActions = '1';
+      _bindDelegatedActions(listEl);
+    }
+    _bindToggles(listEl);
+  }
+
+  function _bindDelegatedActions(listEl) {
     listEl.addEventListener('click', async e => {
       const btn = e.target.closest('[data-action]');
       if (!btn) return;
@@ -662,8 +719,9 @@ const MenuView = (() => {
         catch (ex) { DashUI.toast('Could not delete item. Please try again.', 'error'); }
       }
     });
+  }
 
-    // Availability toggles
+  function _bindToggles(listEl) {
     listEl.querySelectorAll('.item-toggle').forEach(chk => {
       chk.addEventListener('change', async () => {
         try {
@@ -680,9 +738,12 @@ const MenuView = (() => {
 
   async function init(el) {
     _el = el;
+    _searchQuery = '';
     el.innerHTML = `
       <div class="toolbar">
-        <div class="toolbar-left"></div>
+        <div class="toolbar-left">
+          <input id="menu-search" class="search-input" type="search" placeholder="Search items…">
+        </div>
         <div class="toolbar-right">
           <button id="add-cat-btn" class="btn btn-primary">+ Add category</button>
         </div>
@@ -690,6 +751,15 @@ const MenuView = (() => {
       <div id="menu-list"><div class="skeleton skeleton-line wide" style="height:48px;margin-bottom:8px"></div><div class="skeleton skeleton-line wide" style="height:48px;margin-bottom:8px"></div></div>`;
 
     el.querySelector('#add-cat-btn').addEventListener('click', () => _openCategoryModal());
+
+    let _searchTimer;
+    el.querySelector('#menu-search').addEventListener('input', e => {
+      clearTimeout(_searchTimer);
+      _searchTimer = setTimeout(() => {
+        _searchQuery = e.target.value;
+        _renderList(el);
+      }, 200);
+    });
 
     await _reload();
   }

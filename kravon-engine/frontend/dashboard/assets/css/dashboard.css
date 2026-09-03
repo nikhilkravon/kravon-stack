@@ -96,8 +96,11 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
   display: flex; align-items: center; gap: var(--sp-2);
   padding: var(--sp-5) var(--sp-4);
   font-weight: 700; font-size: 15px; color: white;
+  text-decoration: none; cursor: pointer;
   border-bottom: 1px solid rgba(255,255,255,.06);
+  transition: background .12s;
 }
+.dash-brand:hover { background: rgba(255,255,255,.05); }
 .dash-restaurant {
   padding: var(--sp-3) var(--sp-4);
   border-bottom: 1px solid rgba(255,255,255,.06);
@@ -508,7 +511,9 @@ tbody tr:hover td { background: var(--gray-50); }
 
 /* ── Order expandable detail row ─────────────────────────────────────────── */
 .order-detail-row { display: none; }
-.order-detail-row.open { display: table-row; }
+table .order-detail-row.open { display: table-row; }
+#orders-cards .order-detail-row.open { display: block; }
+.order-card:hover { background: var(--gray-50); }
 
 .order-detail {
   padding: 12px 16px 14px;

@@ -28,7 +28,7 @@ const InsightsView = (() => {
         <div class="stat-card">
           <div class="stat-label">Total orders</div>
           <div class="stat-value">${_fmtNum(o.total_orders)}</div>
-          <div class="stat-sub">${_fmtNum(o.unique_customers)} unique customers</div>
+          <div class="stat-sub">${_fmtNum(o.unique_customers)} new customers</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Repeat customers</div>

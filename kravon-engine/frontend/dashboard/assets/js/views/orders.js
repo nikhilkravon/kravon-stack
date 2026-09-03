@@ -2,7 +2,7 @@
 
 const OrdersView = (() => {
 
-  let _state       = { tab: 'all', page: 1, search: '' };
+  let _state       = { tab: 'new', page: 1, search: '' };
   let _pollTimer   = null;
   let _lastCount   = null;
   let _newCount    = 0;       // cumulative unseen new orders since last badge clear
@@ -168,10 +168,36 @@ const OrdersView = (() => {
     ).join(' ');
   }
 
+  // Dine-in kitchen-stage transitions (confirmed→preparing→ready) are owned by
+  // the Kitchen view. Showing the same write action in two places lets two
+  // staff members race the same order from different screens, so this view
+  // shows dine-in orders for visibility only and points to Kitchen instead.
+  function _isDineInKitchenStage(o) {
+    return o.fulfillment_type === 'dine_in' && ['pending', 'confirmed', 'preparing', 'ready'].includes(o.status);
+  }
+
+  // One primary action for the current stage — New/In Progress cards show a
+  // single obvious next step, not the full strip of every possible transition.
+  function _primaryAction(o) {
+    if (_isDineInKitchenStage(o)) {
+      return `<a href="#kitchen" class="btn btn-secondary btn-sm">View in Kitchen →</a>`;
+    }
+    const machine = _statusNext(o.fulfillment_type);
+    const nexts   = machine[o.status];
+    if (!nexts || !nexts.length) return '';
+    const primary = nexts.find(s => s !== 'cancelled') || nexts[0];
+    const secondary = nexts.includes('cancelled') && primary !== 'cancelled'
+      ? `<button class="btn btn-ghost btn-sm order-action" data-id="${o.id}" data-status="cancelled">Cancel</button>`
+      : '';
+    return `
+      <button class="btn ${ACTION_STYLE[primary]} btn-sm order-action" data-id="${o.id}" data-status="${primary}">${ACTION_LABELS[primary]}</button>
+      ${secondary}`;
+  }
+
   function _tabStatus(tab) {
-    if (tab === 'live')      return 'live';
-    if (tab === 'completed') return 'completed';
-    if (tab === 'cancelled') return 'cancelled';
+    if (tab === 'new')         return 'new';
+    if (tab === 'in_progress') return 'in_progress';
+    if (tab === 'history')     return 'history';
     return null;
   }
 
@@ -233,15 +259,47 @@ const OrdersView = (() => {
     }
   }
 
+  function _orderCard(o) {
+    const stale    = _isStale(o.created_at, o.status);
+    const timeText = stale ? `${_ago(o.created_at)} ⚠` : _ago(o.created_at);
+    const channel  = _channel(o);
+    // When there's no captured customer name (common for QR/dine-in orders),
+    // the channel already stands in for the title — don't repeat it in the subtitle too.
+    const subtitle = o.customer_name ? `${channel} · ${_fmt(o.total_amount)}` : _fmt(o.total_amount);
+    return `
+      <div class="order-card${stale ? ' order-row--stale' : ''}" data-id="${o.id}" style="display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3) var(--sp-4);border-bottom:1px solid var(--gray-100);cursor:pointer">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600">${o.customer_name || channel}</div>
+          <div class="text-sm text-muted">${subtitle} · <span style="${stale ? 'color:var(--amber-600,#e8a020);font-weight:600' : ''}">${timeText}</span></div>
+        </div>
+        ${_badge(o.status)}
+        <div class="order-actions" style="display:flex;gap:var(--sp-2)">${_primaryAction(o)}</div>
+      </div>
+      <div class="order-detail-row" data-for="${o.id}">
+        <div class="order-detail">
+          <div class="order-detail-loading text-sm text-muted" style="padding:0 var(--sp-4) var(--sp-3)">Loading items…</div>
+        </div>
+      </div>`;
+  }
+
   async function _load(el) {
-    const tbody = el.querySelector('#orders-tbody');
-    const info  = el.querySelector('#orders-page-info');
-    if (!tbody) return;
+    const cardsEl  = el.querySelector('#orders-cards');
+    const tableWrap = el.querySelector('#orders-table-wrap');
+    const tbody    = el.querySelector('#orders-tbody');
+    const info     = el.querySelector('#orders-page-info');
+    if (!cardsEl || !tbody) return;
+
+    const useTable = _state.tab === 'history';
+    tableWrap.hidden = !useTable;
+    cardsEl.hidden   = useTable;
+    const target = useTable ? tbody : cardsEl;
 
     // Don't skeleton-flash on background polls — only on tab/page change
     const isBackground = _lastCount !== null;
     if (!isBackground) {
-      tbody.innerHTML = `<tr><td colspan="7"><div class="skeleton skeleton-line" style="margin:12px 0"></div></td></tr>`;
+      target.innerHTML = useTable
+        ? `<tr><td colspan="7"><div class="skeleton skeleton-line" style="margin:12px 0"></div></td></tr>`
+        : `<div class="skeleton skeleton-line" style="margin:12px 16px"></div>`;
     }
 
     try {
@@ -249,15 +307,13 @@ const OrdersView = (() => {
       const orders = data.orders || [];
 
       if (!orders.length) {
-        tbody.innerHTML = `
-          <tr><td colspan="7">
-            ${DashUI.emptyState({
-              icon:  '🛍',
-              title: _state.search ? 'No orders match your search' : 'No orders here yet',
-              body:  _state.search ? 'Try a different name, phone, item, or note.' : 'Orders will appear here when customers place them.',
-            })}
-          </td></tr>`;
-      } else {
+        const empty = DashUI.emptyState({
+          icon:  '🛍',
+          title: _state.search ? 'No orders match your search' : (useTable ? 'No orders here yet' : 'Nothing here right now'),
+          body:  _state.search ? 'Try a different name, phone, item, or note.' : 'Orders will appear here when customers place them.',
+        });
+        target.innerHTML = useTable ? `<tr><td colspan="7">${empty}</td></tr>` : empty;
+      } else if (useTable) {
         tbody.innerHTML = orders.map(o => {
           const stale = _isStale(o.created_at, o.status);
           const timeCell = stale
@@ -286,11 +342,13 @@ const OrdersView = (() => {
             </td>
           </tr>`;
         }).join('');
+      } else {
+        cardsEl.innerHTML = orders.map(_orderCard).join('');
+      }
 
-        // Re-expand previously open row after reload
-        if (_expandedId && el.querySelector(`.order-detail-row[data-for="${_expandedId}"]`)) {
-          _openDetail(el, _expandedId);
-        }
+      // Re-expand previously open row after reload
+      if (orders.length && _expandedId && el.querySelector(`.order-detail-row[data-for="${_expandedId}"]`)) {
+        _openDetail(el, _expandedId);
       }
 
       const total = data.total || 0;
@@ -302,7 +360,7 @@ const OrdersView = (() => {
       if (nextBtn) nextBtn.disabled = _state.page >= pages;
 
       // New-order detection: accumulate count, badge stays until manually cleared
-      if (_lastCount !== null && total > _lastCount && _state.tab !== 'completed' && _state.tab !== 'cancelled') {
+      if (_lastCount !== null && total > _lastCount && _state.tab === 'new') {
         const diff = total - _lastCount;
         _newCount += diff;
         document.title = `(${_newCount}) New Order${_newCount > 1 ? 's' : ''} — Kravon`;
@@ -316,10 +374,10 @@ const OrdersView = (() => {
       }
       _lastCount = total;
 
-      // Row expand/collapse
-      el.querySelectorAll('.order-main-row').forEach(row => {
+      // Row/card expand-collapse (detail panel)
+      el.querySelectorAll('.order-main-row, .order-card').forEach(row => {
         row.addEventListener('click', async (e) => {
-          if (e.target.closest('button')) return;
+          if (e.target.closest('button, a')) return;
           const id = row.dataset.id;
           if (_expandedId === id) {
             el.querySelectorAll('.order-detail-row').forEach(r => r.classList.remove('open'));
@@ -335,7 +393,10 @@ const OrdersView = (() => {
         btn.addEventListener('click', async (e) => {
           e.stopPropagation();
           if (btn.dataset.status === 'cancelled') {
-            if (!confirm('Cancel this order? This cannot be undone.')) return;
+            const ok = await DashUI.confirm('Cancel this order? This cannot be undone.', {
+              title: 'Cancel order', confirmLabel: 'Cancel Order', danger: true,
+            });
+            if (!ok) return;
           }
           btn.disabled = true;
           try {
@@ -349,23 +410,23 @@ const OrdersView = (() => {
       });
 
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="7">${DashUI.errorState(err.message)}</td></tr>`;
+      const errHtml = DashUI.errorState(err.message);
+      target.innerHTML = useTable ? `<tr><td colspan="7">${errHtml}</td></tr>` : errHtml;
     }
   }
 
   function init(el) {
     if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
-    _state      = { tab: 'all', page: 1, search: '' };
+    _state      = { tab: 'new', page: 1, search: '' };
     _lastCount  = null;
     _newCount   = 0;
     _expandedId = null;
 
     el.innerHTML = `
       <div class="tab-bar">
-        <button class="tab active" data-tab="all">All</button>
-        <button class="tab" data-tab="live">Live</button>
-        <button class="tab" data-tab="completed">Completed</button>
-        <button class="tab" data-tab="cancelled">Cancelled</button>
+        <button class="tab active" data-tab="new">New</button>
+        <button class="tab" data-tab="in_progress">In Progress</button>
+        <button class="tab" data-tab="history">History</button>
       </div>
       <div class="card">
         <div class="card-header">
@@ -376,7 +437,8 @@ const OrdersView = (() => {
             <span id="orders-page-info" class="text-sm text-muted"></span>
           </div>
         </div>
-        <div class="table-wrap">
+        <div id="orders-cards"></div>
+        <div class="table-wrap" id="orders-table-wrap" hidden>
           <table>
             <thead>
               <tr>

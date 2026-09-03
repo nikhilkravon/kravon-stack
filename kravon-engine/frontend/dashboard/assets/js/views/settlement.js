@@ -29,6 +29,14 @@ const SettlementView = (() => {
   let _settlementId = null;
   let _undoStack  = [];     // local undo within draft (line snapshots before edit)
 
+  // Landing state: 'bill' shows a plain-language summary + Collect Payment for
+  // the common "just take the money" case; 'edit' is the full POS-style editor
+  // (menu picker, line edits, discounts, comps, split, void, finalize, invoice)
+  // for the less common "adjust the bill first" case. Editable settlements land
+  // on 'bill' by default; a finalized/voided settlement has nothing to "collect"
+  // so it goes straight to 'edit' (which also renders the read-only line view).
+  let _view = 'bill';
+
   // POS menu picker state
   let _menuCategories = [];      // [{ id, name, items: [...] }] from /menu/categories
   let _menuLoaded     = false;
@@ -321,8 +329,70 @@ const SettlementView = (() => {
     _el.innerHTML = DashUI.errorState(msg);
   }
 
-  // ── Full render ────────────────────────────────────────────────────────────
+  // ── Render dispatcher ──────────────────────────────────────────────────────
+  // Editable settlements land on the plain-language "bill" summary by default
+  // (the common "just take the money" case); "Edit Bill" switches to the full
+  // POS-style editor. A finalized/voided settlement has nothing left to
+  // collect, so it always shows the editor (read-only at that point).
   function _render() {
+    if (!_el || !_settlement) return;
+    if (_view === 'bill' && isEditable()) { _renderBill(); return; }
+    _renderEdit();
+  }
+
+  // ── Plain-language bill summary + quick pay ───────────────────────────────
+  function _renderBill() {
+    const s = _settlement;
+    const itemCount = _lines
+      .filter(l => ITEM_LINE_TYPES.includes(l.line_type))
+      .reduce((sum, l) => sum + Number(l.quantity || 0), 0);
+    const bal = Math.max(0, s.total_paise - s.paid_paise);
+
+    _el.innerHTML = `
+      <div class="toolbar">
+        <div class="toolbar-left" style="gap:var(--sp-3)">
+          <span style="font-weight:700;font-size:15px">${s.notes || 'Bill'}</span>
+          ${STATUS_BADGE[s.status] || ''}
+        </div>
+        <div class="toolbar-right">
+          <button id="stl-history-btn" class="btn btn-secondary btn-sm">History</button>
+        </div>
+      </div>
+
+      <div style="max-width:420px;margin:0 auto">
+        <div class="card">
+          <div class="card-body" style="text-align:center;padding:var(--sp-6) var(--sp-5)">
+            <div class="text-sm text-muted" style="margin-bottom:var(--sp-2)">${itemCount} item${itemCount === 1 ? '' : 's'}</div>
+            <div style="font-size:32px;font-weight:700;margin-bottom:var(--sp-4)">${_fmtP(s.total_paise)}</div>
+            <div style="display:flex;flex-direction:column;gap:6px;text-align:left;font-size:13px;color:var(--gray-600);margin-bottom:var(--sp-5)">
+              ${_totRow('Subtotal', s.subtotal_paise)}
+              ${s.discount_paise ? _totRow('Discount', -s.discount_paise, 'var(--green-600)') : ''}
+              ${s.tax_paise ? _totRow('GST', s.tax_paise) : ''}
+              ${s.paid_paise ? _totRow('Already paid', -s.paid_paise, 'var(--green-600)') : ''}
+            </div>
+            ${s.total_paise === 0 ? `
+              <div class="text-sm text-muted" style="padding:var(--sp-2)">No items on this bill yet.</div>
+            ` : _can('PAYMENT') && bal > 0 ? `
+              <button id="stl-collect-btn" class="btn btn-primary" style="width:100%;padding:var(--sp-3);font-size:15px">Collect Payment</button>
+            ` : bal <= 0 ? `
+              <div style="color:var(--green-600);font-weight:600;padding:var(--sp-2)">✓ Fully paid</div>
+            ` : ''}
+          </div>
+        </div>
+        <div style="text-align:center;margin-top:var(--sp-3)">
+          <button id="stl-edit-bill-btn" class="${s.total_paise === 0 ? 'btn btn-primary' : 'btn-link'}">${s.total_paise === 0 ? 'Add Items' : 'Edit Bill →'}</button>
+        </div>
+      </div>
+
+      <div id="stl-modal-root"></div>`;
+
+    _el.querySelector('#stl-history-btn')?.addEventListener('click', _handleHistory);
+    _el.querySelector('#stl-edit-bill-btn')?.addEventListener('click', () => { _view = 'edit'; _render(); });
+    _el.querySelector('#stl-collect-btn')?.addEventListener('click', _handleCollectPayment);
+  }
+
+  // ── Full render (existing POS-style editor) ───────────────────────────────
+  function _renderEdit() {
     if (!_el || !_settlement) return;
     const s   = _settlement;
     const editable = isEditable();
@@ -330,6 +400,7 @@ const SettlementView = (() => {
     _el.innerHTML = `
       <div class="toolbar">
         <div class="toolbar-left" style="gap:var(--sp-3);flex-wrap:wrap">
+          ${isEditable() ? `<button id="stl-back-to-bill-btn" class="btn-link" style="font-size:13px">← Bill</button>` : ''}
           <span style="font-weight:700;font-size:15px">Settlement</span>
           ${STATUS_BADGE[s.status] || ''}
           <span class="text-sm text-muted">${_fmtDate(s.created_at)}</span>
@@ -587,6 +658,7 @@ const SettlementView = (() => {
   // ── Event binding ──────────────────────────────────────────────────────────
   function _bindEvents() {
     // Toolbar actions
+    _el.querySelector('#stl-back-to-bill-btn')?.addEventListener('click', () => { _view = 'bill'; _render(); });
     _el.querySelector('#stl-finalize-btn')?.addEventListener('click', _handleFinalize);
     _el.querySelector('#stl-void-btn')?.addEventListener('click', _handleVoid);
     _el.querySelector('#stl-invoice-btn')?.addEventListener('click', _handleInvoice);
@@ -1016,6 +1088,86 @@ const SettlementView = (() => {
     }
   }
 
+  // ── Collect payment (quick pay) ───────────────────────────────────────────
+  // Plain-language front door for the common case: table wants to pay, staff
+  // taps how they paid, done. Calls the exact same /payments endpoint as the
+  // full "+ Payment" modal in the editor — this is a simplified presentation
+  // of an existing action, not a new capability or a new state transition.
+  const QUICK_PAY_METHODS = [
+    { value: 'cash', label: 'Cash' },
+    { value: 'card', label: 'Card' },
+    { value: 'upi',  label: 'UPI' },
+    { value: 'other', label: 'Other' },
+  ];
+
+  async function _handleCollectPayment() {
+    const bal = Math.max(0, (_settlement.total_paise || 0) - (_settlement.paid_paise || 0));
+    const modal = _modal(`
+      <div class="modal-header"><h3>How did they pay?</h3></div>
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:var(--sp-4)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2)" id="qp-methods">
+          ${QUICK_PAY_METHODS.map((m, i) => `
+            <button type="button" class="btn ${i === 0 ? 'btn-primary' : 'btn-secondary'} qp-method-btn" data-method="${m.value}" style="padding:var(--sp-3)">${m.label}</button>
+          `).join('')}
+        </div>
+        <label>
+          <span class="label">Amount (₹)</span>
+          <input id="qp-amount" type="number" class="input" min="0.01" step="0.01" value="${(bal / 100).toFixed(2)}" style="font-size:16px" />
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button id="qp-cancel" class="btn btn-secondary">Cancel</button>
+        <button id="qp-save" class="btn btn-primary">Mark Paid</button>
+      </div>`);
+
+    let method = QUICK_PAY_METHODS[0].value;
+    modal.querySelectorAll('.qp-method-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        method = btn.dataset.method;
+        modal.querySelectorAll('.qp-method-btn').forEach(b => {
+          b.classList.toggle('btn-primary',   b === btn);
+          b.classList.toggle('btn-secondary', b !== btn);
+        });
+      });
+    });
+
+    modal.querySelector('#qp-cancel').addEventListener('click', () => modal.remove());
+    modal.querySelector('#qp-save').addEventListener('click', async () => {
+      const btn = modal.querySelector('#qp-save');
+      btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        const amt = parseFloat(modal.querySelector('#qp-amount').value);
+        if (isNaN(amt) || amt <= 0) throw new Error('Enter a valid amount.');
+
+        const data = await _apiPost('/payments', { method, amount_paise: Math.round(amt * 100) });
+        _payments.push(data.payment);
+        _settlement.paid_paise    = data.paid_paise;
+        _settlement.paid          = data.paid_paise / 100;
+        _settlement.balance_paise = data.balance_paise;
+        modal.remove();
+        _showPaidConfirmation(data.paid_paise, data.balance_paise);
+      } catch (err) {
+        btn.disabled = false; btn.textContent = 'Mark Paid';
+        DashUI.toast(err.message, 'error');
+      }
+    });
+  }
+
+  function _showPaidConfirmation(paidPaise, balancePaise) {
+    const modal = _modal(`
+      <div class="modal-body" style="text-align:center;padding:var(--sp-6) var(--sp-5)">
+        <div style="font-size:15px;color:var(--green-600);font-weight:700;margin-bottom:var(--sp-2)">✓ Paid ${_fmtP(paidPaise)}</div>
+        <div class="text-sm text-muted">${balancePaise > 0 ? `Balance remaining: ${_fmtP(balancePaise)}` : 'Balance: ₹0.00'}</div>
+      </div>
+      <div class="modal-footer" style="justify-content:center">
+        <button id="qp-done-btn" class="btn btn-primary" style="min-width:120px">Done</button>
+      </div>`);
+    modal.querySelector('#qp-done-btn').addEventListener('click', () => {
+      modal.remove();
+      _render();
+    });
+  }
+
   // ── Add payment modal ─────────────────────────────────────────────────────
   async function _handleAddPayment() {
     const bal = Math.max(0, (_settlement.total_paise || 0) - (_settlement.paid_paise || 0));
@@ -1383,6 +1535,7 @@ const SettlementView = (() => {
     _catalogPriceAtAdd = new Map();
     _editingPriceLineId = null;
     _preCompPrice = new Map();
+    _view = 'bill';
 
     // Parse params from URL hash: #settlement?session_id=xxx or ?id=xxx
     const hash   = location.hash.slice(1);        // "settlement?session_id=..."

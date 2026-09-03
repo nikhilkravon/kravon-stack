@@ -29,14 +29,13 @@ const App = (() => {
     presence:       PresenceView,
     menu:           MenuView,
     // Administration
-    staff:          StaffView,
     settings:       SettingsView,
     'audit-log':    AuditLogView,
     'settlement':   SettlementView,
   };
 
   const VIEW_TITLES = {
-    overview:       'Overview',
+    overview:       'Home',
     orders:         'Orders',
     tables:         'Tables',
     kitchen:        'Kitchen',
@@ -48,7 +47,6 @@ const App = (() => {
     insights:       'Insights',
     presence:       'Website & Brand',
     menu:           'Menu',
-    staff:          'Staff',
     settings:       'Settings',
     'audit-log':    'Audit Log',
     'settlement':   'Settlement',
@@ -107,7 +105,7 @@ const App = (() => {
 
     // Direct nav-item clicks — handles case where hash is already set
     // (hashchange won't fire if the hash doesn't change)
-    document.querySelectorAll('.dash-nav-item[data-view]').forEach(a => {
+    document.querySelectorAll('.dash-nav-item[data-view], .dash-brand[data-view]').forEach(a => {
       a.addEventListener('click', (e) => {
         const v = a.dataset.view;
         if (v in VIEWS) { e.preventDefault(); navigate(v); }
@@ -276,6 +274,7 @@ const App = (() => {
     const view = VIEWS[viewName];
     if (!view) return;
 
+    const isInitialLoad = _currentView === null;
     _currentView = viewName;
 
     // Settlement is a full-screen POS page — no sidebar/header while it's active.
@@ -295,9 +294,11 @@ const App = (() => {
     const titleEl = $('dash-view-title');
     if (titleEl) titleEl.textContent = VIEW_TITLES[viewName] || viewName;
 
-    // Sync hash without re-firing hashchange (preserve existing ?params if same view)
+    // Sync hash without re-firing hashchange. Push a history entry when the
+    // view actually changes so browser Back/Forward can step between views;
+    // replace when it's just the initial load syncing to the current hash.
     if ((location.hash.slice(1) || '').split('?')[0] !== viewName) {
-      history.replaceState(null, '', `#${viewName}`);
+      history[isInitialLoad ? 'replaceState' : 'pushState'](null, '', `#${viewName}`);
     }
 
     // Render view

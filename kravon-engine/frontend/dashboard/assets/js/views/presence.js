@@ -65,6 +65,25 @@ const PresenceView = (() => {
       obj = obj[keys[i]];
     }
     obj[keys[keys.length - 1]] = value;
+    _markDirty(keys[0]);
+  }
+
+  // ── Dirty tracking — a section shows "Unsaved changes" from the moment a
+  // field is edited until that section's own Save succeeds. Each card saves
+  // independently (matches the backend's per-section PATCH), so dirty state
+  // is tracked per section, not page-wide.
+  let _dirty = {};
+
+  function _markDirty(sectionKey) {
+    _dirty[sectionKey] = true;
+    const flag = document.getElementById(`${sectionKey}-dirty`);
+    if (flag) flag.hidden = false;
+  }
+
+  function _clearDirty(sectionKey) {
+    _dirty[sectionKey] = false;
+    const flag = document.getElementById(`${sectionKey}-dirty`);
+    if (flag) flag.hidden = true;
   }
 
   // ── Save one section ──────────────────────────────────────────────────────
@@ -76,6 +95,7 @@ const PresenceView = (() => {
       const payload = { [sectionKey]: _content[sectionKey] };
       await Api.rPatch('/presence', payload);
       okEl.hidden = false;
+      _clearDirty(sectionKey);
       setTimeout(() => { okEl.hidden = true; }, 2500);
     } catch (ex) {
       errEl.textContent = ex.message; errEl.hidden = false;
@@ -88,6 +108,7 @@ const PresenceView = (() => {
     return `
       <div style="display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-3);
                   padding:12px 20px;border-top:1px solid var(--gray-100)">
+        <span class="text-sm text-muted" id="${sectionKey}-dirty" hidden>Unsaved changes</span>
         <p class="form-error" id="${sectionKey}-err" hidden></p>
         <p class="text-sm" style="color:var(--green-600)" id="${sectionKey}-ok" hidden>Saved.</p>
         <button class="btn btn-primary" id="${sectionKey}-save">Save</button>
@@ -351,6 +372,7 @@ const PresenceView = (() => {
         description: row.querySelector('.dish-desc')?.value || '',
         image:       row.querySelector('.dish-img')?.value  || '',
       }));
+      _markDirty('signatureDishes');
     }
     list.addEventListener('input', _syncDishes);
     list.addEventListener('click', e => {
@@ -423,6 +445,7 @@ const PresenceView = (() => {
         if (!_content.gallery) _content.gallery = {};
         _content.gallery[key] = urls;
       });
+      _markDirty('gallery');
     }
 
     cardBody.addEventListener('input', e => {
@@ -537,6 +560,7 @@ const PresenceView = (() => {
         ctaUrl:      row.querySelector('.feat-cta-url')?.value   || '',
         active:      row.querySelector('.feat-active')?.checked  ?? true,
       }));
+      _markDirty('featured');
     }
     list.addEventListener('input',  _syncFeatured);
     list.addEventListener('change', _syncFeatured);
@@ -598,6 +622,7 @@ const PresenceView = (() => {
         year:  row.querySelector('.time-year')?.value  || '',
         event: row.querySelector('.time-event')?.value || '',
       }));
+      _markDirty('timeline');
     }
     list.addEventListener('input', _syncTimeline);
     list.addEventListener('click', e => {
@@ -613,6 +638,7 @@ const PresenceView = (() => {
 
   // ── MAIN INIT ─────────────────────────────────────────────────────────────
   async function init(el) {
+    _dirty = {};
     el.innerHTML = `
       <div class="skeleton skeleton-line wide" style="height:120px;margin-bottom:var(--sp-4)"></div>
       <div class="skeleton skeleton-line wide" style="height:200px"></div>`;
@@ -625,7 +651,20 @@ const PresenceView = (() => {
       return;
     }
 
-    el.innerHTML = `<div style="max-width:720px" id="pers-editor"></div>`;
+    const slug = Auth.state()?.slug;
+    const base = window.KRAVON_FRONTEND_BASE || 'http://localhost:8000';
+    const pageUrl = `${base}/presence/?slug=${encodeURIComponent(slug || '')}`;
+
+    el.innerHTML = `
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <span class="text-sm text-muted">What customers see when they visit your page</span>
+        </div>
+        <div class="toolbar-right">
+          <a href="${pageUrl}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">View my page →</a>
+        </div>
+      </div>
+      <div style="max-width:720px" id="pers-editor"></div>`;
     const editor = el.querySelector('#pers-editor');
 
     _renderBranding(editor);

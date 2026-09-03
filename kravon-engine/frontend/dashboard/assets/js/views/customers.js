@@ -11,6 +11,31 @@ const CustomersView = (() => {
     return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
+  // Same vocabulary as Orders/Home — plain labels, not raw fulfillment_type/status.
+  const FULFILLMENT_LABEL = {
+    dine_in:  'Dine-in',
+    delivery: 'Delivery',
+    pickup:   'Pickup',
+    catering: 'Catering',
+  };
+
+  const STATUS_LABEL = {
+    pending:          'Pending',
+    confirmed:        'Confirmed',
+    preparing:        'Preparing',
+    ready:            'Ready',
+    out_for_delivery: 'Out for delivery',
+    delivered:        'Delivered',
+    completed:        'Completed',
+    cancelled:        'Cancelled',
+    refunded:         'Refunded',
+  };
+
+  function _can(...roles) {
+    const staffRoles = Auth.state()?.staff?.roles || [];
+    return roles.some(r => staffRoles.includes(r));
+  }
+
   async function _load(el) {
     const tbody = el.querySelector('#customers-tbody');
     const info  = el.querySelector('#customers-count');
@@ -76,18 +101,26 @@ const CustomersView = (() => {
               inner.innerHTML = _renderCustomerDetail(d.customer, d.orders);
               inner.addEventListener('click', async e => {
                 const saveBtn = e.target.closest('[data-action="save-notes"]');
-                if (!saveBtn) return;
-                const ta = inner.querySelector('textarea[name="notes"]');
-                if (!ta) return;
-                saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
-                try {
-                  await Api.rPatch(`/customers/${id}`, { notes: ta.value });
-                  DashUI.toast('Notes saved.', 'success');
-                } catch (err) {
-                  DashUI.toast('Could not save notes.', 'error');
-                } finally {
-                  saveBtn.disabled = false; saveBtn.textContent = 'Save notes';
+                if (saveBtn) {
+                  const ta = inner.querySelector('textarea[name="notes"]');
+                  if (!ta) return;
+                  saveBtn.disabled = true; saveBtn.textContent = 'Saving…';
+                  try {
+                    await Api.rPatch(`/customers/${id}`, { notes: ta.value });
+                    DashUI.toast('Notes saved.', 'success');
+                  } catch (err) {
+                    DashUI.toast('Could not save notes.', 'error');
+                  } finally {
+                    saveBtn.disabled = false; saveBtn.textContent = 'Save notes';
+                  }
+                  return;
                 }
+
+                const exportBtn = e.target.closest('[data-action="export-data"]');
+                if (exportBtn) { _handleExportData(inner, id, exportBtn); return; }
+
+                const deleteBtn = e.target.closest('[data-action="request-deletion"]');
+                if (deleteBtn) { _handleRequestDeletion(inner, id, deleteBtn); return; }
               });
             } catch (err) {
               if (inner) inner.innerHTML = `<div class="text-sm text-muted">Could not load history.</div>`;
@@ -104,7 +137,7 @@ const CustomersView = (() => {
   function _renderCustomerDetail(customer, orders) {
     const orderRows = (orders || []).map(o => `
       <div class="order-item-line">
-        <span class="order-item-name">#${o.id.slice(-6).toUpperCase()} · ${o.fulfillment_type?.replace(/_/g,' ')} · ${o.status}</span>
+        <span class="order-item-name">${FULFILLMENT_LABEL[o.fulfillment_type] || (o.fulfillment_type || '').replace(/_/g,' ')} · ${STATUS_LABEL[o.status] || o.status} · ${_date(o.created_at)}</span>
         <span class="order-item-price">₹ ${Number(o.total_amount).toLocaleString('en-IN')}</span>
       </div>`).join('');
 
@@ -120,7 +153,65 @@ const CustomersView = (() => {
         <label class="text-sm" style="color:var(--gray-500);font-weight:600">Notes</label>
         <textarea name="notes" rows="2" style="width:100%;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:var(--radius);padding:8px 10px;font-size:13px;resize:vertical">${customer.notes || ''}</textarea>
         <div><button class="btn btn-secondary btn-sm" data-action="save-notes">Save notes</button></div>
+      </div>
+      ${_can('owner', 'admin') ? _renderPrivacySection(customer) : ''}`;
+  }
+
+  // Owner/admin-only DPDP tooling — mirrors the backend's requireRole('owner','admin')
+  // gate on /export, /delete-request, /correct. These three endpoints exist server-side
+  // with no UI at all until now.
+  function _renderPrivacySection(customer) {
+    return `
+      <div style="margin-top:var(--sp-4);padding-top:var(--sp-3);border-top:1px solid var(--gray-100)">
+        <label class="text-sm" style="color:var(--gray-500);font-weight:600">Data &amp; privacy</label>
+        <div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-2)">
+          <button class="btn btn-secondary btn-sm" data-action="export-data">Export data</button>
+          <button class="btn btn-secondary btn-sm" data-action="request-deletion" style="color:var(--red-600)">Request deletion</button>
+        </div>
+        <div class="privacy-status text-sm text-muted" style="margin-top:var(--sp-2)"></div>
       </div>`;
+  }
+
+  async function _handleExportData(inner, id, btn) {
+    const status = inner.querySelector('.privacy-status');
+    btn.disabled = true; btn.textContent = 'Exporting…';
+    try {
+      const data = await Api.rGet(`/customers/${id}/export`);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      a.download = `customer-data-${(data.profile?.name || id).replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      if (status) status.textContent = `Exported ${_date(data.exportedAt)}.`;
+    } catch (err) {
+      DashUI.toast('Could not export data. ' + err.message, 'error');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Export data';
+    }
+  }
+
+  async function _handleRequestDeletion(inner, id, btn) {
+    const ok = await DashUI.confirm(
+      'This starts a data-deletion request for this customer. It cannot be undone once processed.',
+      { title: 'Request deletion', confirmLabel: 'Request Deletion', danger: true }
+    );
+    if (!ok) return;
+
+    const status = inner.querySelector('.privacy-status');
+    btn.disabled = true; btn.textContent = 'Requesting…';
+    try {
+      await Api.rPost(`/customers/${id}/delete-request`, {});
+      if (status) status.textContent = 'Deletion requested — pending processing.';
+      DashUI.toast('Deletion request submitted.', 'success');
+      btn.textContent = 'Requested';
+    } catch (err) {
+      DashUI.toast('Could not submit deletion request. ' + err.message, 'error');
+      btn.disabled = false; btn.textContent = 'Request deletion';
+    }
   }
 
   function init(el) {

@@ -4,14 +4,18 @@ const CateringView = (() => {
 
   let _state = { tab: 'all', page: 1 };
 
-  const PIPELINE = ['new', 'contacted', 'proposal_sent', 'negotiating', 'confirmed', 'lost'];
+  // Status keys match the DB enum (catering_lead_status: new, contacted,
+  // proposal_sent, negotiating, converted, lost, on_hold — note "converted",
+  // not "confirmed"). Labels stay in plain language for the user; only the
+  // underlying value has to match the schema.
+  const PIPELINE = ['new', 'contacted', 'proposal_sent', 'negotiating', 'converted', 'lost'];
 
   const STATUS_LABELS = {
     new:           'New',
     contacted:     'Contacted',
     proposal_sent: 'Proposal Sent',
     negotiating:   'Negotiating',
-    confirmed:     'Confirmed',
+    converted:     'Confirmed',
     lost:          'Lost',
     on_hold:       'On Hold',
   };
@@ -22,7 +26,7 @@ const CateringView = (() => {
     contacted:     'badge-preparing',
     proposal_sent: 'badge-preparing',
     negotiating:   'badge-ready',
-    confirmed:     'badge-delivered',
+    converted:     'badge-delivered',
     lost:          'badge-cancelled',
     on_hold:       'badge-placed',
   };
@@ -31,7 +35,7 @@ const CateringView = (() => {
     contacted:     'Mark Contacted',
     proposal_sent: 'Send Quote',
     negotiating:   'Negotiating',
-    confirmed:     'Confirm',
+    converted:     'Confirm',
   };
 
   function _badge(status) {
@@ -67,7 +71,7 @@ const CateringView = (() => {
 
   function _nextStatus(status) {
     const idx = PIPELINE.indexOf(status);
-    if (idx < 0 || status === 'confirmed' || status === 'lost') return null;
+    if (idx < 0 || status === 'converted' || status === 'lost') return null;
     const next = PIPELINE[idx + 1];
     return next === 'lost' ? null : next;
   }
@@ -81,12 +85,12 @@ const CateringView = (() => {
         data-id="${lead.id}" data-status="${next}">${ADVANCE_LABELS[next] || next}</button>`);
     }
 
-    if (lead.status === 'confirmed') {
+    if (lead.status === 'converted') {
       btns.push(`<button class="btn btn-secondary btn-sm lead-create-settlement"
         data-id="${lead.id}">Create Settlement →</button>`);
     }
 
-    if (lead.status !== 'confirmed' && lead.status !== 'lost') {
+    if (lead.status !== 'converted' && lead.status !== 'lost') {
       btns.push(`<button class="btn btn-danger btn-sm lead-advance"
         data-id="${lead.id}" data-status="lost">Reject</button>`);
     }
@@ -94,9 +98,11 @@ const CateringView = (() => {
     return btns.join(' ');
   }
 
+  // Tab ids stay user-facing ("confirmed" tab shows the Confirmed label);
+  // statusMap translates that to the real API/DB value ("converted").
   function _buildUrl(tab, page) {
     const params = new URLSearchParams({ page, limit: 25 });
-    const statusMap = { new: 'new', confirmed: 'confirmed', lost: 'lost' };
+    const statusMap = { new: 'new', confirmed: 'converted', lost: 'lost' };
     if (tab !== 'all' && tab !== 'active' && statusMap[tab]) {
       params.set('status', statusMap[tab]);
     }
@@ -133,7 +139,7 @@ const CateringView = (() => {
           const ref     = _cf(lead, 'ref');
           return `
           <tr class="lead-main-row" style="cursor:pointer" data-lead-id="${lead.id}">
-            <td class="text-sm text-muted">${ref || lead.id.slice(-6).toUpperCase()}</td>
+            <td class="text-sm text-muted">${ref || '—'}</td>
             <td>
               <div class="lead-contact-name">${lead.contact_name}</div>
               ${company ? `<div class="text-sm text-muted">${company}</div>` : ''}

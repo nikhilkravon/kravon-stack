@@ -13,7 +13,9 @@ const TablesView = (() => {
 
   function _dur(isoDate) {
     if (!isoDate) return '—';
-    const mins = Math.floor((Date.now() - new Date(isoDate)) / 60000);
+    // Floor at 0 — a session just opened a moment ago can read as slightly
+    // negative due to client/server clock skew, which "-1m" makes visible.
+    const mins = Math.max(0, Math.floor((Date.now() - new Date(isoDate)) / 60000));
     if (mins < 60) return `${mins}m`;
     return `${Math.floor(mins / 60)}h ${mins % 60}m`;
   }
@@ -81,18 +83,18 @@ const TablesView = (() => {
             <div class="session-orders-loading">Loading orders…</div>
           </div>
           <div class="table-card-actions">
-            <button class="btn btn-danger btn-sm" data-action="close-session" data-session-id="${session.id}" data-table="${t.name}">Close session</button>
+            <button class="btn btn-danger btn-sm" data-action="close-session" data-session-id="${session.id}" data-table="${t.name}" data-total="${_fmt(session.total)}">Close Table</button>
             <button class="btn btn-ghost btn-sm" data-action="view-bill" data-session-id="${session.id}">View bill</button>
             ${canTransfer ? `<button class="btn btn-ghost btn-sm" data-action="transfer-session" data-session-id="${session.id}" data-table-id="${t.id}" data-table="${t.name}">Move table</button>` : ''}
             <button class="btn btn-ghost btn-sm" data-action="show-qr" data-table-id="${t.id}" data-table-name="${t.name}">QR</button>
           </div>
         ` : `
           <div class="table-card-actions">
-            <button class="btn btn-primary btn-sm" data-action="open-session" data-table-id="${t.id}" data-table="${t.name}">Open session</button>
+            <button class="btn btn-primary btn-sm" data-action="open-session" data-table-id="${t.id}" data-table="${t.name}">Seat Guests</button>
             <button class="btn btn-ghost btn-sm" data-action="show-qr" data-table-id="${t.id}" data-table-name="${t.name}">QR code</button>
           </div>
         `}
-        <div class="table-card-footer">
+        <div class="table-card-footer table-card-footer--manage" hidden>
           <button class="btn btn-ghost btn-sm" data-action="edit-table" data-table-id="${t.id}">Edit</button>
           <button class="btn btn-danger btn-sm" data-action="delete-table" data-table-id="${t.id}" data-table="${t.name}">Delete</button>
         </div>
@@ -170,6 +172,9 @@ const TablesView = (() => {
       }
 
       grid.innerHTML = tables.map(_tableCard).join('');
+      if (_manageMode) {
+        grid.querySelectorAll('.table-card-footer--manage').forEach(f => { f.hidden = false; });
+      }
 
       // Load order feeds for all occupied tables
       tables.forEach(t => {
@@ -260,7 +265,7 @@ const TablesView = (() => {
           <input type="number" min="1" max="50" placeholder="e.g. 2" class="covers-input" style="width:100%">
         </div>
         <div style="display:flex;gap:var(--sp-1)">
-          <button class="btn btn-primary btn-sm covers-confirm">Open session</button>
+          <button class="btn btn-primary btn-sm covers-confirm">Seat Guests</button>
           <button class="btn btn-ghost btn-sm covers-cancel">Cancel</button>
         </div>`;
       btn.closest('.table-card-actions').insertAdjacentElement('afterend', form);
@@ -269,14 +274,14 @@ const TablesView = (() => {
         const val    = form.querySelector('.covers-input').value;
         const covers = val ? parseInt(val, 10) : undefined;
         const saveBtn = form.querySelector('.covers-confirm');
-        saveBtn.disabled = true; saveBtn.textContent = 'Opening…';
+        saveBtn.disabled = true; saveBtn.textContent = 'Seating…';
         try {
           await Api.rPost('/dine-in/session/open', { table_id: btn.dataset.tableId, covers });
-          DashUI.toast(`Session opened for ${btn.dataset.table}`, 'success');
+          DashUI.toast(`Guests seated at ${btn.dataset.table}`, 'success');
           _load(el);
         } catch (err) {
-          DashUI.toast('Could not open session. ' + err.message, 'error');
-          saveBtn.disabled = false; saveBtn.textContent = 'Open session';
+          DashUI.toast('Could not seat guests. ' + err.message, 'error');
+          saveBtn.disabled = false; saveBtn.textContent = 'Seat Guests';
         }
       };
       return;
@@ -299,14 +304,14 @@ const TablesView = (() => {
     try {
       if (action === 'close-session') {
         const ok = await DashUI.confirm(
-          `Close session for <strong>${btn.dataset.table}</strong>? This will finalise the bill.`,
-          { title: 'Close session', confirmLabel: 'Close & Bill', danger: true }
+          `Close <strong>${btn.dataset.table}</strong>? The bill (${btn.dataset.total}) will move to Settlements for payment.`,
+          { title: 'Close table', confirmLabel: 'Close Table', danger: true }
         );
         if (!ok) return;
         btn.disabled = true;
         try {
           const data = await Api.rPost('/dine-in/session/close', { session_id: btn.dataset.sessionId });
-          DashUI.toast(`Session closed for ${btn.dataset.table}`, 'success');
+          DashUI.toast(`${btn.dataset.table} closed — bill sent to Settlements.`, 'success');
           if (data.settlement_id) {
             history.pushState(null, '', `#settlement?id=${data.settlement_id}`);
             App.navigate('settlement');
@@ -314,7 +319,7 @@ const TablesView = (() => {
           }
           _load(el);
         } catch (err) {
-          DashUI.toast('Could not close session. ' + err.message, 'error');
+          DashUI.toast('Could not close table. ' + err.message, 'error');
           btn.disabled = false;
         }
       }
@@ -691,6 +696,7 @@ const TablesView = (() => {
   let _elClickHandler  = null;
   let _elCtaHandler    = null;
   let _activeTab       = 'floor';
+  let _manageMode      = false;
 
   function _switchTab(el, tab) {
     _activeTab = tab;
@@ -700,6 +706,7 @@ const TablesView = (() => {
     el.querySelector('#history-panel-wrap').hidden = tab !== 'history';
     el.querySelector('#add-table-btn').hidden  = tab !== 'floor';
     el.querySelector('#download-qr-btn').hidden = tab !== 'floor';
+    el.querySelector('#manage-tables-btn').hidden = tab !== 'floor';
     if (tab === 'history') _loadHistory(el);
   }
 
@@ -711,6 +718,7 @@ const TablesView = (() => {
     _pickerMode = null;
     _loadError = false;
     _activeTab = 'floor';
+    _manageMode = false;
 
     el.innerHTML = `
       <div class="toolbar">
@@ -719,6 +727,7 @@ const TablesView = (() => {
           <button id="tab-history" class="btn btn-secondary btn-sm">History</button>
         </div>
         <div class="toolbar-right">
+          <button id="manage-tables-btn" class="btn btn-secondary btn-sm" aria-pressed="false">Manage tables</button>
           <button id="download-qr-btn" class="btn btn-secondary">Download QR Sheet</button>
           <button id="add-table-btn" class="btn btn-primary">+ Add table</button>
         </div>
@@ -736,6 +745,15 @@ const TablesView = (() => {
     el.querySelector('#download-qr-btn').addEventListener('click', () => {
       if (!_tables.length) { DashUI.toast('No tables to export.', 'error'); return; }
       _downloadQrPdf(_tables);
+    });
+    el.querySelector('#manage-tables-btn').addEventListener('click', (e) => {
+      const btn = e.currentTarget;
+      _manageMode = btn.getAttribute('aria-pressed') !== 'true';
+      btn.setAttribute('aria-pressed', String(_manageMode));
+      btn.classList.toggle('btn-primary', _manageMode);
+      btn.classList.toggle('btn-secondary', !_manageMode);
+      btn.textContent = _manageMode ? 'Done managing' : 'Manage tables';
+      el.querySelectorAll('.table-card-footer--manage').forEach(f => { f.hidden = !_manageMode; });
     });
 
     _elClickHandler = e => {
