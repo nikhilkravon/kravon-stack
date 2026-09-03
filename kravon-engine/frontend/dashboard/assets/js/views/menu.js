@@ -361,7 +361,10 @@ const MenuView = (() => {
             <div class="menu-item-row" data-vid="${v.id}">
               <div class="menu-item-info">
                 <span class="menu-item-name">${_esc(v.name)}</span>
-                <span class="menu-item-price">₹ ${Number(v.price).toLocaleString('en-IN')}</span>
+                <span class="menu-item-price v-price" data-vid="${v.id}" data-price="${Number(v.price)}"
+                      title="Click to edit price" style="cursor:pointer;text-decoration:underline dotted">
+                  ₹ ${Number(v.price).toLocaleString('en-IN')}
+                </span>
               </div>
               <div class="menu-item-actions">
                 <button class="btn btn-danger btn-sm del-variant" data-vid="${v.id}">Remove</button>
@@ -376,6 +379,42 @@ const MenuView = (() => {
             await Api.rDel(`/menu/items/${itemId}/variants/${btn.dataset.vid}`);
             _loadVariants(overlay, itemId);
           } catch { btn.disabled = false; }
+        });
+      });
+
+      // Click-to-edit variant price (PUT with just { price })
+      list.querySelectorAll('.v-price').forEach(span => {
+        span.addEventListener('click', () => {
+          const vid   = span.dataset.vid;
+          const input = document.createElement('input');
+          input.type  = 'number';
+          input.min   = '0';
+          input.step  = '0.01';
+          input.value = span.dataset.price;
+          input.style.width = '90px';
+          span.replaceWith(input);
+          input.focus();
+          input.select();
+
+          let committed = false;
+          const commit = async () => {
+            if (committed) return;
+            committed = true;
+            const val = parseFloat(input.value);
+            if (Number.isFinite(val) && val >= 0 && val !== Number(span.dataset.price)) {
+              try {
+                await Api.rPut(`/menu/items/${itemId}/variants/${vid}`, { price: val });
+              } catch (err) {
+                DashUI.toast('Could not update price: ' + err.message, 'error');
+              }
+            }
+            _loadVariants(overlay, itemId);
+          };
+          input.addEventListener('blur', commit);
+          input.addEventListener('keydown', e => {
+            if (e.key === 'Enter')  commit();
+            if (e.key === 'Escape') { committed = true; _loadVariants(overlay, itemId); }
+          });
         });
       });
     } catch (err) {
