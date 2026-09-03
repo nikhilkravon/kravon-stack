@@ -80,7 +80,6 @@ Feature gates are enforced in `server.js` via `requireFeature('has_tables')` bef
 **P0 — Next to build:**
 - Kitchen order actions (confirm/ready from kitchen view) — **NEXT**
 - Tables auto-refresh (live polling on kitchen + tables views)
-- Settings cache bust (`PATCH /settings/restaurant` and `/notifications` don't call `bustConfigCache`)
 
 **P1 — Next:**
 - Self-serve onboarding (sign-up → restaurant creation → first config) — biggest market gap
@@ -243,14 +242,13 @@ Multi-schema PostgreSQL (v20). All queries scoped by `tenant_id`.
 ## 11. Known Gaps (Ranked)
 
 1. **Tables auto-refresh** — kitchen and table views poll at 10s but tables *dashboard* view has no live polling
-2. **Settings cache bust** — `PATCH /settings/restaurant` and `/notifications` don't call `bustConfigCache`
-3. **Self-serve onboarding** — no sign-up flow or restaurant creation wizard (biggest market gap)
-4. **Razorpay** — webhook handler implemented; no confirmed live end-to-end payment tested
-5. **Customers list** — missing `total_spend`, `order_count`, `last_order_at`
-6. **`unique_customers` metric** — misleading label (sums daily new acquisitions, not DISTINCT count)
-7. **`/config` duplication** — `flatItems` + `categories` return same items twice; `is_customizable` + `customise` are identical booleans
-8. **Billing** — no subscription management or plan upgrade flow
-9. **Email notifications** — Resend infra wired, no listener calls it yet (order receipt, reservation confirm, catering ack)
+2. **Self-serve onboarding** — no sign-up flow or restaurant creation wizard (biggest market gap)
+3. **Razorpay** — webhook handler implemented; no confirmed live end-to-end payment tested
+4. **Customers list** — missing `total_spend`, `order_count`, `last_order_at`
+5. **`unique_customers` metric** — misleading label (sums daily new acquisitions, not DISTINCT count)
+6. **`/config` duplication** — `flatItems` + `categories` return same items twice; `is_customizable` + `customise` are identical booleans
+7. **Billing** — no subscription management or plan upgrade flow
+8. **Email notifications** — Resend infra wired, no listener calls it yet (order receipt, reservation confirm, catering ack)
 
 ---
 
@@ -259,7 +257,6 @@ Multi-schema PostgreSQL (v20). All queries scoped by `tenant_id`.
 These affect live restaurant workflows:
 
 - **Tables dashboard auto-refresh** — kitchen auto-polls (10s), but the tables view in the dashboard requires manual reload
-- **Settings cache bust** — restaurant settings changes (hours, delivery fees, etc.) don't bust the 60s config cache immediately
 - **Razorpay production validation** — webhook handler implemented; no confirmed live payment flow tested end-to-end
 - **Email channel** — infra exists (`integrations/email.js`, Resend), imported in `notify.service.js`, but no listener calls it
 
