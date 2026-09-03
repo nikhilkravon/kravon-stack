@@ -384,6 +384,7 @@ const TablesView = (() => {
             <div class="modal-header">
               <span class="modal-title">Bill — ${bill.table_name}</span>
               <div style="display:flex;gap:var(--sp-2);align-items:center">
+                <button class="btn btn-secondary btn-sm" id="bill-open-btn">Open in Bills →</button>
                 <button class="btn btn-secondary btn-sm" id="bill-print-btn">Print</button>
                 <button class="modal-close" id="bill-modal-close">✕</button>
               </div>
@@ -406,6 +407,12 @@ const TablesView = (() => {
       const overlay = document.getElementById('bill-modal');
       overlay.querySelector('#bill-modal-close').onclick = () => overlay.remove();
       overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+      overlay.querySelector('#bill-open-btn').onclick = () => {
+        overlay.remove();
+        history.pushState(null, '', `#settlement?session_id=${sessionId}`);
+        App.navigate('settlement');
+      };
 
       overlay.querySelector('#bill-print-btn').onclick = () => {
         const slug    = Auth.state().slug || '';
