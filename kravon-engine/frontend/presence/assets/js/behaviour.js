@@ -7,10 +7,19 @@
   'use strict';
 
   window.initBehaviour = function () {
+    // Scroll to page top (nav brand is fixed, so it's never "out of view"
+    // for scrollIntoView — scroll the window directly instead)
+    document.addEventListener('click', function (e) {
+      const top = e.target.closest('[data-action="scroll-top"]');
+      if (!top) return;
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
     // Smooth-scroll for any in-page anchor clicks
     document.addEventListener('click', function (e) {
       const a = e.target.closest('a[href^="#"]');
-      if (!a) return;
+      if (!a || a.getAttribute('href') === '#') return;
       const target = document.querySelector(a.getAttribute('href'));
       if (target) {
         e.preventDefault();
