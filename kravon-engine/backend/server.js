@@ -310,7 +310,7 @@ require('./jobs/aggregate-daily-metrics').schedule();
 
 /* ── Start ─────────────────────────────────────────────────────────────────── */
 const server = app.listen(PORT, () => {
-  console.log(`kravon-platform listening on :${PORT} [${process.env.NODE_ENV || 'development'}]`);
+  console.log(`kravon-platform listening on :${PORT} [${process.env.NODE_ENV || 'development'}] booted ${new Date().toISOString()}`);
 });
 
 function shutdown(signal) {
