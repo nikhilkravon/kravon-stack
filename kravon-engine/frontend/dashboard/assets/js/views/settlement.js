@@ -396,19 +396,20 @@ const SettlementView = (() => {
     if (!_el || !_settlement) return;
     const s   = _settlement;
     const editable = isEditable();
+    const canVoid  = (editable || s.status === 'finalized') && _can('VOID');
 
     _el.innerHTML = `
       <div class="toolbar">
         <div class="toolbar-left" style="gap:var(--sp-3);flex-wrap:wrap">
           ${isEditable() ? `<button id="stl-back-to-bill-btn" class="btn-link" style="font-size:13px">← Bill</button>` : ''}
-          <span style="font-weight:700;font-size:15px">Settlement</span>
+          <span style="font-weight:700;font-size:15px">Bill</span>
           ${STATUS_BADGE[s.status] || ''}
           <span class="text-sm text-muted">${_fmtDate(s.created_at)}</span>
         </div>
         <div class="toolbar-right" style="gap:var(--sp-2)">
           ${editable && _can('FINALIZE') ? `<button id="stl-finalize-btn" class="btn btn-primary btn-sm">Finalize &amp; Close</button>` : ''}
           ${s.status === 'finalized' && _can('INVOICE') ? `<button id="stl-invoice-btn" class="btn btn-secondary btn-sm">Generate Invoice</button>` : ''}
-          ${editable && _can('VOID') ? `<button id="stl-void-btn" class="btn btn-secondary btn-sm" style="color:var(--red-600)">Void</button>` : ''}
+          ${canVoid ? `<button id="stl-void-btn" class="btn btn-secondary btn-sm" style="color:var(--red-600)">Void</button>` : ''}
           <button id="stl-history-btn" class="btn btn-secondary btn-sm">History</button>
         </div>
       </div>
@@ -927,7 +928,7 @@ const SettlementView = (() => {
   async function _handleFinalize() {
     const confirmed = await DashUI.confirm(
       'The bill will be locked. You can still record payments and generate an invoice.',
-      { title: 'Finalize settlement?', confirmLabel: 'Finalize' }
+      { title: 'Finalize bill?', confirmLabel: 'Finalize' }
     );
     if (!confirmed) return;
 
@@ -938,19 +939,31 @@ const SettlementView = (() => {
       const data = await _apiPost('/finalize', body);
       _settlement = data.settlement;
       _render();
-      DashUI.toast('Settlement finalized.', 'success');
+      DashUI.toast('Bill finalized.', 'success');
     } catch (err) { DashUI.toast(err.message, 'error'); }
   }
 
   // ── Void ──────────────────────────────────────────────────────────────────
   async function _handleVoid() {
-    const reason = await _promptReason('Void this settlement?', 'Reason (required)', true);
+    if (_settlement.status === 'finalized') {
+      const paidPaise = _settlement.paid_paise || 0;
+      const paidNote  = paidPaise > 0
+        ? ` and ₹${(paidPaise / 100).toLocaleString('en-IN')} has already been recorded as paid`
+        : '';
+      const confirmed = await DashUI.confirm(
+        `This bill is finalized${paidNote}. Voiding it does not automatically refund any payments — you'll need to record a refund separately if money was collected.`,
+        { title: 'Void a finalized bill?', confirmLabel: 'Continue to void', danger: true }
+      );
+      if (!confirmed) return;
+    }
+
+    const reason = await _promptReason('Void this bill?', 'Reason (required)', true);
     if (!reason) return;
     try {
       const data = await _apiPost('/void', { void_reason: reason });
       _settlement = data.settlement;
       _render();
-      DashUI.toast('Settlement voided.', 'success');
+      DashUI.toast('Bill voided.', 'success');
     } catch (err) { DashUI.toast(err.message, 'error'); }
   }
 

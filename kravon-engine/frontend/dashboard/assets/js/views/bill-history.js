@@ -1,220 +1,191 @@
 'use strict';
 
+/**
+ * BillHistoryView — universal bill list.
+ *
+ * Lists every bill (settlement) across all sources — dine-in, delivery,
+ * catering, manual. Clicking a row opens the SettlementView workspace.
+ * Creating a manual bill opens a quick form then navigates to the workspace.
+ */
 const BillHistoryView = (() => {
 
-  let _state = {
-    page: 1,
-    limit: 50,
+  const _state = {
+    page:      1,
+    limit:     50,
+    status:    '',
+    source:    '',
+    search:    '',
     date_from: '',
-    date_to: '',
-    table_search: '',
-    payment_mode: '',
+    date_to:   '',
   };
 
-  function _fmt(n) { return '₹ ' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  let _el           = null;
+  let _debounceTimer = null;
+
+  // ── Formatters ───────────────────────────────────────────────────────────
+
+  function _fmt(paise) {
+    if (paise == null) return '—';
+    return '₹' + (paise / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
 
   function _fmtDate(iso) {
     if (!iso) return '—';
-    return new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    return new Date(iso).toLocaleString('en-IN', {
+      day: 'numeric', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
   }
 
-  function _fmtDur(openedAt, closedAt) {
-    if (!openedAt || !closedAt) return '—';
-    const mins = Math.round((new Date(closedAt) - new Date(openedAt)) / 60000);
-    if (mins < 60) return `${mins}m`;
-    return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+  function _debounce(fn, ms = 350) {
+    clearTimeout(_debounceTimer);
+    _debounceTimer = setTimeout(fn, ms);
   }
 
-  function _paymentLabel(mode) {
-    const MAP = { offline: 'Cash/Offline', razorpay: 'Razorpay', upi: 'UPI', card: 'Card', cod: 'Cash on Delivery' };
-    return MAP[mode] || mode || '—';
+  // ── Status badge ─────────────────────────────────────────────────────────
+
+  const STATUS_COLOR = {
+    draft:     'var(--gray-500)',
+    open:      'var(--blue-600)',
+    finalized: 'var(--green-600)',
+    voided:    'var(--red-500)',
+  };
+
+  function _statusBadge(status) {
+    const color = STATUS_COLOR[status] || 'var(--gray-500)';
+    const label = { draft: 'Draft', open: 'Open', finalized: 'Finalized', voided: 'Voided' }[status] || status;
+    return `<span class="badge" style="background:${color}1a;color:${color};font-size:11px;white-space:nowrap">${label}</span>`;
   }
 
-  function _buildUrl(extra = {}) {
-    const s = { ..._state, ...extra };
-    const p = new URLSearchParams();
-    p.set('limit',  s.limit);
-    p.set('offset', (s.page - 1) * s.limit);
-    if (s.date_from)    p.set('date_from',    s.date_from);
-    if (s.date_to)      p.set('date_to',      s.date_to + 'T23:59:59');
-    if (s.table_search) p.set('table_search', s.table_search);
-    if (s.payment_mode) p.set('payment_mode', s.payment_mode);
-    return `/dine-in/sessions/closed?${p}`;
+  // ── Source label ─────────────────────────────────────────────────────────
+
+  const SOURCE_LABEL = {
+    dine_in:  'Dine-In',
+    order:    'Order',
+    catering: 'Catering',
+    manual:   'Manual',
+  };
+
+  function _sourceChip(type) {
+    return `<span class="badge" style="font-size:10px;background:var(--gray-100);color:var(--gray-600)">${SOURCE_LABEL[type] || type}</span>`;
   }
 
-  async function _triggerExport() {
-    try {
-      const base  = window.KRAVON_API_BASE || 'http://localhost:3000';
-      const slug  = App.slug;
-      const token = Auth.state()?.token;
-      const p     = new URLSearchParams();
-      if (_state.date_from)    p.set('date_from',    _state.date_from);
-      if (_state.date_to)      p.set('date_to',      _state.date_to + 'T23:59:59');
-      if (_state.table_search) p.set('table_search', _state.table_search);
-      if (_state.payment_mode) p.set('payment_mode', _state.payment_mode);
+  // ── URL builder ──────────────────────────────────────────────────────────
 
-      const res = await fetch(`${base}/v1/restaurants/${slug}/dine-in/sessions/closed/export?${p}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error('Export failed');
-      const blob = await res.blob();
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href     = url;
-      a.download = `bill-history-${Date.now()}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      DashUI.toast('Could not export: ' + err.message, 'error');
-    }
+  function _buildUrl() {
+    const p = new URLSearchParams({ page: _state.page, limit: _state.limit });
+    if (_state.status)    p.set('status',    _state.status);
+    if (_state.source)    p.set('source',    _state.source);
+    if (_state.search)    p.set('search',    _state.search);
+    if (_state.date_from) p.set('date_from', _state.date_from);
+    if (_state.date_to)   p.set('date_to',   _state.date_to);
+    return `/settlements?${p}`;
   }
 
-  async function _load(el) {
-    const tbody   = el.querySelector('#bh-tbody');
-    const info    = el.querySelector('#bh-info');
-    const prevBtn = el.querySelector('#bh-prev');
-    const nextBtn = el.querySelector('#bh-next');
+  // ── Pagination ───────────────────────────────────────────────────────────
+
+  function _pagerHtml(page, pages) {
+    if (pages <= 1) return '';
+    return `
+      <div class="pagination" style="display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-2);padding:var(--sp-3) 0">
+        <button class="btn btn-secondary btn-sm" id="bh-prev" ${page <= 1 ? 'disabled' : ''}>← Prev</button>
+        <span class="text-sm text-muted">Page ${page} of ${pages}</span>
+        <button class="btn btn-secondary btn-sm" id="bh-next" ${page >= pages ? 'disabled' : ''}>Next →</button>
+      </div>`;
+  }
+
+  // ── Row renderer ─────────────────────────────────────────────────────────
+
+  function _rowHtml(s) {
+    const balance = Math.max(0, (s.total_paise || 0) - (s.paid_paise || 0));
+    const label   = s.table_name
+      ? `Table ${s.table_name}`
+      : (s.customer_name || s.notes || '—');
+    return `
+      <tr class="bh-row" data-id="${s.id}" style="cursor:pointer">
+        <td style="white-space:nowrap">${_fmtDate(s.created_at)}</td>
+        <td>
+          <div style="font-weight:500">${DashUI.esc(label)}</div>
+          ${s.internal_ref ? `<div class="text-sm text-muted">${DashUI.esc(s.internal_ref)}</div>` : ''}
+        </td>
+        <td>${_sourceChip(s.source_type)}</td>
+        <td>${_statusBadge(s.status)}</td>
+        <td style="text-align:right;font-weight:500">${_fmt(s.total_paise)}</td>
+        <td style="text-align:right;color:${balance > 0 ? 'var(--red-600)' : 'var(--green-600)'}">
+          ${balance > 0 ? _fmt(balance) + ' due' : '✓ Paid'}
+        </td>
+      </tr>`;
+  }
+
+  // ── Main render ──────────────────────────────────────────────────────────
+
+  async function _render() {
+    const tbody    = _el.querySelector('#bh-tbody');
+    const pagerTop = _el.querySelector('#bh-pager-top');
+    const pagerBot = _el.querySelector('#bh-pager-bot');
     if (!tbody) return;
 
-    tbody.innerHTML = `<tr><td colspan="7"><div class="skeleton skeleton-line" style="margin:12px 0"></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:var(--sp-6);color:var(--gray-400)">Loading…</td></tr>`;
+    if (pagerTop) pagerTop.innerHTML = '';
+    if (pagerBot) pagerBot.innerHTML = '';
 
     try {
-      const data     = await Api.rGet(_buildUrl());
-      const sessions = data.sessions || [];
-      const total    = data.total    || 0;
-      const pages    = Math.max(1, Math.ceil(total / _state.limit));
+      const data  = await Api.rGet(_buildUrl());
+      const items = data.settlements || [];
+      const total = data.total || 0;
+      const pages = data.pages || 1;
+      const page  = data.page  || 1;
 
-      if (!sessions.length) {
-        tbody.innerHTML = `<tr><td colspan="7">${DashUI.emptyState({
-          icon:  '🧾',
-          title: 'No closed sessions yet',
-          body:  'Completed dine-in sessions will appear here after checkout.',
-        })}</td></tr>`;
-      } else {
-        tbody.innerHTML = sessions.map(s => `
-          <tr class="bh-row" data-session-id="${s.session_id}" style="cursor:pointer">
-            <td class="td-muted" style="font-size:11px">${s.session_id.slice(-8).toUpperCase()}</td>
-            <td style="font-weight:600">${s.table_name || '—'}</td>
-            <td class="td-muted">${s.covers || '—'}</td>
-            <td class="td-muted" style="font-size:12px">${_fmtDate(s.closed_at)}</td>
-            <td class="td-muted">${_fmtDur(s.opened_at, s.closed_at)}</td>
-            <td style="font-weight:700;text-align:right">${_fmt(s.grand_total)}</td>
-            <td>
-              <span class="badge badge-delivered" style="font-size:10px">${_paymentLabel(s.payment_method)}</span>
-            </td>
-          </tr>
-          <tr class="bh-detail-row" data-for="${s.session_id}" style="display:none">
-            <td colspan="7">
-              <div class="order-detail" style="padding:10px 16px 12px">
-                <div class="bh-detail-loading text-sm text-muted">Loading bill…</div>
-              </div>
-            </td>
-          </tr>`).join('');
+      const countEl = _el.querySelector('#bh-count');
+      if (countEl) countEl.textContent = `${total.toLocaleString('en-IN')} bills`;
 
-        // Row expand/collapse to show full bill
-        tbody.querySelectorAll('.bh-row').forEach(row => {
-          row.addEventListener('click', () => {
-            const sid = row.dataset.sessionId;
-            const detailRow = tbody.querySelector(`.bh-detail-row[data-for="${sid}"]`);
-            if (!detailRow) return;
-            const isOpen = detailRow.style.display === 'table-row';
-            tbody.querySelectorAll('.bh-detail-row').forEach(r => { r.style.display = 'none'; });
-            tbody.querySelectorAll('.bh-row').forEach(r => r.style.fontWeight = '');
-            if (!isOpen) {
-              detailRow.style.display = 'table-row';
-              row.style.background = 'var(--blue-50)';
-              _loadDetail(detailRow, sid);
-            }
-          });
-        });
+      if (!items.length) {
+        tbody.innerHTML = `<tr><td colspan="6">${DashUI.emptyState({ icon: '🧾', title: 'No bills yet', body: 'Create a manual bill or settle a dine-in session.' })}</td></tr>`;
+        return;
       }
 
-      if (info)    info.textContent  = `${total} session${total !== 1 ? 's' : ''}`;
-      if (prevBtn) prevBtn.disabled  = _state.page <= 1;
-      if (nextBtn) nextBtn.disabled  = _state.page >= pages;
+      tbody.innerHTML = items.map(_rowHtml).join('');
+
+      // Row click → open bill workspace
+      _el.querySelectorAll('.bh-row').forEach(row => {
+        row.addEventListener('click', () => {
+          const id = row.dataset.id;
+          history.pushState(null, '', `#settlement?id=${id}`);
+          App.navigate('settlement');
+        });
+      });
+
+      const pager = _pagerHtml(page, pages);
+      if (pagerTop) pagerTop.innerHTML = pager;
+      if (pagerBot) pagerBot.innerHTML = pager;
+
+      _el.querySelectorAll('#bh-prev').forEach(b => b.addEventListener('click', () => {
+        if (_state.page > 1) { _state.page--; _render(); window.scrollTo(0, 0); }
+      }));
+      _el.querySelectorAll('#bh-next').forEach(b => b.addEventListener('click', () => {
+        if (_state.page < pages) { _state.page++; _render(); window.scrollTo(0, 0); }
+      }));
 
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="7">${DashUI.errorState(err.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6">${DashUI.errorState(err.message)}</td></tr>`;
     }
   }
 
-  async function _loadDetail(detailRow, sessionId) {
-    const inner = detailRow.querySelector('.order-detail');
-    if (!inner || !inner.querySelector('.bh-detail-loading')) return;
+  // ── Day Summary (EOD) ────────────────────────────────────────────────────
 
-    try {
-      const data = await Api.rGet(`/dine-in/bill?session_id=${sessionId}`);
-      const bill = data.bill;
-      if (!bill) { inner.innerHTML = '<div class="text-sm text-muted">No bill data.</div>'; return; }
-
-      const ordersHtml = (bill.orders || []).map(o => {
-        const items = (o.items || []).map(i =>
-          `<div class="order-item-line">
-            <span class="order-item-name">${i.name} × ${i.qty}</span>
-            <span class="order-item-price">${_fmt(i.price * i.qty)}</span>
-          </div>`
-        ).join('');
-        return `<div style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--gray-100)">
-          ${items}
-        </div>`;
-      }).join('');
-
-      const gstHtml = bill.gst_snapshot ? `
-        <div class="bill-summary-row"><span>CGST (${bill.gst_snapshot.cgst_rate}%)</span><span>${_fmt(bill.cgst_amount)}</span></div>
-        <div class="bill-summary-row"><span>SGST (${bill.gst_snapshot.sgst_rate}%)</span><span>${_fmt(bill.sgst_amount)}</span></div>` : '';
-
-      inner.innerHTML = `
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 24px">
-          <div class="order-items-list">${ordersHtml || '<span class="text-sm text-muted">No items</span>'}</div>
-          <div>
-            <div class="bill-summary-block">
-              <div class="bill-summary-row"><span>Subtotal</span><span>${_fmt(bill.subtotal)}</span></div>
-              ${gstHtml}
-              <div class="bill-summary-row" style="font-weight:700;font-size:14px;color:var(--gray-900)">
-                <span>Total</span><span>${_fmt(bill.grand_total)}</span>
-              </div>
-            </div>
-            ${bill.gst_snapshot?.gstin ? `<div class="bill-summary-row text-muted" style="font-size:11px">GSTIN: ${bill.gst_snapshot.gstin}</div>` : ''}
-            <div style="margin-top:var(--sp-3);display:flex;gap:var(--sp-2);flex-wrap:wrap">
-              <a href="#settlement?session_id=${sessionId}" class="btn btn-primary btn-sm">Open Settlement Editor →</a>
-              <button class="btn btn-secondary btn-sm bh-print-bill" data-session-id="${sessionId}">🖨 Print Bill</button>
-            </div>
-          </div>
-        </div>`;
-      inner.querySelector('.bh-print-bill')?.addEventListener('click', () => {
-        const base  = window.KRAVON_API_BASE || 'http://localhost:3000';
-        const slug  = App.slug;
-        const token = Auth.state()?.token;
-        const url   = `${base}/v1/restaurants/${slug}/dine-in/bill/render?session_id=${sessionId}`;
-        const w = window.open('', '_blank');
-        w.document.write(`<script>
-          fetch(${JSON.stringify(url)}, { headers: { Authorization: 'Bearer ${token}' } })
-            .then(r => r.text()).then(html => {
-              document.open(); document.write(html); document.close();
-            });
-        <\/script>`);
-      });
-    } catch {
-      inner.innerHTML = '<div class="text-sm text-muted">Could not load bill details.</div>';
-    }
-  }
-
-  function _resetPage() { _state.page = 1; }
-
-  async function _loadEod(el, date) {
-    const body = el.querySelector('#bh-eod-body');
+  async function _loadEod(date) {
+    const body = _el.querySelector('#bh-eod-body');
     if (!body) return;
     try {
       const data = await Api.rGet(`/settlements/eod-report?date=${date}`);
       const METHOD_LABEL = { cash: 'Cash', upi: 'UPI', card: 'Card', razorpay: 'Razorpay', wallet: 'Wallet', other: 'Other' };
       const methodHtml = (data.by_method || []).map(m =>
-        `<span style="margin-right:var(--sp-4)">${METHOD_LABEL[m.method] || m.method}: <strong>${_fmt(m.total_paise / 100)}</strong></span>`
+        `<span style="margin-right:var(--sp-4)">${METHOD_LABEL[m.method] || m.method}: <strong>${_fmt(m.total_paise)}</strong></span>`
       ).join('') || '<span class="text-muted">No payments recorded</span>';
       body.innerHTML = `
         <div style="display:flex;flex-wrap:wrap;gap:var(--sp-3);align-items:baseline">
           <div><span class="text-muted text-sm">Revenue</span><br>
-            <span style="font-size:20px;font-weight:700">${_fmt(data.total_revenue_paise / 100)}</span>
+            <span style="font-size:20px;font-weight:700">${_fmt(data.total_revenue_paise)}</span>
             <span class="text-muted text-sm">&nbsp;${data.settlements_count} bills</span></div>
           <div style="flex:1;min-width:200px">
             <div class="text-muted text-sm" style="margin-bottom:2px">By method</div>
@@ -222,11 +193,11 @@ const BillHistoryView = (() => {
           </div>
           <div>
             <span class="text-muted text-sm">Discounts</span><br>
-            <span style="color:var(--red-600);font-weight:600">${_fmt(data.total_discount_paise / 100)}</span>
+            <span style="color:var(--red-600);font-weight:600">${_fmt(data.total_discount_paise)}</span>
           </div>
           <div>
             <span class="text-muted text-sm">Comps</span><br>
-            <span style="color:var(--orange-600,#c96a00);font-weight:600">${_fmt(data.total_comp_paise / 100)}</span>
+            <span style="color:var(--orange-600,#c96a00);font-weight:600">${_fmt(data.total_comp_paise)}</span>
           </div>
         </div>`;
     } catch {
@@ -234,14 +205,73 @@ const BillHistoryView = (() => {
     }
   }
 
-  function init(el) {
-    _state = { page: 1, limit: 50, date_from: '', date_to: '', table_search: '', payment_mode: '' };
+  // ── Manual bill modal ────────────────────────────────────────────────────
+
+  function _openManualModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal" style="max-width:420px">
+        <div class="modal-header">
+          <h3 class="modal-title">New Manual Bill</h3>
+          <button class="modal-close" id="bh-modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="bh-manual-notes">Description / Customer</label>
+            <input id="bh-manual-notes" class="input" type="text" placeholder="e.g. Walk-in — Priya" maxlength="500" />
+          </div>
+          <div class="form-group">
+            <label for="bh-manual-ref">Internal Reference <span class="text-muted">(optional)</span></label>
+            <input id="bh-manual-ref" class="input" type="text" placeholder="e.g. PO-2024-001" maxlength="100" />
+          </div>
+          <p id="bh-manual-err" class="form-error" hidden></p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="bh-modal-cancel">Cancel</button>
+          <button class="btn btn-primary" id="bh-modal-create">Create Bill</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+
+    const close = () => document.body.removeChild(modal);
+    modal.querySelector('#bh-modal-close').addEventListener('click', close);
+    modal.querySelector('#bh-modal-cancel').addEventListener('click', close);
+    modal.addEventListener('click', e => { if (e.target === modal) close(); });
+
+    modal.querySelector('#bh-modal-create').addEventListener('click', async () => {
+      const notes    = modal.querySelector('#bh-manual-notes').value.trim();
+      const ref      = modal.querySelector('#bh-manual-ref').value.trim();
+      const errEl    = modal.querySelector('#bh-manual-err');
+      const btn      = modal.querySelector('#bh-modal-create');
+      errEl.hidden   = true;
+      btn.disabled   = true;
+      btn.textContent = 'Creating…';
+      try {
+        const data = await Api.rPost('/settlements/manual', { notes, internal_ref: ref || undefined });
+        close();
+        history.pushState(null, '', `#settlement?id=${data.settlement.id}`);
+        App.navigate('settlement');
+      } catch (err) {
+        errEl.textContent = err.message || 'Failed to create bill';
+        errEl.hidden = false;
+        btn.disabled = false;
+        btn.textContent = 'Create Bill';
+      }
+    });
+  }
+
+  // ── Init ─────────────────────────────────────────────────────────────────
+
+  async function init(el) {
+    _el = el;
+    Object.assign(_state, { page: 1, status: '', source: '', search: '', date_from: '', date_to: '' });
 
     el.innerHTML = `
       <div class="card" id="bh-eod-card" style="margin-bottom:var(--sp-3)">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--sp-3) var(--sp-4) var(--sp-2)">
           <span style="font-weight:600;font-size:14px">Day Summary</span>
-          <input type="date" id="bh-eod-date" class="search-input" style="width:150px">
+          <input type="date" id="bh-eod-date" class="input input-sm" style="width:150px">
         </div>
         <div id="bh-eod-body" style="padding:0 var(--sp-4) var(--sp-3)">
           <span class="text-sm text-muted">Loading…</span>
@@ -250,94 +280,84 @@ const BillHistoryView = (() => {
 
       <div class="toolbar" style="flex-wrap:wrap;gap:var(--sp-2)">
         <div class="toolbar-left" style="flex-wrap:wrap;gap:var(--sp-2)">
-          <input id="bh-table-search" class="search-input" type="search"
-            placeholder="Search table…" style="width:160px">
-          <input id="bh-date-from" type="date" class="search-input" style="width:140px" title="From date">
-          <input id="bh-date-to"   type="date" class="search-input" style="width:140px" title="To date">
-          <select id="bh-payment-mode" class="search-input" style="width:160px">
-            <option value="">All payment modes</option>
-            <option value="offline">Cash / Offline</option>
-            <option value="razorpay">Razorpay</option>
-            <option value="upi">UPI</option>
-            <option value="card">Card</option>
-            <option value="cod">Cash on Delivery</option>
+
+          <input id="bh-search" type="search" class="input input-sm"
+            placeholder="Search notes or ref…" style="width:200px" />
+
+          <select id="bh-status" class="input input-sm" style="width:140px">
+            <option value="">All statuses</option>
+            <option value="draft">Draft</option>
+            <option value="open">Open</option>
+            <option value="finalized">Finalized</option>
+            <option value="voided">Voided</option>
           </select>
+
+          <select id="bh-source" class="input input-sm" style="width:140px">
+            <option value="">All sources</option>
+            <option value="dine_in">Dine-In</option>
+            <option value="order">Delivery / Takeaway</option>
+            <option value="catering">Catering</option>
+            <option value="manual">Manual</option>
+          </select>
+
+          <input id="bh-date-from" type="date" class="input input-sm" title="From date" />
+          <input id="bh-date-to"   type="date" class="input input-sm" title="To date" />
+
         </div>
-        <div class="toolbar-right">
-          <span id="bh-info" class="text-sm text-muted"></span>
-          <button id="bh-export" class="btn btn-secondary btn-sm">↓ Export CSV</button>
+        <div class="toolbar-right" style="display:flex;align-items:center;gap:var(--sp-2)">
+          <span id="bh-count" class="text-sm text-muted"></span>
+          <button class="btn btn-primary btn-sm" id="bh-new-manual">+ Manual Bill</button>
         </div>
       </div>
 
-      <div class="card">
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Session</th>
-                <th>Table</th>
-                <th>Covers</th>
-                <th>Closed At</th>
-                <th>Duration</th>
-                <th class="text-right">Total</th>
-                <th>Payment</th>
-              </tr>
-            </thead>
-            <tbody id="bh-tbody"></tbody>
-          </table>
-        </div>
-        <div class="pagination">
-          <span id="bh-info-bottom" class="pagination-info"></span>
-          <div class="pagination-btns">
-            <button id="bh-prev" class="btn btn-secondary btn-sm">← Prev</button>
-            <button id="bh-next" class="btn btn-secondary btn-sm">Next →</button>
-          </div>
-        </div>
-      </div>`;
+      <div id="bh-pager-top"></div>
 
-    el.querySelector('#bh-export').addEventListener('click', _triggerExport);
+      <div class="table-wrap" style="margin-top:var(--sp-3)">
+        <table>
+          <thead>
+            <tr>
+              <th style="white-space:nowrap">Date</th>
+              <th>Description</th>
+              <th>Source</th>
+              <th>Status</th>
+              <th style="text-align:right">Total</th>
+              <th style="text-align:right">Balance</th>
+            </tr>
+          </thead>
+          <tbody id="bh-tbody">
+            <tr><td colspan="6" style="text-align:center;padding:var(--sp-6);color:var(--gray-400)">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
 
-    // Debounced table search
-    let _searchTimer;
-    el.querySelector('#bh-table-search').addEventListener('input', e => {
-      clearTimeout(_searchTimer);
-      _searchTimer = setTimeout(() => {
-        _state.table_search = e.target.value.trim();
-        _resetPage();
-        _load(el);
-      }, 300);
+      <div id="bh-pager-bot"></div>`;
+
+    el.querySelector('#bh-search').addEventListener('input', e => {
+      _debounce(() => { _state.search = e.target.value.trim(); _state.page = 1; _render(); });
     });
-
+    el.querySelector('#bh-status').addEventListener('change', e => {
+      _state.status = e.target.value; _state.page = 1; _render();
+    });
+    el.querySelector('#bh-source').addEventListener('change', e => {
+      _state.source = e.target.value; _state.page = 1; _render();
+    });
     el.querySelector('#bh-date-from').addEventListener('change', e => {
-      _state.date_from = e.target.value;
-      _resetPage();
-      _load(el);
+      _state.date_from = e.target.value; _state.page = 1; _render();
     });
-
     el.querySelector('#bh-date-to').addEventListener('change', e => {
-      _state.date_to = e.target.value;
-      _resetPage();
-      _load(el);
+      _state.date_to = e.target.value; _state.page = 1; _render();
     });
-
-    el.querySelector('#bh-payment-mode').addEventListener('change', e => {
-      _state.payment_mode = e.target.value;
-      _resetPage();
-      _load(el);
-    });
-
-    el.querySelector('#bh-prev').addEventListener('click', () => { _state.page--; _load(el); });
-    el.querySelector('#bh-next').addEventListener('click', () => { _state.page++; _load(el); });
+    el.querySelector('#bh-new-manual').addEventListener('click', _openManualModal);
 
     const todayStr = new Date().toISOString().slice(0, 10);
     const eodDateEl = el.querySelector('#bh-eod-date');
     if (eodDateEl) {
       eodDateEl.value = todayStr;
-      eodDateEl.addEventListener('change', e => _loadEod(el, e.target.value));
+      eodDateEl.addEventListener('change', e => _loadEod(e.target.value));
     }
-    _loadEod(el, todayStr);
+    _loadEod(todayStr);
 
-    _load(el);
+    await _render();
   }
 
   return { init };
