@@ -28,12 +28,14 @@ const DELETES = [
   'DELETE FROM billing.settlement_lines     WHERE tenant_id = $1',
   'DELETE FROM billing.settlements          WHERE tenant_id = $1',
   'DELETE FROM dining.reviews               WHERE tenant_id = $1',
+  'DELETE FROM dining.reservations          WHERE tenant_id = $1',
   'DELETE FROM orders.order_items           WHERE tenant_id = $1',
   'DELETE FROM orders.orders                WHERE tenant_id = $1',
   'DELETE FROM dining.sessions              WHERE tenant_id = $1',
   'DELETE FROM notifications.notifications  WHERE tenant_id = $1',
   'DELETE FROM platform.event_outbox        WHERE tenant_id = $1',
   'DELETE FROM customer.customers           WHERE tenant_id = $1',
+  'DELETE FROM insights.daily_metrics       WHERE tenant_id = $1',
 ];
 
 async function run() {
