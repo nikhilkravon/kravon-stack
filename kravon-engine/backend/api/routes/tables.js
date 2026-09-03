@@ -61,7 +61,12 @@ router.post('/', async (req, res, next) => {
     if (!locationId) return res.status(400).json({ error: 'No active location found for this restaurant.' });
 
     const table  = await diningRepo.insertTable(tenantId, locationId, parsed.data);
-    const qrCode = `${process.env.APP_BASE_URL || 'https://app.kravon.in'}/${req.tenant.slug}/tables?table_id=${table.id}`;
+    // QR must point at the live tables frontend using its real URL shape
+    // (/tables/?slug=…&table_id=…). The old app.kravon.in path-style URL
+    // never resolved — that domain isn't wired up.
+    const qrBase = process.env.APP_BASE_URL || process.env.KRAVON_FRONTEND_URL
+      || 'https://kravon-frontend-production.up.railway.app';
+    const qrCode = `${qrBase}/tables/?slug=${encodeURIComponent(req.tenant.slug)}&table_id=${table.id}`;
     await diningRepo.setTableQrCode(table.id, qrCode);
 
     res.status(201).json({ ok: true, table: { ...table, qr_code: qrCode } });

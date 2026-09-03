@@ -139,7 +139,7 @@ async function createFromSession(tenant, sessionId, staffId) {
 
     const settlement = await repo.createSettlement(client, {
       tenantId, sessionId,
-      notes: `Table ${session.table_name} — ${session.covers ?? ''} covers`,
+      notes: `${session.table_name} — ${session.covers ?? ''} covers`,
       createdBy: staffId,
     });
     const sid = settlement.id;

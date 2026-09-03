@@ -332,7 +332,7 @@ const TablesView = (() => {
         if (!ok) return;
         try {
           await Api.rDel(`/tables/${btn.dataset.tableId}`);
-          DashUI.toast(`Table ${btn.dataset.table} deleted`, 'success');
+          DashUI.toast(`${btn.dataset.table} deleted`, 'success');
           _load(el);
         } catch (err) {
           DashUI.toast(err.message, 'error');

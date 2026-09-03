@@ -125,7 +125,7 @@ const TablesCheckout = (() => {
       amount:      order.total,
       currency:    'INR',
       name:        window.CONFIG.brand.name,
-      description: `Order — ${orderData.table_identifier !== 'takeaway' ? 'Table ' + orderData.table_identifier : 'Takeaway'}`,
+      description: `Order — ${orderData.table_identifier !== 'takeaway' ? orderData.table_identifier : 'Takeaway'}`,
       prefill: { name, contact: phone },
       theme: { color: window.CONFIG.brand.accent || '#c2d62a' },
       handler: function (response) {

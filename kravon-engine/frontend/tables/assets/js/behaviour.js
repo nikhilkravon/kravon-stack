@@ -66,9 +66,9 @@ function initTablesBehaviour() {
     const overlay = document.getElementById('catSheetOverlay');
     const list    = document.getElementById('catSheetList');
 
-    // Populate list from MENU
+    // Populate list from MENU (skip empty categories, matching the main grid)
     if (list && window.MENU) {
-      list.innerHTML = window.MENU.map(cat => `
+      list.innerHTML = window.MENU.filter(cat => (cat.items || []).length > 0).map(cat => `
         <button class="cat-sheet-item" data-action="jump-to-cat"
                 data-cat-id="${Kravon.esc(cat.id)}"
                 aria-label="Go to ${Kravon.esc(cat.name)}">

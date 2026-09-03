@@ -98,9 +98,7 @@ const BillHistoryView = (() => {
 
   function _rowHtml(s) {
     const balance = Math.max(0, (s.total_paise || 0) - (s.paid_paise || 0));
-    const label   = s.table_name
-      ? `Table ${s.table_name}`
-      : (s.customer_name || s.notes || '—');
+    const label   = s.table_name || s.customer_name || s.notes || '—';
     return `
       <tr class="bh-row" data-id="${s.id}" style="cursor:pointer">
         <td style="white-space:nowrap">${_fmtDate(s.created_at)}</td>

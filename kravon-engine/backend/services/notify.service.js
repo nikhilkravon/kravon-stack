@@ -62,7 +62,7 @@ async function orderConfirmed(tenant, order) {
       const isDineIn = table && table !== 'takeaway';
       if (isDineIn) {
         kitchenMsg = [
-          `🪑 *New Order — Table ${table} · Dine In*`,
+          `🪑 *New Order — ${table} · Dine In*`,
           `─────────────────`,
           itemLines,
           `─────────────────`,

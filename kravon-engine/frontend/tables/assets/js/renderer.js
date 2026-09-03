@@ -154,7 +154,10 @@
 
   /* ── Screen: Ordering ────────────────────────────────────── */
   function buildScreenOrdering(navLabel) {
-    const cats = M.map((cat, i) =>
+    // Hide categories with no items (e.g. sections seeded ahead of their menu)
+    const visibleCats = M.filter(cat => (cat.items || []).length > 0);
+
+    const cats = visibleCats.map((cat, i) =>
       `<button class="cat-btn${i === 0 ? ' active' : ''}"
                data-action="scroll-to-cat"
                data-cat-id="${Kravon.esc(cat.id)}">
@@ -163,7 +166,7 @@
        </button>`
     ).join('');
 
-    const sections = M.map(cat => {
+    const sections = visibleCats.map(cat => {
       const items = cat.items.map(buildItemCard).join('');
       return `
         <section class="menu-section" id="cat_${Kravon.esc(cat.id)}"
@@ -545,7 +548,7 @@
     if (descEl) descEl.content = `${C.brand.name} — ${C.brand.tagline}`;
 
     const isDineIn = TC.isDineIn;
-    const navLabel = isDineIn ? (TC.tableName ? `Table ${TC.tableName}` : 'Dine In') : 'Order';
+    const navLabel = isDineIn ? (TC.tableName || 'Dine In') : 'Order';
 
     const app = document.getElementById('app');
     app.innerHTML = [
