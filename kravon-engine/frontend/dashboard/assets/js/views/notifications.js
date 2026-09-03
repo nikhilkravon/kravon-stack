@@ -23,6 +23,8 @@ const NotifBell = (() => {
     return `${Math.floor(diff / 86400)}d ago`;
   }
 
+  let _pollTimer = null;
+
   async function loadUnreadCount() {
     try {
       const res = await Api.rGet('/notifications?unread=true&limit=1');
@@ -35,7 +37,16 @@ const NotifBell = (() => {
       } else {
         b.style.display = 'none';
       }
-    } catch (_) {}
+    } catch (_) {
+      // If the session is gone (refresh failed and Auth cleared itself),
+      // stop polling and drop to the login gate — otherwise this interval
+      // hammers /auth/refresh with 400s every 15s forever while the
+      // operator stares at a silently frozen dashboard.
+      if (typeof Auth !== 'undefined' && !Auth.isLoggedIn()) {
+        if (_pollTimer) clearInterval(_pollTimer);
+        location.reload();
+      }
+    }
   }
 
   async function openDropdown() {
@@ -129,7 +140,7 @@ const NotifBell = (() => {
     });
 
     loadUnreadCount();
-    setInterval(loadUnreadCount, 15_000);
+    _pollTimer = setInterval(loadUnreadCount, 15_000);
   }
 
   return { init, loadUnreadCount };
