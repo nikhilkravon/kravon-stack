@@ -51,7 +51,7 @@
       const waIcon = `<svg aria-hidden="true" focusable="false" width="16" height="16"><use href="#icon-wa"/></svg>`;
       ctas.push(`<a href="${waHref}" target="_blank" rel="noopener noreferrer" class="p-btn p-btn-wa${sc}">${waIcon} WhatsApp</a>`);
     } else if (C.contact?.phone) {
-      ctas.push(`<a href="tel:${Kravon.esc(C.contact.phone)}" class="p-btn p-btn-secondary${sc}">Call Us</a>`);
+      ctas.push(`<a href="tel:${Kravon.esc(C.contact.phone.replace(/\s+/g, ''))}" class="p-btn p-btn-secondary${sc}">Call Us</a>`);
     }
 
     // Nav: show only first CTA (View Menu / Order Online) + WhatsApp to avoid cramping
@@ -350,7 +350,7 @@
 
     const rows = [
       address  ? { icon: '📍', label: 'Address',   val: address,                        href: mapUrl || null         } : null,
-      phone    ? { icon: '📞', label: 'Phone',      val: phone,                          href: `tel:${phone}`         } : null,
+      phone    ? { icon: '📞', label: 'Phone',      val: phone,                          href: `tel:${phone.replace(/\s+/g, '')}` } : null,
       whatsapp ? { icon: '💬', label: 'WhatsApp',   val: whatsapp,                       href: Kravon.buildWaLink(whatsapp, C.contact?.waGreeting || '') } : null,
       email    ? { icon: '✉️',  label: 'Email',      val: email,                          href: `mailto:${email}`      } : null,
       C.hours?.display ? { icon: '🕐', label: 'Hours', val: C.hours.display, href: null } : null,

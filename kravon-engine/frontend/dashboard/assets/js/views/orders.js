@@ -219,7 +219,7 @@ const OrdersView = (() => {
     if (ord.fulfillment_type) html += `<div><span class="detail-label">Type</span> ${CHANNEL_LABEL[ord.fulfillment_type] || ord.fulfillment_type.replace(/_/g,' ')}</div>`;
     if (ord.channel)          html += `<div><span class="detail-label">Channel</span> ${CHANNEL_LABEL[ord.channel] || ord.channel}</div>`;
     if (address)              html += `<div><span class="detail-label">Address</span> ${address}</div>`;
-    if (phone)                html += `<div><span class="detail-label">Phone</span> <a href="tel:${phone}" style="color:inherit">${phone}</a></div>`;
+    if (phone)                html += `<div><span class="detail-label">Phone</span> <a href="tel:${phone.replace(/\s+/g, '')}" style="color:inherit">${phone}</a></div>`;
     const note = ord.special_instructions;
     if (note && note !== address) html += `<div><span class="detail-label">Note</span> ${note}</div>`;
     html += '</div>';
