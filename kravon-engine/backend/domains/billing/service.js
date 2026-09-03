@@ -317,7 +317,7 @@ async function createFromCatering(tenant, leadId, staffId) {
   if (existing) return { settlement: _fmtSettlement(existing) };
 
   const leadRes = await query(
-    `SELECT id, contact_name, event_date, event_type
+    `SELECT id, contact_name, preferred_date_from, preferred_date_to, event_type
      FROM catering.leads
      WHERE id = $1::uuid AND tenant_id = $2 AND deleted_at IS NULL`,
     [leadId, tenantId],

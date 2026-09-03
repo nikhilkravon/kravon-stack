@@ -153,6 +153,12 @@ async function listPaginated(tenantId, { page = 1, limit = 25, status = null, ch
       filters.push(`o.status IN ('completed','delivered')`);
     } else if (status === 'live') {
       filters.push(`o.status IN ('pending','confirmed','preparing','ready','out_for_delivery')`);
+    } else if (status === 'new') {
+      filters.push(`o.status IN ('pending','confirmed')`);
+    } else if (status === 'in_progress') {
+      filters.push(`o.status IN ('preparing','ready','out_for_delivery')`);
+    } else if (status === 'history') {
+      filters.push(`o.status IN ('completed','delivered','cancelled','refunded')`);
     } else {
       params.push(status);
       filters.push(`o.status = $${params.length}`);

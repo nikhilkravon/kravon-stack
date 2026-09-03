@@ -73,11 +73,11 @@ async function createLead(tenant, data) {
 
 /**
  * Update lead status.
- * F10: when status becomes 'confirmed', create a catering.events record
+ * F10: when status becomes 'converted', create a catering.events record
  * so the converted lead has an operational anchor.
  */
 async function updateLeadStatus(tenantId, leadId, { status, notes }, staffId) {
-  const VALID_STATUSES = ['new', 'contacted', 'proposal_sent', 'negotiating', 'confirmed', 'lost', 'on_hold'];
+  const VALID_STATUSES = ['new', 'contacted', 'proposal_sent', 'negotiating', 'converted', 'lost', 'on_hold'];
   if (status && !VALID_STATUSES.includes(status)) {
     return { error: `Invalid status. Valid: ${VALID_STATUSES.join(', ')}`, httpStatus: 400 };
   }
@@ -104,10 +104,16 @@ async function updateLeadStatus(tenantId, leadId, { status, notes }, staffId) {
   if (status) {
     events.emit('lead.status_updated', { tenantId, leadId, status, actorId: staffId });
 
-    // F10: operational handoff — create event record when lead converts
-    if (status === 'confirmed') {
-      await createCateringEventFromLead(tenantId, lead);
-    }
+    // F10: operational handoff — create event record when lead converts.
+    // Disabled: catering.events.customer_id/event_date_from/event_date_to are
+    // NOT NULL (customer_id also FK's to customer.customers), and a converted
+    // lead has neither a linked customer row nor guaranteed event dates. This
+    // call always failed (caught below) — needs a real design pass (customer
+    // lookup/creation, required-date handling) before re-enabling, not a
+    // one-line fix. See catering section handoff notes.
+    // if (status === 'converted') {
+    //   await createCateringEventFromLead(tenantId, lead);
+    // }
   }
 
   return { lead: { id: lead.id, status: lead.status, notes: lead.notes, updated_at: lead.updated_at } };
@@ -135,7 +141,7 @@ async function createCateringEventFromLead(tenantId, lead) {
          notes, created_at, updated_at
        ) VALUES ($1, $2, 'confirmed', $3, $4, $5, NOW(), NOW())`,
       [
-        tenantId, lead.id, 'confirmed',
+        tenantId, lead.id,
         lead.preferred_date_from || null,
         lead.preferred_date_to   || null,
         customFields.company ? `Client: ${customFields.company}` : null,

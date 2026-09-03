@@ -85,10 +85,10 @@ router.get('/:id/export', requireRole('owner', 'admin'), async (req, res, next) 
         [customerId, tenantId]
       ),
       query(
-        `SELECT id, party_size, reservation_date, reservation_time, status, notes, created_at
+        `SELECT id, party_size, reservation_time, status, occasion, dietary_notes, created_at
          FROM dining.reservations
          WHERE customer_id = $1 AND tenant_id = $2 AND deleted_at IS NULL
-         ORDER BY reservation_date DESC`,
+         ORDER BY reservation_time DESC`,
         [customerId, tenantId]
       ),
       query(

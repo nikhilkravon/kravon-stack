@@ -152,7 +152,7 @@ router.get('/eod-report', async (req, res, next) => {
            AND s.status = 'finalized'
            AND s.finalized_at::date = $2::date
            AND s.deleted_at IS NULL
-           AND sp.deleted_at IS NULL
+           AND sp.voided_at IS NULL
          GROUP BY sp.method
          ORDER BY total_paise DESC`,
         [tenantId, date],

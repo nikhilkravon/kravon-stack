@@ -22,7 +22,7 @@ const CreateLeadSchema = z.object({
 });
 
 const UpdateLeadSchema = z.object({
-  status: z.enum(['new','contacted','proposal_sent','negotiating','confirmed','lost','on_hold']).optional(),
+  status: z.enum(['new','contacted','proposal_sent','negotiating','converted','lost','on_hold']).optional(),
   notes:  z.string().max(2000).optional(),
 });
 

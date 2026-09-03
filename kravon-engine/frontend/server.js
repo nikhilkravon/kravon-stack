@@ -90,7 +90,11 @@ const server = http.createServer((req, res) => {
     }
 
     const mime        = MIME[ext] || 'application/octet-stream';
-    const cacheHeader = CACHE[ext] || 'public, max-age=3600';
+    // DEV_NO_CACHE=1 disables the 1-year cache below for local iteration —
+    // without it, a real browser can keep serving a stale bundle indefinitely
+    // even across hard reloads, since Chromium's disk cache doesn't
+    // revalidate long max-age responses. Off by default; production untouched.
+    const cacheHeader = process.env.DEV_NO_CACHE ? 'no-store' : (CACHE[ext] || 'public, max-age=3600');
     const acceptEnc   = req.headers['accept-encoding'] || '';
     const canGzip     = GZIP_EXTS.has(ext) && acceptEnc.includes('gzip');
 
