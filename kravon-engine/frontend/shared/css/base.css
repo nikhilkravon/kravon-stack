@@ -22,6 +22,8 @@
   --ink-deep:   #112e1d;
   --lime:       #c2d62a;
   --lime-dk:    #9eb020;
+  --accent:     var(--lime);
+  --accent-subtle: rgba(194, 214, 42, 0.12);
   --amber:      #e8a020;
   --red:        #d93a2b;
   --green:      #4caf50;
