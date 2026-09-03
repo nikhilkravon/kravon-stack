@@ -370,7 +370,7 @@ const SettlementView = (() => {
               ${s.tax_paise ? _totRow('GST', s.tax_paise) : ''}
               ${s.paid_paise ? _totRow('Already paid', -s.paid_paise, 'var(--green-600)') : ''}
             </div>
-            ${s.total_paise === 0 ? `
+            ${itemCount === 0 ? `
               <div class="text-sm text-muted" style="padding:var(--sp-2)">No items on this bill yet.</div>
             ` : _can('PAYMENT') && bal > 0 ? `
               <button id="stl-collect-btn" class="btn btn-primary" style="width:100%;padding:var(--sp-3);font-size:15px">Collect Payment</button>
@@ -380,7 +380,7 @@ const SettlementView = (() => {
           </div>
         </div>
         <div style="text-align:center;margin-top:var(--sp-3)">
-          <button id="stl-edit-bill-btn" class="${s.total_paise === 0 ? 'btn btn-primary' : 'btn-link'}">${s.total_paise === 0 ? 'Add Items' : 'Edit Bill →'}</button>
+          <button id="stl-edit-bill-btn" class="${itemCount === 0 ? 'btn btn-primary' : 'btn-link'}">${itemCount === 0 ? 'Add Items' : 'Edit Bill →'}</button>
         </div>
       </div>
 
