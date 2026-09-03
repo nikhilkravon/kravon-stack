@@ -19,8 +19,11 @@
     return `
       <nav class="tables-nav" aria-label="Main navigation">
         <button class="tables-nav-brand" type="button" data-action="back-to-menu" aria-label="Back to menu">
-          <div class="tables-nav-logo">${Kravon.esc(C.brand.name)}</div>
-          <div class="tables-nav-sub">${Kravon.esc(C.brand.tagline)}</div>
+          ${C.brand.logoUrl ? `<img src="${Kravon.esc(C.brand.logoUrl)}" alt="" class="tables-nav-logo-img" onerror="this.remove()">` : ''}
+          <div class="tables-nav-name">
+            <div class="tables-nav-logo">${Kravon.esc(C.brand.name)}</div>
+            <div class="tables-nav-sub">${Kravon.esc(C.brand.tagline)}</div>
+          </div>
         </button>
         <div class="tables-nav-right">
           <span class="tables-nav-badge">${Kravon.esc(label || 'Order Direct')}</span>

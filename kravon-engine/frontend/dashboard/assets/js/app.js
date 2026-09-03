@@ -80,8 +80,16 @@ const App = (() => {
         .then(d => {
           if (!d?.config) return;
           const name = d.config.brand?.name;
+          const logoUrl = d.config.brand?.logoUrl;
           const plan = d.config.capabilities?.plan || 'starter';
           if (name) $('dash-restaurant-name').textContent = name;
+          const logoEl = $('dash-restaurant-logo');
+          if (logoEl && logoUrl) {
+            logoEl.src = logoUrl;
+            logoEl.alt = name ? `${name} logo` : '';
+            logoEl.hidden = false;
+            logoEl.onerror = () => { logoEl.hidden = true; };
+          }
           const badge = $('dash-plan-badge');
           if (badge) {
             badge.dataset.plan   = plan;

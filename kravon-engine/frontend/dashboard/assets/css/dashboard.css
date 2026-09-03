@@ -102,9 +102,15 @@ html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Sego
 }
 .dash-brand:hover { background: rgba(255,255,255,.05); }
 .dash-restaurant {
+  display: flex; align-items: center; gap: var(--sp-2);
   padding: var(--sp-3) var(--sp-4);
   border-bottom: 1px solid rgba(255,255,255,.06);
 }
+.dash-restaurant-logo {
+  width: 28px; height: 28px; border-radius: var(--radius-sm);
+  object-fit: cover; flex-shrink: 0;
+}
+.dash-restaurant-info { min-width: 0; }
 .dash-restaurant-name {
   display: block; font-size: 12px; font-weight: 500;
   color: rgba(255,255,255,.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
