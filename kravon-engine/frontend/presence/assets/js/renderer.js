@@ -65,16 +65,17 @@
   /* ── NAV ──────────────────────────────────────────────── */
   function renderNav() {
     const nav = el('nav', 'p-nav');
+    nav.id = 'top';
     nav.setAttribute('aria-label', 'Main navigation');
     nav.innerHTML = `
       <div class="p-nav-inner">
-          <div class="p-nav-brand">
+          <a href="#top" class="p-nav-brand" aria-label="Back to top">
             ${C.brand.logoUrl ? `<img src="${Kravon.esc(C.brand.logoUrl)}" alt="${Kravon.esc(C.brand.name)} logo" class="p-nav-logo" onerror="this.style.display='none'">` : ''}
             <div>
               <div class="p-nav-name">${Kravon.esc(C.brand.name)}</div>
               <div class="p-nav-tagline">${Kravon.esc(C.brand.tagline)}</div>
             </div>
-          </div>
+          </a>
           <div class="p-nav-center">
             <div class="p-nav-hours" aria-label="Opening hours">
               <div class="p-nav-hours-dot" aria-hidden="true"></div>

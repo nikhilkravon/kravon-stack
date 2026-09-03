@@ -26,10 +26,10 @@
   function buildNav(label) {
     return `
       <nav class="tables-nav" aria-label="Main navigation">
-        <div class="tables-nav-brand">
+        <button class="tables-nav-brand" type="button" data-action="back-to-menu" aria-label="Back to menu">
           <div class="tables-nav-logo">${Kravon.esc(C.brand.name)}</div>
           <div class="tables-nav-sub">${Kravon.esc(C.brand.tagline)}</div>
-        </div>
+        </button>
         <div class="tables-nav-right">
           <span class="tables-nav-badge">${Kravon.esc(label)}</span>
           <button class="tables-cart-btn" id="navCartBtn"

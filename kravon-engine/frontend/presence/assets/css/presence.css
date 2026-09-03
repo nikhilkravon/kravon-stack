@@ -386,6 +386,8 @@ body[data-error] #errorFallback { display: block; }
   flex-direction: row;
   align-items: center;
   gap: 12px;
+  text-decoration: none;
+  cursor: pointer;
 }
 
 .p-nav-name {

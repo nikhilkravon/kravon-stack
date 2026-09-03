@@ -303,9 +303,15 @@ function initTablesBehaviour() {
       }
 
       /* ── Back to menu ── */
-      case 'back-to-menu':
-        history.back();
+      case 'back-to-menu': {
+        const orderingEl = document.getElementById('screenOrdering');
+        if (orderingEl && orderingEl.style.display !== 'none') {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+          history.back();
+        }
         break;
+      }
 
       /* ── Place order ── */
       case 'place-order':
