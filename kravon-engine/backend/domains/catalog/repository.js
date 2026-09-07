@@ -128,10 +128,17 @@ async function softDeleteItem(tenantId, id) {
   return res.rows[0] || null;
 }
 
-async function setItemFlags(tenantId, itemId, { hasVariants, isCustomizable }) {
+async function setItemFlags(tenantId, itemId, { hasVariants, isCustomizable, fallbackPrice }) {
   const sets = []; const values = []; let idx = 1;
   if (hasVariants    !== undefined) { sets.push(`has_variants = $${idx++}`);    values.push(hasVariants); }
   if (isCustomizable !== undefined) { sets.push(`is_customizable = $${idx++}`); values.push(isCustomizable); }
+  // menu.menu_items has a check constraint requiring price IS NULL whenever
+  // has_variants is true (and NOT NULL otherwise). Flipping has_variants
+  // without also fixing up price violates it (23514) on this UPDATE, which
+  // leaves the flag stuck at its old value and silently breaks every
+  // subsequent variant add/remove on that item.
+  if (hasVariants === true)  sets.push('price = NULL');
+  if (hasVariants === false) { sets.push(`price = $${idx++}`); values.push(fallbackPrice ?? 0); }
   if (!sets.length) return;
   sets.push('updated_at = NOW()');
   values.push(itemId, tenantId);
