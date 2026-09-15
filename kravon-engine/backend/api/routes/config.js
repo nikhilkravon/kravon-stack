@@ -139,6 +139,7 @@ router.get('/', async (req, res, next) => {
         year:    r.year || String(new Date().getFullYear()),
         eyebrow: r.tagline || '',
         logoUrl: r.logo_url || null,
+        accent:  r.accent_color || null,
       },
       contact: {
         phone:        r.phone        || '',

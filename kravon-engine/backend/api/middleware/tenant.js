@@ -67,6 +67,7 @@ function buildTenant(tenantRow, locationRow, integrations, contactLinks, seoRow,
         has_orders:   flag('has_orders',   tenantRow.has_orders),
         has_catering: flag('has_catering', tenantRow.has_catering),
         has_insights: flag('has_insights', tenantRow.has_insights),
+        has_inventory: flag('has_inventory', tenantRow.has_inventory),
       };
     })(),
 
@@ -84,6 +85,7 @@ function buildTenant(tenantRow, locationRow, integrations, contactLinks, seoRow,
     // SEO / brand
     tagline: seo.meta_description || s.tagline || tenantRow.name,
     year:    s.year || null,
+    accent_color: s.accent_color || null,
 
     // Payment — secret intentionally excluded from req.tenant; fetched lazily in razorpay.js
     razorpay_key_id: razorpay?.config?.key_id || s.razorpay_key_id || null,
@@ -168,7 +170,7 @@ async function resolveRestaurant(req, res, next) {
     if (raw.startsWith('__domain__:')) {
       const domain = raw.slice('__domain__:'.length);
       const result = await query(
-        `SELECT id, slug, name, has_presence, has_orders, has_tables, has_catering, has_insights, plan, settings
+        `SELECT id, slug, name, has_presence, has_orders, has_tables, has_catering, has_insights, has_inventory, plan, settings
          FROM tenant.restaurants
          WHERE settings->>'domain' = $1 AND deleted_at IS NULL
          LIMIT 1`,
@@ -177,7 +179,7 @@ async function resolveRestaurant(req, res, next) {
       tenantRow = result.rows[0];
     } else {
       const result = await query(
-        `SELECT id, slug, name, has_presence, has_orders, has_tables, has_catering, has_insights, plan, settings
+        `SELECT id, slug, name, has_presence, has_orders, has_tables, has_catering, has_insights, has_inventory, plan, settings
          FROM tenant.restaurants
          WHERE slug = $1 AND deleted_at IS NULL
          LIMIT 1`,
