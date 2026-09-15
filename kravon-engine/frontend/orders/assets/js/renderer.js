@@ -12,6 +12,7 @@
   'use strict';
 
   let C, O, M;
+  let MENU_ONLY = false;
   const $ = id => document.getElementById(id);
 
   /* ── Nav ─────────────────────────────────────────────────── */
@@ -27,11 +28,12 @@
         </button>
         <div class="tables-nav-right">
           <span class="tables-nav-badge">${Kravon.esc(label || 'Order Direct')}</span>
+          ${MENU_ONLY ? '' : `
           <button class="tables-cart-btn" id="navCartBtn"
                   data-action="open-cart" aria-label="View cart">
             <svg width="20" height="20" aria-hidden="true"><use href="#icon-cart"/></svg>
             <span class="tables-cart-count" id="navCartCount">0</span>
-          </button>
+          </button>`}
         </div>
       </nav>`;
   }
@@ -61,7 +63,7 @@
             <p class="tables-hero-sub">${Kravon.esc(C.hero.sub || '')}</p>
             ${infoItems ? `<div class="orders-info-strip">${infoItems}</div>` : ''}
             <div class="tables-hero-ctas">
-              <a href="#menu" class="btn-primary">Browse Menu</a>
+              <a href="#menu" class="btn-primary">${MENU_ONLY ? 'View Menu' : 'Browse Menu'}</a>
             </div>
             ${C.hero.footnote ? `<p class="tables-hero-footnote">${Kravon.esc(C.hero.footnote)}</p>` : ''}
           </div>
@@ -95,7 +97,7 @@
             >${Kravon.esc(item.desc)}</div>` : ''}
           <div class="menu-card-footer">
             <span class="menu-card-price">₹${Kravon.esc(String(item.price))}</span>
-            <div id="itemctrl_${item.id}">${_ordersCtrl(item)}</div>
+            ${MENU_ONLY ? '' : `<div id="itemctrl_${item.id}">${_ordersCtrl(item)}</div>`}
           </div>
         </div>
       </div>`;
@@ -484,37 +486,46 @@
     O = C.orders || {};
     M = window.MENU || window.CATEGORIES || [];
 
-    _ordersCtrl = ItemControls.makeRenderer({
-      getQty:       id => OrdersCart.getQtyById(id),
-      isCustomKey:  'customise',
-      idAttr:       'item-id',
-      addBtnCls:    'add-btn',
-      ctrlCls:      'item-qty-ctrl',
-      decCls:       'qty-btn',
-      incCls:       'qty-btn',
-      countCls:     'qty-num',
-      countTag:     'span',
-      addAction:    'add-item',
-      customAction: 'open-modal',
-      decAction:    'dec-item',
-      incAction:    'inc-item',
-      addLabel:     '+ Add',
-    });
+    const params = new URLSearchParams(window.location.search);
+    MENU_ONLY = params.get('menu') === '1' || params.get('view') === 'menu';
+
+    if (!MENU_ONLY) {
+      _ordersCtrl = ItemControls.makeRenderer({
+        getQty:       id => OrdersCart.getQtyById(id),
+        isCustomKey:  'customise',
+        idAttr:       'item-id',
+        addBtnCls:    'add-btn',
+        ctrlCls:      'item-qty-ctrl',
+        decCls:       'qty-btn',
+        incCls:       'qty-btn',
+        countCls:     'qty-num',
+        countTag:     'span',
+        addAction:    'add-item',
+        customAction: 'open-modal',
+        decAction:    'dec-item',
+        incAction:    'inc-item',
+        addLabel:     '+ Add',
+      });
+    }
 
     ItemControls.applyAccent(C.brand?.accent, 0.07, 0.2);
 
-    document.title = `${C.brand.name} — Order Direct`;
+    document.title = MENU_ONLY ? `${C.brand.name} — Menu` : `${C.brand.name} — Order Direct`;
     const descEl = $('pageDesc');
     if (descEl) descEl.content = `${C.brand.name} — ${C.brand.tagline}`;
 
     const app = $('app');
-    app.innerHTML = [
-      buildScreenOrdering(),
-      buildScreenCheckout(),
-      buildScreenConfirm(),
-      buildCartDrawer(),
-      buildCustomModal(),
-    ].join('');
+    app.innerHTML = MENU_ONLY
+      ? buildScreenOrdering()
+      : [
+          buildScreenOrdering(),
+          buildScreenCheckout(),
+          buildScreenConfirm(),
+          buildCartDrawer(),
+          buildCustomModal(),
+        ].join('');
+
+    if (MENU_ONLY) document.body.classList.add('menu-only');
 
     showScreen('screenOrdering', false);
     history.replaceState({ screen: 'screenOrdering' }, '', window.location.href);
