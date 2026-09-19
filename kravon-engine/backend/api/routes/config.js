@@ -173,6 +173,7 @@ router.get('/', async (req, res, next) => {
         analytics:       !!r.has_insights,
         checkoutStrategy: r.has_orders ? 'orders' : 'whatsapp',
         plan:             r.plan || 'starter',
+        hideOrderOnline:  !!r.hide_order_online,
       },
       tables: r.has_tables ? {
         paymentMode:     r.razorpay_key_id ? 'razorpay' : 'offline',
@@ -345,6 +346,8 @@ const SettingsUpdateSchema = z.object({
   razorpay_key_id:     z.string().max(40).optional(),
   razorpay_key_secret: z.string().max(200).optional(),
   gst:                 GstSchema.optional(),
+  accent_color:        z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  hide_order_online:   z.boolean().optional(),
 });
 
 router.patch('/', requireRestaurantAuth, async (req, res, next) => {

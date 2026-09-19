@@ -28,10 +28,13 @@
     const ctas = [];
 
     // View Menu — browse-only (no cart/checkout) if ordering is enabled, else scrolls to #menu section
-    // Order Online — full cart/checkout flow, shown alongside View Menu when ordering is enabled
+    // Order Online — full cart/checkout flow, shown alongside View Menu when ordering is enabled,
+    // unless the tenant has opted out via capabilities.hideOrderOnline (settings.hide_order_online)
     if (cap.orderManagement || cap.orders) {
       ctas.push(`<a href="/orders/?slug=${encodeURIComponent(slug)}&menu=1" class="p-btn p-btn-primary${sc}">View Menu</a>`);
-      ctas.push(`<a href="/orders/?slug=${encodeURIComponent(slug)}" class="p-btn p-btn-secondary${sc}">Order Online</a>`);
+      if (!cap.hideOrderOnline) {
+        ctas.push(`<a href="/orders/?slug=${encodeURIComponent(slug)}" class="p-btn p-btn-secondary${sc}">Order Online</a>`);
+      }
     } else {
       ctas.push(`<a href="#menu" class="p-btn p-btn-primary${sc}">View Menu</a>`);
     }

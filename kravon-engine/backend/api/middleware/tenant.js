@@ -86,6 +86,7 @@ function buildTenant(tenantRow, locationRow, integrations, contactLinks, seoRow,
     tagline: seo.meta_description || s.tagline || tenantRow.name,
     year:    s.year || null,
     accent_color: s.accent_color || null,
+    hide_order_online: s.hide_order_online === true,
 
     // Payment — secret intentionally excluded from req.tenant; fetched lazily in razorpay.js
     razorpay_key_id: razorpay?.config?.key_id || s.razorpay_key_id || null,
