@@ -122,17 +122,20 @@ const INDEX_MAP = {
 };
 
 const server = http.createServer((req, res) => {
-  let parsed = url.parse(req.url, true);
+  const parsed = url.parse(req.url, true);
 
-  // Custom domain: only rewrite the root request (a fresh page load), so the
-  // tenant's own asset/API references — already absolute — aren't disturbed.
+  // Custom domain: 301 the root request to the mapped tenant page. A real
+  // redirect (not an in-place rewrite) is required here — the tenant pages
+  // use paths relative to their own directory (assets/js/boot.js, etc.),
+  // which only resolve correctly once the browser's address bar itself
+  // carries that directory.
   const host   = (req.headers.host || '').split(':')[0].toLowerCase();
   const custom = CUSTOM_DOMAINS[host];
   if (custom && parsed.pathname === '/') {
-    parsed = url.parse(
-      `${custom.path}?${new URLSearchParams(custom.query).toString()}`,
-      true
-    );
+    const qs = new URLSearchParams(custom.query).toString();
+    res.writeHead(301, { 'Location': `${custom.path}${qs ? '?' + qs : ''}` });
+    res.end();
+    return;
   }
 
   const pathname = parsed.pathname;
