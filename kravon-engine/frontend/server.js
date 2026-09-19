@@ -9,13 +9,34 @@ const BACKEND_URL      = process.env.BACKEND_URL      || 'http://localhost:3000'
 const FRONTEND_URL     = process.env.FRONTEND_URL     || 'http://localhost:8000';
 const RESTAURANT_SLUG  = process.env.RESTAURANT_SLUG  || '';
 
-// ── Custom tenant subdomains ───────────────────────────────────────────────
-// Maps a branded Host header straight to a tenant's page + query params —
-// served in-place (no visible redirect), so the address bar stays on the
-// tenant's own subdomain instead of leaking the Railway URL.
-const CUSTOM_DOMAINS = {
-  'cafebodhitree.kravon.in': { path: '/presence/', query: { slug: 'cafe-bodhi-tree' } },
-};
+// ── Tenant subdomains ───────────────────────────────────────────────────────
+// Any bare "<something>.kravon.in" root request is treated as a tenant
+// subdomain and redirected to that tenant's Presence page. The subdomain
+// need not match the DB slug exactly (kravon-backend's /resolve-domain does
+// a normalized/fuzzy match, e.g. "cafebodhitree" -> slug "cafe-bodhi-tree").
+// Short in-memory cache so we're not hitting the backend on every request.
+const KRAVON_DOMAIN = process.env.KRAVON_DOMAIN || 'kravon.in';
+const _domainCache = new Map();
+const DOMAIN_CACHE_TTL = 5 * 60 * 1000;
+
+async function resolveTenantSubdomain(host) {
+  if (!host.endsWith(`.${KRAVON_DOMAIN}`)) return null;
+  const sub = host.slice(0, -(KRAVON_DOMAIN.length + 1));
+  if (!sub || sub === 'www') return null;
+
+  const cached = _domainCache.get(sub);
+  if (cached && Date.now() - cached.ts < DOMAIN_CACHE_TTL) return cached.slug;
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/v1/resolve-domain?host=${encodeURIComponent(sub)}`);
+    if (!res.ok) { _domainCache.set(sub, { slug: null, ts: Date.now() }); return null; }
+    const data = await res.json();
+    _domainCache.set(sub, { slug: data.slug, ts: Date.now() });
+    return data.slug;
+  } catch {
+    return null;
+  }
+}
 
 // ── Deploy build id — drives asset cache-busting ──────────────────────────────
 // HTML is served uncached and rewritten per request (below), so we can stamp a
@@ -121,21 +142,22 @@ const INDEX_MAP = {
   '/dashboard/': '/dashboard/index.html',
 };
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   const parsed = url.parse(req.url, true);
 
-  // Custom domain: 301 the root request to the mapped tenant page. A real
-  // redirect (not an in-place rewrite) is required here — the tenant pages
-  // use paths relative to their own directory (assets/js/boot.js, etc.),
-  // which only resolve correctly once the browser's address bar itself
-  // carries that directory.
-  const host   = (req.headers.host || '').split(':')[0].toLowerCase();
-  const custom = CUSTOM_DOMAINS[host];
-  if (custom && parsed.pathname === '/') {
-    const qs = new URLSearchParams(custom.query).toString();
-    res.writeHead(301, { 'Location': `${custom.path}${qs ? '?' + qs : ''}` });
-    res.end();
-    return;
+  // Tenant subdomain: 301 the root request to that tenant's Presence page.
+  // A real redirect (not an in-place rewrite) is required here — the tenant
+  // pages use paths relative to their own directory (assets/js/boot.js,
+  // etc.), which only resolve correctly once the browser's address bar
+  // itself carries that directory.
+  const host = (req.headers.host || '').split(':')[0].toLowerCase();
+  if (parsed.pathname === '/') {
+    const slug = await resolveTenantSubdomain(host);
+    if (slug) {
+      res.writeHead(301, { 'Location': `/presence/?slug=${encodeURIComponent(slug)}` });
+      res.end();
+      return;
+    }
   }
 
   const pathname = parsed.pathname;
@@ -160,7 +182,6 @@ const server = http.createServer((req, res) => {
     }
 
     if (isHtml) {
-      data = data.replace(/%%FORCE_MENU_ONLY%%/g,     custom?.query.menu === '1' ? '1' : '0');
       data = data.replace(/%%KRAVON_API_URL%%/g,      BACKEND_URL);
       data = data.replace(/%%KRAVON_FRONTEND_URL%%/g, FRONTEND_URL);
       data = data.replace(/%%RESTAURANT_SLUG%%/g,     slug);

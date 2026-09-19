@@ -70,7 +70,8 @@ const { resolveRestaurant } = require('./api/middleware/tenant');
 const { requireFeature }    = require('./api/middleware/feature');
 const { errorHandler }      = require('./api/middleware/error');
 
-const configRoutes    = require('./api/routes/config');
+const configRoutes        = require('./api/routes/config');
+const resolveDomainRoutes = require('./api/routes/resolve-domain');
 const presenceRoutes  = require('./api/routes/presence');
 const menuRoutes      = require('./api/routes/menu');
 const orderRoutes     = require('./api/routes/orders');
@@ -80,6 +81,7 @@ const insightRoutes   = require('./api/routes/insights');
 const dineInRoutes    = require('./api/routes/dine-in');
 const tablesRoutes    = require('./api/routes/tables');
 const staffRoutes     = require('./api/routes/staff');
+const inventoryRoutes = require('./api/routes/inventory');
 const customersRoutes      = require('./api/routes/customers');
 const settingsRoutes       = require('./api/routes/settings');
 const notificationsRoutes  = require('./api/routes/notifications');
@@ -185,9 +187,10 @@ app.get('/health', async (_req, res) => {
 });
 
 /* ── Public routes (no restaurant context) ─────────────────────────────────── */
-app.use('/v1/webhooks', webhookRoutes);
-app.use('/v1/admin',    adminRoutes);
-app.use('/v1/auth',     authRoutes);
+app.use('/v1/webhooks',       webhookRoutes);
+app.use('/v1/admin',          adminRoutes);
+app.use('/v1/auth',           authRoutes);
+app.use('/v1/resolve-domain', resolveDomainRoutes);
 
 /* ── Restaurant-scoped routes ──────────────────────────────────────────────── */
 // Step 1: resolveRestaurant resolves slug/domain/subdomain → req.tenant
@@ -259,6 +262,13 @@ app.use('/v1/restaurants/:slug/tables',
 app.use('/v1/restaurants/:slug/staff',
   resolveRestaurant,
   staffRoutes
+);
+
+// Inventory: manual stock tracking (items + movement ledger)
+app.use('/v1/restaurants/:slug/inventory',
+  resolveRestaurant,
+  requireFeature('has_inventory'),
+  inventoryRoutes
 );
 
 // Customers: CRM list + order history + governance endpoints
