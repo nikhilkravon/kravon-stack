@@ -487,7 +487,8 @@
     M = window.MENU || window.CATEGORIES || [];
 
     const params = new URLSearchParams(window.location.search);
-    MENU_ONLY = params.get('menu') === '1' || params.get('view') === 'menu';
+    MENU_ONLY = params.get('menu') === '1' || params.get('view') === 'menu' ||
+      (typeof FORCE_MENU_ONLY !== 'undefined' && FORCE_MENU_ONLY);
 
     if (!MENU_ONLY) {
       _ordersCtrl = ItemControls.makeRenderer({
