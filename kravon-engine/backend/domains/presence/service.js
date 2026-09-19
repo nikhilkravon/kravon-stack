@@ -39,8 +39,7 @@ async function getContent(tenant) {
     },
     social: socialLinks,
     branding: {
-      logoUrl:   r.logo_url   || '',
-      heroImage: r.hero_image || '',
+      logoUrl: r.logo_url || '',
     },
     hero: {
       headline:    r.name        || '',
@@ -181,16 +180,10 @@ async function _updateContentTx(client, tenantId, body) {
         ));
       }
     }
-    if (b.heroImage !== undefined) {
-      await q(`DELETE FROM brand.assets WHERE tenant_id = $1 AND type = 'banner'`, [tenantId]);
-      if (b.heroImage) {
-        parallelOps.push(q(
-          `INSERT INTO brand.assets (id, tenant_id, type, url, alt_text, metadata)
-           VALUES (gen_random_uuid(), $1, 'banner', $2, $3, '{}')`,
-          [tenantId, b.heroImage, 'hero image']
-        ));
-      }
-    }
+    // branding.heroImage removed -- hero banners are owned by hero.heroImages
+    // (see the `if (h.heroImages ...)` branch below). Two independent write
+    // paths to the same brand.assets rows meant a stale value from an old
+    // page load could silently wipe a multi-image hero on any Branding save.
   }
 
   if (body.hero) {

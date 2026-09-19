@@ -44,8 +44,11 @@ const PresencePatchSchema = z.object({
   ).optional(),
 
   branding: z.object({
-    logoUrl:   urlOrEmpty,
-    heroImage: urlOrEmpty,
+    logoUrl: urlOrEmpty,
+    // heroImage intentionally removed: hero banners are owned exclusively by
+    // hero.heroImages now. Keeping this field alive let a stale value from
+    // an old page load silently wipe the multi-image hero list on every
+    // unrelated Branding save (delete-then-insert-one on brand.assets).
   }).optional(),
 
   hero: z.object({
