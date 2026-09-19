@@ -27,9 +27,11 @@
     const slug = C.slug || '';
     const ctas = [];
 
-    // View Menu — links to orders page if ordering is enabled, else scrolls to #menu section
+    // View Menu — browse-only (no cart/checkout) if ordering is enabled, else scrolls to #menu section
+    // Order Online — full cart/checkout flow, shown alongside View Menu when ordering is enabled
     if (cap.orderManagement || cap.orders) {
-      ctas.push(`<a href="/orders/?slug=${encodeURIComponent(slug)}" class="p-btn p-btn-primary${sc}">View Menu</a>`);
+      ctas.push(`<a href="/orders/?slug=${encodeURIComponent(slug)}&menu=1" class="p-btn p-btn-primary${sc}">View Menu</a>`);
+      ctas.push(`<a href="/orders/?slug=${encodeURIComponent(slug)}" class="p-btn p-btn-secondary${sc}">Order Online</a>`);
     } else {
       ctas.push(`<a href="#menu" class="p-btn p-btn-primary${sc}">View Menu</a>`);
     }
@@ -54,7 +56,8 @@
       ctas.push(`<a href="tel:${Kravon.esc(C.contact.phone.replace(/\s+/g, ''))}" class="p-btn p-btn-secondary${sc}">Call Us</a>`);
     }
 
-    // Nav: show only first CTA (View Menu / Order Online) + WhatsApp to avoid cramping
+    // Nav: show only first CTA (View Menu) + last (WhatsApp/Call) to avoid cramping.
+    // Order Online and other secondary CTAs are hero-only, same as Reserve a Table/Plan Event.
     if (navMode && ctas.length > 2) {
       return [ctas[0], ctas[ctas.length - 1]].join('\n');
     }
