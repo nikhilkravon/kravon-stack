@@ -392,7 +392,7 @@
                 const bbox = `${lon - dLon},${lat - dLat * 1.4},${lon + dLon},${lat + dLat * 0.6}`;
                 const osmSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lon}`;
                 return `
-                  <a class="p-location-map-link" href="${Kravon.esc(link)}" target="_blank" rel="noopener noreferrer" aria-label="Open ${Kravon.esc(C.brand.name)} location in maps">
+                  <div class="p-location-map-link">
                     <iframe
                       class="p-location-map-iframe"
                       src="${osmSrc}"
@@ -401,10 +401,12 @@
                       aria-hidden="true"
                       tabindex="-1">
                     </iframe>
-                    <div class="p-location-map-overlay">
-                      <span class="p-location-map-cta">Open in Maps ↗</span>
-                    </div>
-                  </a>`;
+                    <a class="p-location-map-click" href="${Kravon.esc(link)}" target="_blank" rel="noopener noreferrer" aria-label="Open ${Kravon.esc(C.brand.name)} location in maps">
+                      <span class="p-location-map-overlay">
+                        <span class="p-location-map-cta">Open in Maps ↗</span>
+                      </span>
+                    </a>
+                  </div>`;
               }
               // No coords — fall back to CSS placeholder
               return `

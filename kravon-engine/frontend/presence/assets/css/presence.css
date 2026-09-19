@@ -273,9 +273,19 @@ body[data-error] #errorFallback { display: block; }
 /* Responsive: show toggle on small screens and hide nav-center */
 @media (max-width: 640px) {
   .p-nav-center { display: none; }
-  .p-nav-toggle { display: inline-flex; align-items: center; }
+  .p-nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;   /* comfortable touch target */
+  }
   .p-nav-right  { display: none; } /* drawer handles CTAs on mobile */
   .p-hero-content { grid-template-columns: 1fr; }
+
+  /* WCAG touch-target minimum for all buttons on touch layouts */
+  .p-btn { min-height: 44px; }
+  .p-nav-drawer .p-btn { min-height: 48px; }
 }
 
 /* Lightbox for gallery */
@@ -1136,7 +1146,6 @@ body[data-error] #errorFallback { display: block; }
   display: block;
   position: absolute;
   inset: 0;
-  text-decoration: none;
 }
 
 .p-location-map-iframe {
@@ -1145,6 +1154,19 @@ body[data-error] #errorFallback { display: block; }
   border: none;
   display: block;
   filter: brightness(0.85) saturate(0.7);
+  /* Decorative only — an iframe always swallows clicks before they reach a
+     wrapping <a>, so it can't be the clickable element. The actual link is
+     .p-location-map-click, layered above it. */
+  pointer-events: none;
+}
+
+/* Full-coverage clickable layer, stacked above the (non-interactive) iframe. */
+.p-location-map-click {
+  position: absolute;
+  inset: 0;
+  display: block;
+  text-decoration: none;
+  z-index: 1;
 }
 
 .p-location-map-overlay {
@@ -1156,7 +1178,6 @@ body[data-error] #errorFallback { display: block; }
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 8px;
   padding: 6px 12px;
-  pointer-events: none;
 }
 
 .p-location-map-cta {
@@ -1514,3 +1535,47 @@ body[data-error="true"] .p-error-state { display: flex; }
   .p-nav-right .p-btn:last-child { display: none; } /* hide Reserve on tiny screens, keep View menu */
   .p-headline    { font-size: clamp(24px, 8vw, 36px); }
 }
+
+/* ── Error fallback retry button ── */
+.p-error-retry {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 10px 22px;
+  border-radius: var(--p-r-sm);
+  background: var(--p-accent);
+  color: #111;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  min-height: 44px;               /* comfortable touch target */
+}
+.p-error-retry:hover { background: var(--p-accent-2); }
+
+/* ── Safe-area / notch handling (iOS + Android gesture nav) ──
+   Guarded so browsers without env()/max() are untouched. viewport-fit=cover
+   in the <meta> is what lets these insets be non-zero. */
+@supports (padding: max(0px)) {
+  .p-nav-inner {
+    padding-left:  max(40px, env(safe-area-inset-left));
+    padding-right: max(40px, env(safe-area-inset-right));
+  }
+  .p-nav-drawer {
+    padding-top:    max(24px, env(safe-area-inset-top));
+    padding-right:  max(24px, env(safe-area-inset-right));
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+  }
+  .p-lightbox-close {
+    top:   max(20px, env(safe-area-inset-top));
+    right: max(20px, env(safe-area-inset-right));
+  }
+  footer {
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+}
+
+/* Use dynamic viewport height where supported so mobile browser chrome
+   doesn't clip full-height overlays. Second declaration is ignored where
+   dvh is unknown, leaving the 100vh fallback intact. */
+.p-nav-drawer { height: 100dvh; }
