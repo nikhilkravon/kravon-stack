@@ -726,6 +726,7 @@ const PresenceView = (() => {
     const editor = el.querySelector('#pers-editor');
 
     _renderBranding(editor);
+    _renderHero(editor);
     _renderBasics(editor);
     _renderContact(editor);
     _renderSocial(editor);
