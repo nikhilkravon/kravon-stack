@@ -43,9 +43,10 @@ async function getContent(tenant) {
       heroImage: r.hero_image || '',
     },
     hero: {
-      headline:    r.name       || '',
-      subheadline: r.tagline    || '',
-      heroImage:   r.hero_image || '',
+      headline:    r.name        || '',
+      subheadline: r.tagline     || '',
+      heroImage:   r.hero_image  || '',
+      heroImages:  r.hero_images?.length ? r.hero_images : (r.hero_image ? [r.hero_image] : []),
     },
     story: {
       title: st.headline || s.story_headline || '',
@@ -206,7 +207,17 @@ async function _updateContentTx(client, tenantId, body) {
         [JSON.stringify({ tagline: h.subheadline }), tenantId]
       ));
     }
-    if (h.heroImage !== undefined) {
+    if (h.heroImages !== undefined) {
+      // Full replacement of the revolving hero slideshow, in array order.
+      await q(`DELETE FROM brand.assets WHERE tenant_id = $1 AND type = 'banner'`, [tenantId]);
+      h.heroImages.forEach((url, i) => {
+        parallelOps.push(q(
+          `INSERT INTO brand.assets (id, tenant_id, type, url, alt_text, metadata)
+           VALUES (gen_random_uuid(), $1, 'banner', $2, $3, $4::jsonb)`,
+          [tenantId, url, 'hero image', JSON.stringify({ order: i })]
+        ));
+      });
+    } else if (h.heroImage !== undefined) {
       await q(`DELETE FROM brand.assets WHERE tenant_id = $1 AND type = 'banner'`, [tenantId]);
       if (h.heroImage) {
         parallelOps.push(q(

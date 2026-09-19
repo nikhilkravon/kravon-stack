@@ -52,6 +52,10 @@ const PresencePatchSchema = z.object({
     headline:    z.string().max(200).optional(),
     subheadline: z.string().max(300).optional(),
     heroImage:   urlOrEmpty,
+    // Full replacement list for the revolving hero slideshow. Takes priority
+    // over heroImage (singular) when both are sent. Order in the array is
+    // the slideshow order.
+    heroImages:  z.array(z.string().url()).max(10).optional(),
   }).optional(),
 
   story: z.object({
