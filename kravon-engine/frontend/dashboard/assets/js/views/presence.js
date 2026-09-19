@@ -134,26 +134,19 @@ const PresenceView = (() => {
     const b = _content.branding || {};
     el.insertAdjacentHTML('beforeend', `
       <div class="card" style="margin-bottom:var(--sp-5)">
-        ${_sectionHeader('Branding', 'Logo and hero image shown on your presence page')}
+        ${_sectionHeader('Branding', 'Logo shown on your presence page')}
         <div class="card-body">
           <div class="form-group">
             <label>Logo URL</label>
             <input id="br-logo" type="url" value="${_esc(b.logoUrl)}" placeholder="https://…/logo.png">
             <span class="text-sm text-muted" style="margin-top:4px">Displayed in the nav bar. Recommended: square, at least 88×88px.</span>
           </div>
-          <div class="form-group">
-            <label>Hero image URL</label>
-            <input id="br-hero" type="url" value="${_esc(b.heroImage)}" placeholder="https://…/hero.jpg">
-            <span class="text-sm text-muted" style="margin-top:4px">Full-width banner at the top of your page. Recommended: 1600×900px.</span>
-          </div>
         </div>
         ${_cardFooter('branding')}
       </div>`);
 
-    el.querySelector('#br-logo').addEventListener('input', e => _set('branding.logoUrl',  e.target.value));
-    el.querySelector('#br-hero').addEventListener('input', e => _set('branding.heroImage', e.target.value));
+    el.querySelector('#br-logo').addEventListener('input', e => _set('branding.logoUrl', e.target.value));
     _attachUpload(el, 'br-logo', 'branding.logoUrl');
-    _attachUpload(el, 'br-hero', 'branding.heroImage');
     _bindSave(el, 'branding');
   }
 
@@ -275,9 +268,18 @@ const PresenceView = (() => {
   // ── HERO ──────────────────────────────────────────────────────────────────
   function _renderHero(el) {
     const h = _content.hero || {};
+    const images = h.heroImages?.length ? h.heroImages : (h.heroImage ? [h.heroImage] : []);
+
+    const rows = images.map((url, i) => `
+      <div class="hero-img-row" style="display:flex;gap:var(--sp-2);margin-bottom:var(--sp-2)" data-idx="${i}">
+        <input type="url" class="hero-img-url" data-idx="${i}" value="${_esc(url)}" placeholder="https://…/hero.jpg" style="flex:1">
+        <button class="btn btn-ghost btn-sm hero-img-upload" title="Upload image" type="button">↑</button>
+        <button class="btn btn-ghost btn-sm hero-img-remove" title="Remove">✕</button>
+      </div>`).join('');
+
     el.insertAdjacentHTML('beforeend', `
       <div class="card" style="margin-bottom:var(--sp-5)">
-        ${_sectionHeader('Hero Text', 'Headline and subheadline overlaid on your hero image')}
+        ${_sectionHeader('Hero Text', 'Headline, subheadline and images shown at the top of your page')}
         <div class="card-body">
           <div class="form-group">
             <label>Headline</label>
@@ -287,12 +289,68 @@ const PresenceView = (() => {
             <label>Subheadline</label>
             <input id="hero-subheadline" type="text" value="${_esc(h.subheadline)}" maxlength="200" placeholder="One line that makes them hungry">
           </div>
+          <div class="form-group">
+            <label>Hero images</label>
+            <span class="text-sm text-muted" style="margin-top:-4px;margin-bottom:8px;display:block">
+              Full-width banner(s) at the top of your page. Add more than one for a revolving slideshow. Recommended: 1600×900px.
+            </span>
+            <div id="hero-img-list">${rows}</div>
+            <button class="btn btn-ghost btn-sm" id="hero-img-add" type="button" style="margin-top:var(--sp-2)">+ Add image</button>
+          </div>
         </div>
         ${_cardFooter('hero')}
       </div>`);
 
     el.querySelector('#hero-headline').addEventListener('input',    e => _set('hero.headline',    e.target.value));
     el.querySelector('#hero-subheadline').addEventListener('input', e => _set('hero.subheadline', e.target.value));
+
+    const list = el.querySelector('#hero-img-list');
+
+    function _syncHeroImages() {
+      const urls = [...list.querySelectorAll('.hero-img-url')].map(i => i.value.trim()).filter(Boolean);
+      _set('hero.heroImages', urls);
+    }
+
+    list.addEventListener('input', e => {
+      if (e.target.classList.contains('hero-img-url')) _syncHeroImages();
+    });
+
+    list.addEventListener('click', e => {
+      const uploadBtn = e.target.closest('.hero-img-upload');
+      if (uploadBtn) {
+        const row    = uploadBtn.closest('.hero-img-row');
+        const urlInp = row.querySelector('.hero-img-url');
+        const fi = document.createElement('input');
+        fi.type = 'file'; fi.accept = 'image/*';
+        fi.addEventListener('change', async () => {
+          const file = fi.files[0]; if (!file) return;
+          uploadBtn.disabled = true; uploadBtn.textContent = '…';
+          try {
+            urlInp.value = await Api.rUploadImage(file);
+            _syncHeroImages();
+          } catch (ex) { DashUI.toast(ex.message, 'error'); }
+          finally { uploadBtn.disabled = false; uploadBtn.textContent = '↑'; }
+        });
+        fi.click();
+        return;
+      }
+      const removeBtn = e.target.closest('.hero-img-remove');
+      if (removeBtn) {
+        removeBtn.closest('.hero-img-row').remove();
+        _syncHeroImages();
+      }
+    });
+
+    el.querySelector('#hero-img-add').addEventListener('click', () => {
+      const idx = list.querySelectorAll('.hero-img-row').length;
+      list.insertAdjacentHTML('beforeend', `
+        <div class="hero-img-row" style="display:flex;gap:var(--sp-2);margin-bottom:var(--sp-2)" data-idx="${idx}">
+          <input type="url" class="hero-img-url" data-idx="${idx}" value="" placeholder="https://…/hero.jpg" style="flex:1">
+          <button class="btn btn-ghost btn-sm hero-img-upload" title="Upload image" type="button">↑</button>
+          <button class="btn btn-ghost btn-sm hero-img-remove" title="Remove">✕</button>
+        </div>`);
+    });
+
     _bindSave(el, 'hero');
   }
 
