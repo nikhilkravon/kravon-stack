@@ -545,7 +545,12 @@
     });
 
     const mobileBar = $('mobileCartBar');
-    if (mobileBar) mobileBar.style.display = id === 'screenOrdering' ? '' : 'none';
+    if (mobileBar) {
+      // Menu-only mode never builds the cart UI at all, so it must never show.
+      // Otherwise, defer to renderCartDrawer()'s cart-count-based visibility.
+      if (MENU_ONLY || id !== 'screenOrdering') mobileBar.style.display = 'none';
+      else renderCartDrawer();
+    }
 
     const cartDrawer  = $('cartDrawer');
     const cartOverlay = $('cartOverlay');
